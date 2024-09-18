@@ -17,12 +17,14 @@ import { PositionPerformance } from '@/app/components/PositionPerformance'
 import { PlayerLeaderboard } from '@/app/components/PlayerLeaderboard'
 import WeeklyBestLineup from '@/app/components/WeeklyBestLineup'
 import { PlayerScatterPlot } from '@/app/components/PlayerScatterPlot'
+import { WeeklyMatchups } from '@/app/components/WeeklyMatchups'
 
 interface Data {
   teams: any[]
   players: any[]
   standings: any[]
   schedule: any[]
+  weeklyMatchups: Record<number, Matchup[]>
 }
 
 interface PositionData {
@@ -30,8 +32,25 @@ interface PositionData {
   [team: string]: string | number
 }
 
+interface Player {
+  Player: string
+  Position: string
+  Score: number
+}
+
+interface TeamMatchup {
+  Team: string
+  Players: Player[]
+  TotalScore: number
+}
+
+interface Matchup {
+  Team1: TeamMatchup
+  Team2: TeamMatchup
+}
+
 export default function Home() {
-  const [data, setData] = useState<Data>({ teams: [], players: [], standings: [], schedule: [] })
+  const [data, setData] = useState<Data>({ teams: [], players: [], standings: [], schedule: [], weeklyMatchups: {} })
   const [selectedTeam, setSelectedTeam] = useState('')
   const [currentWeek, setCurrentWeek] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
@@ -208,6 +227,10 @@ export default function Home() {
               <PositionPerformance data={positionPerformanceData} />
             </TabsContent>
           </Tabs>
+
+          <div className="mt-8">
+            <WeeklyMatchups />
+          </div>
         </>
       )}
     </div>
