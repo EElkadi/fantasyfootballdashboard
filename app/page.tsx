@@ -58,7 +58,7 @@ export default function Home() {
         }
         
         // Set the current week based on the current date
-        const seasonStartDate = new Date('2024-09-05') // Update this date each year
+        const seasonStartDate = new Date('2024-09-12') // Update this date each year
         const calculatedWeek = calculateCurrentWeek(seasonStartDate)
         setCurrentWeek(calculatedWeek)
       } catch (error) {
