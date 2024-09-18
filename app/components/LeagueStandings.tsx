@@ -38,20 +38,25 @@ export function LeagueStandings({ standingsData, currentWeek }: { standingsData:
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   const sortedStandings = [...standingsData].sort((a, b) => {
-    if (sortColumn === 'Overall Record') {
-      const [aWins, aLosses] = a[sortColumn].split('-').map(Number);
-      const [bWins, bLosses] = b[sortColumn].split('-').map(Number);
-      if (aWins !== bWins) {
-        return sortDirection === 'asc' ? aWins - bWins : bWins - aWins;
-      } else if (aLosses !== bLosses) {
-        return sortDirection === 'asc' ? bLosses - aLosses : aLosses - bLosses;
-      } else {
-        return sortDirection === 'asc' ? a['Points For'] - b['Points For'] : b['Points For'] - a['Points For'];
-      }
+    const [aWins, aLosses] = a['Overall Record'].split('-').map(Number);
+    const [bWins, bLosses] = b['Overall Record'].split('-').map(Number);
+
+    if (aWins !== bWins) {
+      return sortDirection === 'asc' ? aWins - bWins : bWins - aWins;
     }
+
+    if (a['Points For'] !== b['Points For']) {
+      return sortDirection === 'asc' ? a['Points For'] - b['Points For'] : b['Points For'] - a['Points For'];
+    }
+
+    if (sortColumn === 'Overall Record') {
+      return sortDirection === 'asc' ? aLosses - bLosses : bLosses - aLosses;
+    }
+
     if (typeof a[sortColumn] === 'string' && typeof b[sortColumn] === 'string') {
       return sortDirection === 'asc' ? a[sortColumn].localeCompare(b[sortColumn]) : b[sortColumn].localeCompare(a[sortColumn]);
     }
+
     return sortDirection === 'asc' ? (a[sortColumn] as number) - (b[sortColumn] as number) : (b[sortColumn] as number) - (a[sortColumn] as number);
   });
 
