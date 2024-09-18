@@ -38,6 +38,10 @@ export function LeagueStandings({ standingsData, currentWeek }: { standingsData:
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
   const sortedStandings = [...standingsData].sort((a, b) => {
+    if (sortColumn === 'Rank') {
+      return sortDirection === 'asc' ? a.Rank - b.Rank : b.Rank - a.Rank;
+    }
+
     const [aWins, aLosses] = a['Overall Record'].split('-').map(Number);
     const [bWins, bLosses] = b['Overall Record'].split('-').map(Number);
 
