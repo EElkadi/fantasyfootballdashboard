@@ -41,7 +41,13 @@ export function LeagueStandings({ standingsData, currentWeek }: { standingsData:
     if (sortColumn === 'Overall Record') {
       const [aWins, aLosses] = a[sortColumn].split('-').map(Number);
       const [bWins, bLosses] = b[sortColumn].split('-').map(Number);
-      return sortDirection === 'asc' ? aWins - bWins || bLosses - aLosses : bWins - aWins || aLosses - bLosses;
+      if (aWins !== bWins) {
+        return sortDirection === 'asc' ? aWins - bWins : bWins - aWins;
+      } else if (aLosses !== bLosses) {
+        return sortDirection === 'asc' ? bLosses - aLosses : aLosses - bLosses;
+      } else {
+        return sortDirection === 'asc' ? a['Points For'] - b['Points For'] : b['Points For'] - a['Points For'];
+      }
     }
     if (typeof a[sortColumn] === 'string' && typeof b[sortColumn] === 'string') {
       return sortDirection === 'asc' ? a[sortColumn].localeCompare(b[sortColumn]) : b[sortColumn].localeCompare(a[sortColumn]);
