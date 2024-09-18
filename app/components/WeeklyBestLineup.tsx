@@ -26,7 +26,6 @@ interface BestLineup {
 
 const WeeklyBestLineup = () => {
   const [weeklyLineups, setWeeklyLineups] = useState<BestLineup[]>([])
-  const [currentWeek, setCurrentWeek] = useState(1)
 
   useEffect(() => {
     const fetchData = async () => {

@@ -1,4 +1,4 @@
-import { Card, CardContent } from "@/components/ui/card"
+import { CardContent } from "@/components/ui/card"
 
 interface TeamStats {
   Team: string

@@ -98,11 +98,11 @@ export function DashboardCards({ teamStats, leaguePosition, topPlayer, nextMatch
             <p className="text-2xl font-bold text-pink-600">{nextMatch.opponent}</p>
             <p className="text-sm text-gray-500 mt-2">Week {nextMatch.week}</p>
             <div className="mt-4 text-center">
-              <p className="text-sm text-gray-500">Opponent's Rank</p>
+              <p className="text-sm text-gray-500">Opponent&apos;s Rank</p>
               <p className="text-xl font-semibold text-pink-600">#{nextMatch.opponentRank}</p>
             </div>
             <div className="mt-4 text-center">
-              <p className="text-sm text-gray-500">Opponent's Average Score</p>
+              <p className="text-sm text-gray-500">Opponent&apos;s Average Score</p>
               <p className="text-xl font-semibold text-pink-600">{nextMatch.opponentAverageScore.toFixed(2)}</p>
             </div>
           </div>
