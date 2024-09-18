@@ -58,7 +58,7 @@ export default function Home() {
         }
         
         // Set the current week based on the current date
-        const seasonStartDate = new Date('2024-09-12') // Update this date each year
+        const seasonStartDate = new Date('2024-09-05') // Update this date each year
         const calculatedWeek = calculateCurrentWeek(seasonStartDate)
         setCurrentWeek(calculatedWeek)
       } catch (error) {
@@ -119,7 +119,7 @@ export default function Home() {
       <Card className="mb-10 shadow-lg hover:shadow-xl transition-shadow duration-300">
         <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-700 text-white">
           <div className="flex flex-col sm:flex-row justify-between items-center">
-            <CardTitle className="text-3xl font-bold mb-4 sm:mb-0">Fantasy Football Dashboard</CardTitle>
+            <CardTitle className="text-3xl font-bold mb-4 sm:mb-0">Premier League Fantasy Football Dashboard</CardTitle>
             <Select onValueChange={setSelectedTeam} value={selectedTeam}>
               <SelectTrigger className="w-full sm:w-[280px] bg-white text-black border-2 border-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
                 <SelectValue placeholder="Select a team" />

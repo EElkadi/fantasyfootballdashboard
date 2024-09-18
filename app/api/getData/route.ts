@@ -32,6 +32,7 @@ interface StandingsRecord {
   'Point Differential': number;
   'WIN COUNT': number;
   'LOSS COUNT': number;
+  'Head-to-Head': Record<string, number>;
 }
 
 async function readCsvFile(fileName: string) {
@@ -48,7 +49,54 @@ async function getScheduleData() {
   return rows.map(row => Object.fromEntries(headers!.map((header, index) => [header, row[index]])));
 }
 
+function calculateHeadToHeadRecords(teamsData: TeamRecord[]): Record<string, Record<string, number>> {
+  const headToHead: Record<string, Record<string, number>> = {};
+
+  teamsData.forEach(game => {
+    if (!headToHead[game.Team]) {
+      headToHead[game.Team] = {};
+    }
+    if (!headToHead[game.Opponent]) {
+      headToHead[game.Opponent] = {};
+    }
+
+    if (game.Result === 'Win') {
+      headToHead[game.Team][game.Opponent] = (headToHead[game.Team][game.Opponent] || 0) + 1;
+    } else if (game.Result === 'Loss') {
+      headToHead[game.Opponent][game.Team] = (headToHead[game.Opponent][game.Team] || 0) + 1;
+    }
+  });
+
+  return headToHead;
+}
+
+function applyTiebreakers(standings: StandingsRecord[]): StandingsRecord[] {
+  return standings.sort((a, b) => {
+    // 1. Overall Record
+    const [aWins, aLosses] = a['Overall Record'].split('-').map(Number);
+    const [bWins, bLosses] = b['Overall Record'].split('-').map(Number);
+
+    if (aWins !== bWins) {
+      return bWins - aWins; // Sort by wins in descending order
+    }
+    if (aLosses !== bLosses) {
+      return aLosses - bLosses; // If wins are equal, sort by losses in ascending order
+    }
+
+    // 2. Head to Head
+    const aHeadToHead = a['Head-to-Head'][b.Team] || 0;
+    const bHeadToHead = b['Head-to-Head'][a.Team] || 0;
+    if (aHeadToHead !== bHeadToHead) {
+      return bHeadToHead - aHeadToHead; // Team with more head-to-head wins ranks higher
+    }
+
+    // 3. Points For
+    return b['Points For'] - a['Points For'];
+  });
+}
+
 export async function GET() {
+
   try {
     const [teamsData, playersData, standingsData] = await Promise.all([
       readCsvFile('teams_data.csv'),
@@ -71,28 +119,38 @@ export async function GET() {
       Position: record.Position,
       Score: parseFloat(record.Score)
     }));
+    const headToHeadRecords = calculateHeadToHeadRecords(processedTeamsData);
 
-    const processedStandingsData: StandingsRecord[] = standingsData.map((record: Record<string, string>) => ({
-      Rank: parseInt(record.Rank),
-      Team: record.Team,
-      'Win/Loss Record': record['Win/Loss Record'],
-      'Top 6 Record': record['Top 6 Record'],
-      'Overall Record': record['Overall Record'],
-      'Points For': parseFloat(record['Points For']),
-      'Points Against': parseFloat(record['Points Against']),
-      'Average Points For': parseFloat(record['Average Points For']),
-      'Average Points Against': parseFloat(record['Average Points Against']),
-      'Point Differential': parseFloat(record['Point Differential']),
-      'WIN COUNT': parseInt(record['WIN COUNT']),
-      'LOSS COUNT': parseInt(record['LOSS COUNT'])
-    }));
+    const processedStandingsData: StandingsRecord[] = standingsData.map((record: Record<string, string>) => {
+      const standingsRecord = {
+        Rank: parseInt(record.Rank),
+        Team: record.Team,
+        'Win/Loss Record': record['Win/Loss Record'],
+        'Top 6 Record': record['Top 6 Record'],
+        'Overall Record': record['Overall Record'],
+        'Points For': parseFloat(record['Points For']),
+        'Points Against': parseFloat(record['Points Against']),
+        'Average Points For': parseFloat(record['Average Points For']),
+        'Average Points Against': parseFloat(record['Average Points Against']),
+        'Point Differential': parseFloat(record['Point Differential']),
+        'WIN COUNT': parseInt(record['WIN COUNT']),
+        'LOSS COUNT': parseInt(record['LOSS COUNT']),
+        'Head-to-Head': headToHeadRecords[record.Team] || {}
+      };
+      return standingsRecord;
+    });
 
+    // Apply tiebreakers and update ranks
+    const sortedStandings = applyTiebreakers(processedStandingsData);
+    sortedStandings.forEach((team, index) => {
+      team.Rank = index + 1;
+    });
     const scheduleData = await getScheduleData();
 
     const combinedData = {
       teams: processedTeamsData,
       players: processedPlayersData,
-      standings: processedStandingsData,
+      standings: sortedStandings, // Use the sorted standings
       schedule: scheduleData
     };
 

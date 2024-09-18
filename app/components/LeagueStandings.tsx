@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Table,
   TableBody,
@@ -31,37 +31,41 @@ interface StandingsData {
   'Point Differential': number
   'WIN COUNT': number
   'LOSS COUNT': number
+  'Head-to-Head': Record<string, number>;
 }
 
 export function LeagueStandings({ standingsData, currentWeek }: { standingsData: StandingsData[], currentWeek: number }) {
   const [sortColumn, setSortColumn] = useState<keyof StandingsData>('Rank')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
 
-  const sortedStandings = [...standingsData].sort((a, b) => {
-    if (sortColumn === 'Rank') {
-      return sortDirection === 'asc' ? a.Rank - b.Rank : b.Rank - a.Rank;
-    }
+  const sortedStandings = useMemo(() => {
+    return [...standingsData].sort((a, b) => {
+      // 1. Overall Record
+      const [aWins, aLosses] = a['Overall Record'].split('-').map(Number);
+      const [bWins, bLosses] = b['Overall Record'].split('-').map(Number);
 
-    const [aWins, aLosses] = a['Overall Record'].split('-').map(Number);
-    const [bWins, bLosses] = b['Overall Record'].split('-').map(Number);
+      if (aWins !== bWins) {
+        return bWins - aWins; // Sort by wins in descending order
+      }
+      if (aLosses !== bLosses) {
+        return aLosses - bLosses; // If wins are equal, sort by losses in ascending order
+      }
 
-    if (aWins !== bWins) {
-      return sortDirection === 'asc' ? aWins - bWins : bWins - aWins;
-    }
+      // 2. Head to Head
+      const aHeadToHead = a['Head-to-Head'][b.Team] || 0;
+      const bHeadToHead = b['Head-to-Head'][a.Team] || 0;
+      if (aHeadToHead !== bHeadToHead) {
+        return bHeadToHead - aHeadToHead; // Team with more head-to-head wins ranks higher
+      }
 
-    if (a['Points For'] !== b['Points For']) {
-      return sortDirection === 'asc' ? a['Points For'] - b['Points For'] : b['Points For'] - a['Points For'];
-    }
+      // 3. Points For
+      return b['Points For'] - a['Points For'];
+    });
+  }, [standingsData]);
 
-    if (sortColumn === 'Overall Record') {
-      return sortDirection === 'asc' ? aLosses - bLosses : bLosses - aLosses;
-    }
-
-    if (typeof a[sortColumn] === 'string' && typeof b[sortColumn] === 'string') {
-      return sortDirection === 'asc' ? a[sortColumn].localeCompare(b[sortColumn]) : b[sortColumn].localeCompare(a[sortColumn]);
-    }
-
-    return sortDirection === 'asc' ? (a[sortColumn] as number) - (b[sortColumn] as number) : (b[sortColumn] as number) - (a[sortColumn] as number);
+  // Update ranks based on the new sorting
+  sortedStandings.forEach((team, index) => {
+    team.Rank = index + 1;
   });
 
   const handleSort = (column: keyof StandingsData) => {

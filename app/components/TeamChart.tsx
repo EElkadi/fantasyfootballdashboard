@@ -28,7 +28,7 @@ export function TeamChart({ teamData, selectedTeams = [], onTeamToggle }: TeamCh
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Team Performance Over Time</CardTitle>
+        <CardTitle>Team Score Over Time</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex flex-wrap gap-2 mb-4">
