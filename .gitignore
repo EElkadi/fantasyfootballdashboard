@@ -45,3 +45,12 @@ next-env.d.ts
 # macOS
 .AppleDouble
 .LSOverride
+
+# Google Cloud Service Account Credentials
+scripts/credentials.json
+
+# Config files that might contain sensitive information
+scripts/config.json
+
+# Data files
+/data/*.csv
