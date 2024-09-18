@@ -200,6 +200,7 @@ export default function Home() {
                 }}
               />
               <LeagueStandings standingsData={data.standings} currentWeek={currentWeek} />
+              <WeeklyMatchups />
             </TabsContent>
 
             <TabsContent value="team-analysis" className="space-y-4">
@@ -227,10 +228,6 @@ export default function Home() {
               <PositionPerformance data={positionPerformanceData} />
             </TabsContent>
           </Tabs>
-
-          <div className="mt-8">
-            <WeeklyMatchups />
-          </div>
         </>
       )}
     </div>
