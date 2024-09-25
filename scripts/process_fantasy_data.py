@@ -6,7 +6,10 @@ from google.oauth2.service_account import Credentials
 
 
 def load_config():
-    with open("/Users/elafelkadi/premier-league-fantasy/scripts/config.json", "r") as f:
+    with open(
+        "/Users/elafelkadi/premier-league-fantasy/fantasy-football-dashboard/scripts/config.json",
+        "r",
+    ) as f:
         return json.load(f)
 
 

@@ -1,8 +1,8 @@
 {
-    "credentials_path": "/Users/elafelkadi/premier-league-fantasy/scripts/credentials.json",
+    "credentials_path": "//Users/elafelkadi/premier-league-fantasy/fantasy-football-dashboard/scripts/credentials.json",
     "sheet_id": "1zV_7oSV6YtkFDofUsLj9IPgFcsxw000oK6Gz1MtH-8Y",
     "worksheet_name": "Scores",
-    "teams_output_path": "./data/teams_data.csv",
-    "players_output_path": "./data/players_data.csv",
-    "standings_output_path": "./data/standings_data.csv"
+    "teams_output_path": "/Users/elafelkadi/premier-league-fantasy/fantasy-football-dashboard/data/teams_data.csv",
+    "players_output_path": "/Users/elafelkadi/premier-league-fantasy/fantasy-football-dashboard/data/players_data.csv",
+    "standings_output_path": "/Users/elafelkadi/premier-league-fantasy/fantasy-football-dashboard/data/standings_data.csv"
 }

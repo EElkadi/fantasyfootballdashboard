@@ -11,6 +11,12 @@ Week,Team,Player,Score,Position
 2,Marco,Justin Herbert,15,QB
 2,Elaf,Joe Burrow,22,QB
 2,Kenny,C.J. Stroud,18,QB
+3,Jay,Brock Purdy,37,QB
+3,Doy,Derek Carr,7,QB
+3,Kenny,C.J. Stroud,12,QB
+3,Elaf,Joe Burrow,38,QB
+3,Julio,Jalen Hurts,12,QB
+3,ATL,Lamar Jackson,24,QB
 1,Zeus,Kyler Murray,14,QB
 1,Monaf,Anthony Richardson,40,QB
 1,Jay,Jordan Love,27,QB
@@ -23,6 +29,12 @@ Week,Team,Player,Score,Position
 2,Gaybo,Patrick Mahomes,17,QB
 2,Monaf,Anthony Richardson,13,QB
 2,Jay,Brock Purdy,17,QB
+3,Marco,Justin Herbert,11,QB
+3,Greg,Josh Allen,43,QB
+3,Ivo,Dak Prescott,33,QB
+3,Gaybo,Patrick Mahomes,21,QB
+3,Zeus,Kyler Murray,17,QB
+3,Monaf,Anthony Richardson,1,QB
 1,Elaf,Isiah Pacheco,13,RB1
 1,Marco,James Conner,17,RB1
 1,Doy,Breece Hall,14,RB1
@@ -35,6 +47,12 @@ Week,Team,Player,Score,Position
 2,Marco,James Conner,18,RB1
 2,Elaf,Isiah Pacheco,11,RB1
 2,Kenny,Kyren Williams,10,RB1
+3,Jay,Josh Jacobs,4,RB1
+3,Doy,Breece Hall,13,RB1
+3,Kenny,Kyren Williams,29,RB1
+3,Elaf,Jerome Ford,6,RB1
+3,Julio,Jonathan Taylor,27,RB1
+3,ATL,Jahmyr Gibbs,18,RB1
 1,Zeus,Saquon Barkley,32,RB1
 1,Monaf,Bijan Robinson,10,RB1
 1,Jay,Josh Jacobs,10,RB1
@@ -47,6 +65,12 @@ Week,Team,Player,Score,Position
 2,Gaybo,Jordan Mason,17,RB1
 2,Monaf,Bijan Robinson,11,RB1
 2,Jay,Josh Jacobs,15,RB1
+3,Marco,James Conner,1,RB1
+3,Greg,Derrick Henry,31,RB1
+3,Ivo,De'Von Achane,5,RB1
+3,Gaybo,Jordan Mason,8,RB1
+3,Zeus,Alvin Kamara,12,RB1
+3,Monaf,Bijan Robinson,11,RB1
 1,Elaf,D'Andre Swift,5,RB2
 1,Marco,Najee Harris,7,RB2
 1,Doy,Kenneth Walker,18,RB2
@@ -59,6 +83,12 @@ Week,Team,Player,Score,Position
 2,Marco,Najee Harris,6,RB2
 2,Elaf,Jerome Ford,6,RB2
 2,Kenny,Tony Pollard,10,RB2
+3,Jay,Rhamondre Stevenson,2,RB2
+3,Doy,Zach Charbonnet,23,RB2
+3,Kenny,Tony Pollard,2,RB2
+3,Elaf,D'Andre Swift,4,RB2
+3,Julio,Rachaad White,2,RB2
+3,ATL,J.K. Dobbins,5,RB2
 1,Zeus,Joe Mixon,22,RB2
 1,Monaf,James Cook,10,RB2
 1,Jay,Rhamondre Stevenson,18,RB2
@@ -71,6 +101,12 @@ Week,Team,Player,Score,Position
 2,Gaybo,Gus Edwards,5,RB2
 2,Monaf,James Cook,31,RB2
 2,Jay,Rhamondre Stevenson,15,RB2
+3,Marco,Najee Harris,8,RB2
+3,Greg,Devin Singletary,16,RB2
+3,Ivo,Travis Etienne,7,RB2
+3,Gaybo,Gus Edwards,0,RB2
+3,Zeus,Saquon Barkley,35,RB2
+3,Monaf,James Cook,13,RB2
 1,Elaf,Amon-Ra St. Brown,1,WR1
 1,Marco,Ja'Marr Chase,6,WR1
 1,Doy,Davante Adams,5,WR1
@@ -83,6 +119,12 @@ Week,Team,Player,Score,Position
 2,Marco,Ja'Marr Chase,3,WR1
 2,Elaf,Amon-Ra St. Brown,11,WR1
 2,Kenny,Tyreek Hill,3,WR1
+3,Jay,CeeDee Lamb,7,WR1
+3,Doy,Davante Adams,4,WR1
+3,Kenny,Tyreek Hill,4,WR1
+3,Elaf,Amon-Ra St. Brown,13,WR1
+3,Julio,Mike Evans,1,WR1
+3,ATL,Drake London,13,WR1
 1,Zeus,Jaylen Waddle,10,WR1
 1,Monaf,Marvin Harrison,0,WR1
 1,Jay,CeeDee Lamb,6,WR1
@@ -95,6 +137,12 @@ Week,Team,Player,Score,Position
 2,Gaybo,Stefon Diggs,3,WR1
 2,Monaf,Marvin Harrison,33,WR1
 2,Jay,CeeDee Lamb,21,WR1
+3,Marco,Ja'Marr Chase,30,WR1
+3,Greg,Justin Jefferson,14,WR1
+3,Ivo,Nico Collins,8,WR1
+3,Gaybo,Stefon Diggs,9,WR1
+3,Zeus,Chris Godwin,11,WR1
+3,Monaf,Brandon Aiyuk,4,WR1
 1,Elaf,Kyle Pitts,9,WR2
 1,Marco,Garrett Wilson,6,WR2
 1,Doy,Deebo Samuel,13,WR2
@@ -107,6 +155,12 @@ Week,Team,Player,Score,Position
 2,Marco,Garrett Wilson,5,WR2
 2,Elaf,Rashee Rice,17,WR2
 2,Kenny,Tank Dell,1,WR2
+3,Jay,Chris Olave,15,WR2
+3,Doy,Amari Cooper,22,WR2
+3,Kenny,Rashid Shaheed,0,WR2
+3,Elaf,Rashee Rice,18,WR2
+3,Julio,DeVonta Smith,7,WR2
+3,ATL,Calvin Ridley,0,WR2
 1,Zeus,DK Metcalf,2,WR2
 1,Monaf,Brandon Aiyuk,2,WR2
 1,Jay,Chris Olave,1,WR2
@@ -119,6 +173,12 @@ Week,Team,Player,Score,Position
 2,Gaybo,Michael Pittman,2,WR2
 2,Monaf,Jameson Williams,8,WR2
 2,Jay,Zay Flowers,15,WR2
+3,Marco,Garrett Wilson,9,WR2
+3,Greg,Malik Nabers,19,WR2
+3,Ivo,Brock Bowers,4,WR2
+3,Gaybo,Khalil Shakir,15,WR2
+3,Zeus,DK Metcalf,23,WR2
+3,Monaf,Marvin Harrison,13,WR2
 1,Elaf,Jacksonville Jaguars,6,DEF
 1,Marco,Dallas Cowboys,30,DEF
 1,Doy,Pittsburgh Steelers,13,DEF
@@ -131,6 +191,12 @@ Week,Team,Player,Score,Position
 2,Marco,Dallas Cowboys,0,DEF
 2,Elaf,Jacksonville Jaguars,4,DEF
 2,Kenny,San Francisco 49ers,14,DEF
+3,Jay,Green Bay Packers,34,DEF
+3,Doy,Pittsburgh Steelers,16,DEF
+3,Kenny,San Francisco 49ers,6,DEF
+3,Elaf,Jacksonville Jaguars,-5,DEF
+3,Julio,Cleveland Browns,10,DEF
+3,ATL,Houston Texans,8,DEF
 1,Zeus,Indianapolis Colts,8,DEF
 1,Monaf,Chicago Bears,33,DEF
 1,Jay,Atlanta Falcons,7,DEF
@@ -143,6 +209,12 @@ Week,Team,Player,Score,Position
 2,Gaybo,Buffalo Bills,25,DEF
 2,Monaf,Chicago Bears,9,DEF
 2,Jay,Detroit Lions,13,DEF
+3,Marco,Dallas Cowboys,0,DEF
+3,Greg,Tampa Bay Buccaneers,3,DEF
+3,Ivo,New York Jets,24,DEF
+3,Gaybo,Buffalo Bills,19,DEF
+3,Zeus,Indianapolis Colts,17,DEF
+3,Monaf,Chicago Bears,8,DEF
 1,Elaf,Ka'imi Fairbairn,18,K
 1,Marco,Brandon Aubrey,18,K
 1,Doy,Tyler Bass,3,K
@@ -155,6 +227,12 @@ Week,Team,Player,Score,Position
 2,Marco,Brandon Aubrey,15,K
 2,Elaf,Ka'imi Fairbairn,21,K
 2,Kenny,Cameron Dicker,6,K
+3,Jay,Chase McLaughlin,0,K
+3,Doy,Tyler Bass,4,K
+3,Kenny,Cameron Dicker,1,K
+3,Elaf,Ka'imi Fairbairn,0,K
+3,Julio,Daniel Carlson,0,K
+3,ATL,Jason Myers,6,K
 1,Zeus,Jason Sanders,15,K
 1,Monaf,Will Reichard,0,K
 1,Jay,Jake Elliott,4,K
@@ -167,6 +245,12 @@ Week,Team,Player,Score,Position
 2,Gaybo,Justin Tucker,9,K
 2,Monaf,Will Reichard,5,K
 2,Jay,Jake Elliott,2,K
+3,Marco,Brandon Aubrey,12,K
+3,Greg,Jake Bates,0,K
+3,Ivo,Jake Moody,1,K
+3,Gaybo,Justin Tucker,0,K
+3,Zeus,Younghoe Koo,6,K
+3,Monaf,Will Reichard,9,K
 1,Elaf,Jerome Ford,12,Flex
 1,Marco,Puka Nacua,3,Flex
 1,Doy,Amari Cooper,1,Flex
@@ -179,6 +263,12 @@ Week,Team,Player,Score,Position
 2,Marco,Sam LaPorta,1,Flex
 2,Elaf,D'Andre Swift,3,Flex
 2,Kenny,DJ Moore,5,Flex
+3,Jay,Brian Robinson,9,Flex
+3,Doy,Jaylen Warren,0,Flex
+3,Kenny,Tank Dell,6,Flex
+3,Elaf,Tee Higgins,3,Flex
+3,Julio,George Pickens,5,Flex
+3,ATL,Aaron Jones,20,Flex
 1,Zeus,Alvin Kamara,16,Flex
 1,Monaf,David Montgomery,15,Flex
 1,Jay,Zay Flowers,4,Flex
@@ -191,3 +281,9 @@ Week,Team,Player,Score,Position
 2,Gaybo,Travis Kelce,0,Flex
 2,Monaf,David Montgomery,12,Flex
 2,Jay,Brian Robinson,13,Flex
+3,Marco,Sam LaPorta,3,Flex
+3,Greg,Javonte Williams,3,Flex
+3,Ivo,Jakobi Meyers,15,Flex
+3,Gaybo,Travis Kelce,3,Flex
+3,Zeus,Diontae Johnson,18,Flex
+3,Monaf,David Montgomery,17,Flex
