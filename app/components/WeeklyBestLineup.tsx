@@ -53,7 +53,6 @@ const WeeklyBestLineup = () => {
   const findBestLineup = (players: Player[]): BestLineup => {
     const getTopPlayer = (position: string, index: number = 0) => {
       const filteredPlayers = players.filter(p => p.Position.toUpperCase().includes(position.toUpperCase()));
-      console.log(`Filtered players for ${position}:`, filteredPlayers);
       return filteredPlayers.sort((a, b) => b.Score - a.Score)[index];
     };
 
@@ -68,7 +67,6 @@ const WeeklyBestLineup = () => {
       FLEX: {} as Player, // We'll set this later
     };
 
-    console.log('Position best:', positionBest);
 
     const flexCandidates = [
       ...players.filter(p => p.Position.toUpperCase().includes('RB')).sort((a, b) => b.Score - a.Score).slice(2),

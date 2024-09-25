@@ -35,6 +35,12 @@ interface StandingsRecord {
   'Head-to-Head': Record<string, number>;
 }
 
+interface TeamWeeklyScore {
+  Team: string;
+  Score: number;
+  RB1Score: number;
+}
+
 async function readCsvFile(fileName: string) {
   const filePath = path.join(process.cwd(), 'data', fileName);
   const fileContent = await fs.readFile(filePath, 'utf8');
@@ -95,6 +101,34 @@ function applyTiebreakers(standings: StandingsRecord[]): StandingsRecord[] {
   });
 }
 
+function calculateWeeklyScores(playersData: PlayerRecord[]): Record<number, TeamWeeklyScore[]> {
+  const weeklyScores: Record<number, Record<string, TeamWeeklyScore>> = {};
+
+  playersData.forEach(player => {
+    if (!weeklyScores[player.Week]) {
+      weeklyScores[player.Week] = {};
+    }
+
+    if (!weeklyScores[player.Week][player.Team]) {
+      weeklyScores[player.Week][player.Team] = { Team: player.Team, Score: 0, RB1Score: 0 };
+    }
+
+    weeklyScores[player.Week][player.Team].Score += player.Score;
+
+    if (player.Position === 'RB1' && player.Score > weeklyScores[player.Week][player.Team].RB1Score) {
+      weeklyScores[player.Week][player.Team].RB1Score = player.Score;
+    }
+  });
+  
+  // Convert the nested object to an array of TeamWeeklyScore for each week
+  const result: Record<number, TeamWeeklyScore[]> = {};
+  Object.entries(weeklyScores).forEach(([week, scores]) => {
+    result[Number(week)] = Object.values(scores);
+  });
+
+  return result;
+}
+
 export async function GET() {
 
   try {
@@ -119,6 +153,10 @@ export async function GET() {
       Position: record.Position,
       Score: parseFloat(record.Score)
     }));
+
+    // Calculate weekly scores including RB1 scores
+    const weeklyScores = calculateWeeklyScores(processedPlayersData);
+
     const headToHeadRecords = calculateHeadToHeadRecords(processedTeamsData);
 
     const processedStandingsData: StandingsRecord[] = standingsData.map((record: Record<string, string>) => {
@@ -151,7 +189,8 @@ export async function GET() {
       teams: processedTeamsData,
       players: processedPlayersData,
       standings: sortedStandings, // Use the sorted standings
-      schedule: scheduleData
+      schedule: scheduleData,
+      weeklyScores: weeklyScores // Add this new field to the response
     };
 
     return NextResponse.json(combinedData);

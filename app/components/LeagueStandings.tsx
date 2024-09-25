@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useRef } from "react"
 import {
   Table,
   TableBody,
@@ -16,7 +16,9 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Trophy } from 'lucide-react'
+import { Trophy, Download } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import html2canvas from 'html2canvas'
 
 interface StandingsData {
   Rank: number
@@ -37,6 +39,7 @@ interface StandingsData {
 export function LeagueStandings({ standingsData, currentWeek }: { standingsData: StandingsData[], currentWeek: number }) {
   const [sortColumn, setSortColumn] = useState<keyof StandingsData>('Rank')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const tableRef = useRef<HTMLTableElement>(null)
 
   const sortedStandings = useMemo(() => {
     return [...standingsData].sort((a, b) => {
@@ -77,17 +80,34 @@ export function LeagueStandings({ standingsData, currentWeek }: { standingsData:
     }
   };
 
+  const saveAsImage = async () => {
+    if (tableRef.current) {
+      const canvas = await html2canvas(tableRef.current)
+      const image = canvas.toDataURL("image/png")
+      const link = document.createElement('a')
+      link.href = image
+      link.download = `league_standings_week_${currentWeek}.png`
+      link.click()
+    }
+  }
+
   return (
     <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
       <CardHeader className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white">
-        <CardTitle className="text-2xl font-bold flex items-center">
-          <Trophy className="mr-2 h-6 w-6" />
-          League Standings - Week {currentWeek}
-        </CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-2xl font-bold flex items-center">
+            <Trophy className="mr-2 h-6 w-6" />
+            League Standings - Week {currentWeek}
+          </CardTitle>
+          <Button variant="secondary" size="sm" onClick={saveAsImage}>
+            <Download className="mr-2 h-4 w-4" />
+            Save as Image
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
         <div className="rounded-lg border border-gray-200 shadow-md overflow-hidden">
-          <Table>
+          <Table ref={tableRef}>
             <TableHeader>
               <TableRow className="bg-gray-100">
                 <TableHead className="w-[60px] md:w-[100px] font-semibold text-gray-700 cursor-pointer" onClick={() => handleSort('Rank')}>Rank</TableHead>

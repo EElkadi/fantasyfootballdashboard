@@ -18,6 +18,7 @@ import { PlayerLeaderboard } from '@/app/components/PlayerLeaderboard'
 import WeeklyBestLineup from '@/app/components/WeeklyBestLineup'
 import { PlayerScatterPlot } from '@/app/components/PlayerScatterPlot'
 import { WeeklyMatchups } from '@/app/components/WeeklyMatchups'
+import { TopSixTeams } from '@/app/components/TopSixTeams'
 
 interface Data {
   teams: any[]
@@ -222,6 +223,7 @@ export default function Home() {
 
             <TabsContent value="league-insights" className="space-y-4">
               <LeagueStandings standingsData={data.standings} currentWeek={currentWeek} />
+              <TopSixTeams />
               <WeeklyMVPShowcase playerData={data.players} />
               <WeeklyBestLineup />
               <StrengthOfSchedule standingsData={data.standings} />
