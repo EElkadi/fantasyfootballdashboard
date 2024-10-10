@@ -23,6 +23,12 @@ Week,Team,Score,Opponent,Result
 4,Kenny,133,Greg,Win
 4,ATL,93,Gaybo,Win
 4,Doy,92,Zeus,Loss
+5,Marco,134,Greg,Win
+5,Monaf,127,Doy,Win
+5,Kenny,86,Zeus,Win
+5,Julio,127,Gaybo,Win
+5,Elaf,148,Ivo,Win
+5,ATL,109,Jay,Win
 1,Zeus,119,Elaf,Win
 1,Monaf,110,Marco,Win
 1,Jay,77,Doy,Loss
@@ -47,3 +53,9 @@ Week,Team,Score,Opponent,Result
 4,Greg,102,Kenny,Loss
 4,Gaybo,71,ATL,Loss
 4,Zeus,107,Doy,Win
+5,Greg,105,Marco,Loss
+5,Doy,83,Monaf,Loss
+5,Zeus,76,Kenny,Loss
+5,Gaybo,68,Julio,Loss
+5,Ivo,87,Elaf,Loss
+5,Jay,104,ATL,Loss
