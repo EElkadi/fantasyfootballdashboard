@@ -59,6 +59,12 @@ Week,Team,Score,Opponent,Result
 10,ATL,99,Marco,Win
 10,Gaybo,74,Greg,Win
 10,Ivo,55,Zeus,Loss
+11,Elaf,138,Marco,Win
+11,Kenny,151,Doy,Win
+11,ATL,106,Julio,Win
+11,Zeus,128,Greg,Win
+11,Gaybo,50,Jay,Loss
+11,Ivo,57,Monaf,Loss
 1,Zeus,119,Elaf,Win
 1,Monaf,110,Marco,Win
 1,Jay,77,Doy,Loss
@@ -119,3 +125,9 @@ Week,Team,Score,Opponent,Result
 10,Marco,76,ATL,Loss
 10,Greg,72,Gaybo,Loss
 10,Zeus,81,Ivo,Win
+11,Marco,103,Elaf,Loss
+11,Doy,84,Kenny,Loss
+11,Julio,62,ATL,Loss
+11,Greg,86,Zeus,Loss
+11,Jay,94,Gaybo,Win
+11,Monaf,62,Ivo,Win
