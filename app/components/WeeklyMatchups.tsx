@@ -19,7 +19,7 @@ interface Matchup {
   Team2: TeamMatchup
 }
 
-const SEASON_START_DATE = new Date('2024-09-11') // Update this date each year
+const SEASON_START_DATE = new Date('2025-09-04') // Update this date each year
 
 function calculateCurrentWeek(): number {
   const today = new Date()

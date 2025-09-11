@@ -6,14 +6,20 @@ from google.oauth2.service_account import Credentials
 
 
 def load_config():
-    with open(
-        "/Users/elafelkadi/premier-league-fantasy/fantasy-football-dashboard/scripts/config.json",
-        "r",
-    ) as f:
+    import os
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, "config.json")
+    with open(config_path, "r") as f:
         return json.load(f)
 
 
 def authenticate_gspread(creds_path):
+    import os
+    # If creds_path is relative, make it relative to the script directory
+    if not os.path.isabs(creds_path):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        creds_path = os.path.join(script_dir, creds_path)
+    
     scope = [
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive",
@@ -106,7 +112,7 @@ def main():
     teams_df = pd.concat([team1_data, team2_data], ignore_index=True)
 
     # Create player data
-    positions = ["QB", "RB1", "RB2", "WR1", "WR2", "DEF", "K", "Flex"]
+    positions = ["QB", "RB1", "RB2", "WR1", "WR2", "DEF", "K", "Flex", "Flex2"]
     players_df = pd.concat(
         [
             create_player_data(df, pos, team_num)

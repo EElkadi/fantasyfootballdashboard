@@ -21,6 +21,7 @@ interface BestLineup {
   DEF: Player
   K: Player
   FLEX: Player
+  FLEX2: Player
   totalScore: number
 }
 
@@ -64,7 +65,8 @@ const WeeklyBestLineup = () => {
       WR2: getTopPlayer('WR', 1),
       DEF: getTopPlayer('DEF'),
       K: getTopPlayer('K'),
-      FLEX: {} as Player, // We'll set this later
+      FLEX: {} as Player,
+      FLEX2: {} as Player, // We'll set this later
     };
 
 
@@ -73,8 +75,10 @@ const WeeklyBestLineup = () => {
       ...players.filter(p => p.Position.toUpperCase().includes('WR')).sort((a, b) => b.Score - a.Score).slice(2),
       ...players.filter(p => p.Position.toUpperCase().includes('TE')).sort((a, b) => b.Score - a.Score),
     ];
-
-    positionBest.FLEX = flexCandidates.sort((a, b) => b.Score - a.Score)[0] || {} as Player;
+    
+    const sortedFlexCandidates = flexCandidates.sort((a, b) => b.Score - a.Score);
+    positionBest.FLEX = sortedFlexCandidates[0] || {} as Player;
+    positionBest.FLEX2 = sortedFlexCandidates[1] || {} as Player;
 
     const totalScore = (Object.entries(positionBest) as [keyof Omit<BestLineup, 'totalScore'>, Player][])
       .reduce((sum, [_, player]) => sum + (player?.Score || 0), 0);
@@ -126,6 +130,7 @@ const WeeklyBestLineup = () => {
                   {renderPlayerCard(lineup.DEF, 'DEF')}
                   {renderPlayerCard(lineup.K, 'K')}
                   {renderPlayerCard(lineup.FLEX, 'FLEX')}
+                  {renderPlayerCard(lineup.FLEX2, 'FLEX2')}
                 </div>
               </div>
               <div className="mt-6 text-right">
