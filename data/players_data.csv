@@ -5,105 +5,213 @@ Week,Team,Player,Score,Position
 1,Doy,Joe Burrow CIN,9,QB
 1,Chuy,Jordan Love GBP,17,QB
 1,Jay,Justin Herbert LAC,38,QB
+2,Kenny,Patrick Mahomes II KCC,23,QB
+2,Monaf,Trevor Lawrence JAC,25,QB
+2,Chuy,Jordan Love GBP,24,QB
+2,Doy,Joe Burrow CIN,9,QB
+2,Jay,Justin Herbert LAC,31,QB
+2,Elaf,Drake Maye NEP,31,QB
 1,Elaf,Drake Maye NEP,15,QB
 1,ATL,Lamar Jackson BAL,39,QB
 1,Gaybo,Jalen Hurts PHI,21,QB
 1,Larry,Bo Nix DEN,7,QB
 1,Greg,Jayden Daniels WAS,21,QB
 1,Monaf,Trevor Lawrence JAC,7,QB
+2,Larry,Bo Nix DEN,28,QB
+2,Julio,Baker Mayfield TBB,27,QB
+2,ATL,Lamar Jackson BAL,39,QB
+2,Paco,Josh Allen BUF,8,QB
+2,Gaybo,Jalen Hurts PHI,10,QB
+2,Greg,Jayden Daniels WAS,27,QB
 1,Paco,Bijan Robinson ATL,23,RB1
 1,Julio,Jonathan Taylor IND,9,RB1
 1,Kenny,Christian McCaffrey SFO,13,RB1
 1,Doy,Saquon Barkley PHI,15,RB1
 1,Chuy,Josh Jacobs GBP,12,RB1
 1,Jay,Chase Brown CIN,10,RB1
+2,Kenny,Christian McCaffrey SFO,16,RB1
+2,Monaf,Omarion Hampton LAC,2,RB1
+2,Chuy,Josh Jacobs GBP,14,RB1
+2,Doy,Saquon Barkley PHI,15,RB1
+2,Jay,Chase Brown CIN,5,RB1
+2,Elaf,De'Von Achane MIA,20,RB1
 1,Elaf,De'Von Achane MIA,14,RB1
 1,ATL,Jahmyr Gibbs DET,4,RB1
 1,Gaybo,Derrick Henry BAL,36,RB1
 1,Larry,Bucky Irving TBB,9,RB1
 1,Greg,James Conner ARI,9,RB1
 1,Monaf,Ashton Jeanty LVR,9,RB1
+2,Larry,Bucky Irving TBB,12,RB1
+2,Julio,Jonathan Taylor IND,27,RB1
+2,ATL,Jahmyr Gibbs DET,16,RB1
+2,Paco,Bijan Robinson ATL,16,RB1
+2,Gaybo,Derrick Henry BAL,2,RB1
+2,Greg,James Conner ARI,10,RB1
 1,Paco,Tyrone Tracy Jr. NYG,3,RB2
 1,Julio,Kyren Williams LAR,12,RB2
 1,Kenny,Chuba Hubbard CAR,16,RB2
 1,Doy,Kenneth Walker III SEA,2,RB2
 1,Chuy,James Cook BUF,15,RB2
 1,Jay,RJ Harvey DEN,7,RB2
+2,Kenny,Chuba Hubbard CAR,12,RB2
+2,Monaf,Ashton Jeanty LVR,4,RB2
+2,Chuy,James Cook BUF,29,RB2
+2,Doy,Kenneth Walker III SEA,18,RB2
+2,Jay,RJ Harvey DEN,1,RB2
+2,Elaf,Isiah Pacheco KCC,2,RB2
 1,Elaf,Isiah Pacheco KCC,2,RB2
 1,ATL,Rhamondre Stevenson NEP,2,RB2
 1,Gaybo,Nick Chubb HOU,6,RB2
 1,Larry,Breece Hall NYJ,13,RB2
 1,Greg,Jaylen Warren PIT,11,RB2
 1,Monaf,Omarion Hampton LAC,5,RB2
+2,Larry,Breece Hall NYJ,2,RB2
+2,Julio,Kyren Williams LAR,7,RB2
+2,ATL,Rhamondre Stevenson NEP,16,RB2
+2,Paco,Tyrone Tracy Jr. NYG,4,RB2
+2,Gaybo,Jacory Croskey-Merritt WAS,1,RB2
+2,Greg,Jaylen Warren PIT,12,RB2
 1,Paco,Puka Nacua LAR,13,WR1
 1,Julio,A.J. Brown PHI,0,WR1
 1,Kenny,Malik Nabers NYG,7,WR1
 1,Doy,Marvin Harrison Jr. ARI,13,WR1
 1,Chuy,Davante Adams LAR,5,WR1
 1,Jay,CeeDee Lamb DAL,11,WR1
+2,Kenny,Malik Nabers NYG,34,WR1
+2,Monaf,Ladd McConkey LAC,4,WR1
+2,Chuy,Davante Adams LAR,17,WR1
+2,Doy,Marvin Harrison Jr. ARI,2,WR1
+2,Jay,CeeDee Lamb DAL,11,WR1
+2,Elaf,Ja'Marr Chase CIN,22,WR1
 1,Elaf,Ja'Marr Chase CIN,2,WR1
 1,ATL,Drake London ATL,5,WR1
 1,Gaybo,Amon-Ra St. Brown DET,4,WR1
 1,Larry,Brian Thomas Jr. JAC,7,WR1
 1,Greg,Justin Jefferson MIN,11,WR1
 1,Monaf,Ladd McConkey LAC,7,WR1
+2,Larry,Brian Thomas Jr. JAC,4,WR1
+2,Julio,A.J. Brown PHI,2,WR1
+2,ATL,Drake London ATL,4,WR1
+2,Paco,Puka Nacua LAR,23,WR1
+2,Gaybo,Amon-Ra St. Brown DET,29,WR1
+2,Greg,Justin Jefferson MIN,8,WR1
 1,Paco,DK Metcalf PIT,8,WR2
 1,Julio,Tyreek Hill MIA,4,WR2
 1,Kenny,Travis Kelce KCC,13,WR2
 1,Doy,DJ Moore CHI,6,WR2
 1,Chuy,Jameson Williams DET,2,WR2
 1,Jay,Brock Bowers LVR,10,WR2
+2,Kenny,Travis Kelce KCC,6,WR2
+2,Monaf,Emeka Egbuka TBB,9,WR2
+2,Chuy,Jameson Williams DET,20,WR2
+2,Doy,DJ Moore CHI,4,WR2
+2,Jay,Brock Bowers LVR,3,WR2
+2,Elaf,Courtland Sutton DEN,0,WR2
 1,Elaf,Courtland Sutton DEN,14,WR2
 1,ATL,Mike Evans TBB,5,WR2
 1,Gaybo,DeVonta Smith PHI,1,WR2
 1,Larry,Terry McLaurin WAS,2,WR2
 1,Greg,Nico Collins HOU,2,WR2
 1,Monaf,Xavier Worthy KCC,0,WR2
+2,Larry,Terry McLaurin WAS,4,WR2
+2,Julio,Tyreek Hill MIA,10,WR2
+2,ATL,Mike Evans TBB,5,WR2
+2,Paco,DK Metcalf PIT,8,WR2
+2,Gaybo,DeVonta Smith PHI,5,WR2
+2,Greg,Nico Collins HOU,13,WR2
 1,Paco,Denver Broncos DEN,25,DEF
 1,Julio,Pittsburgh Steelers PIT,5,DEF
 1,Kenny,Cincinnati Bengals CIN,10,DEF
 1,Doy,Houston Texans HOU,9,DEF
 1,Chuy,New York Jets NYJ,8,DEF
 1,Jay,Tampa Bay Buccaneers TBB,2,DEF
+2,Kenny,Cincinnati Bengals CIN,8,DEF
+2,Monaf,San Francisco 49ers SFO,9,DEF
+2,Chuy,Green Bay Packers GBP,8,DEF
+2,Doy,Baltimore Ravens BAL,22,DEF
+2,Jay,Seattle Seahawks SEA,18,DEF
+2,Elaf,Detroit Lions DET,14,DEF
 1,Elaf,Detroit Lions DET,0,DEF
 1,ATL,Minnesota Vikings MIN,7,DEF
 1,Gaybo,Kansas City Chiefs KCC,6,DEF
 1,Larry,Chicago Bears CHI,22,DEF
 1,Greg,Arizona Cardinals ARI,2,DEF
 1,Monaf,San Francisco 49ers SFO,8,DEF
+2,Larry,Chicago Bears CHI,10,DEF
+2,Julio,Pittsburgh Steelers PIT,10,DEF
+2,ATL,Los Angeles Rams LAR,13,DEF
+2,Paco,Denver Broncos DEN,2,DEF
+2,Gaybo,Kansas City Chiefs KCC,4,DEF
+2,Greg,Arizona Cardinals ARI,18,DEF
 1,Paco,Chris Boswell PIT,16,K
 1,Julio,Brandon Aubrey DAL,11,K
 1,Kenny,Harrison Butker KCC,9,K
 1,Doy,Jake Bates DET,5,K
 1,Chuy,Evan McPherson CIN,5,K
 1,Jay,Jake Elliott PHI,9,K
+2,Kenny,Harrison Butker KCC,8,K
+2,Monaf,Jason Myers SEA,10,K
+2,Chuy,Tyler Loop BAL,11,K
+2,Doy,Jake Bates DET,10,K
+2,Jay,Jake Elliott PHI,14,K
+2,Elaf,Matt Gay WAS,7,K
 1,Elaf,Matt Gay WAS,3,K
 1,ATL,Ka'imi Fairbairn HOU,15,K
 1,Gaybo,Cameron Dicker LAC,9,K
 1,Larry,Will Reichard MIN,10,K
 1,Greg,Chase McLaughlin TBB,5,K
 1,Monaf,Jason Myers SEA,7,K
+2,Larry,Will Reichard MIN,9,K
+2,Julio,Brandon Aubrey DAL,22,K
+2,ATL,Ka'imi Fairbairn HOU,10,K
+2,Paco,Chris Boswell PIT,10,K
+2,Gaybo,Cameron Dicker LAC,6,K
+2,Greg,Chase McLaughlin TBB,2,K
 1,Paco,Trey McBride ARI,6,Flex
 1,Julio,Travis Hunter JAC,3,Flex
 1,Kenny,David Montgomery DET,3,Flex
 1,Doy,Alvin Kamara NOS,12,Flex
 1,Chuy,TreVeyon Henderson NEP,4,Flex
 1,Jay,Tank Bigsby JAC,1,Flex
+2,Kenny,Deebo Samuel Sr. WAS,11,Flex
+2,Monaf,Travis Etienne Jr. JAC,15,Flex
+2,Chuy,TreVeyon Henderson NEP,4,Flex
+2,Doy,Jaylen Waddle MIA,13,Flex
+2,Jay,Jordan Mason MIN,3,Flex
+2,Elaf,Jaxon Smith-Njigba SEA,10,Flex
 1,Elaf,Jaxon Smith-Njigba SEA,12,Flex
 1,ATL,Ricky Pearsall SFO,10,Flex
 1,Gaybo,Tee Higgins CIN,3,Flex
 1,Larry,Garrett Wilson NYJ,18,Flex
 1,Greg,George Pickens DAL,3,Flex
 1,Monaf,Calvin Ridley TEN,2,Flex
+2,Larry,Garrett Wilson NYJ,5,Flex
+2,Julio,Keenan Allen FA,13,Flex
+2,ATL,Ricky Pearsall SFO,5,Flex
+2,Paco,Trey McBride ARI,7,Flex
+2,Gaybo,Tee Higgins CIN,15,Flex
+2,Greg,George Pickens DAL,12,Flex
 1,Paco,Jauan Jennings SFO,1,Flex2
 1,Julio,J.K. Dobbins DEN,13,Flex2
 1,Kenny,Aaron Jones Sr. MIN,14,Flex2
 1,Doy,Jaylen Waddle MIA,3,Flex2
 1,Chuy,D'Andre Swift CHI,6,Flex2
 1,Jay,George Kittle SFO,8,Flex2
+2,Kenny,David Montgomery DET,11,Flex2
+2,Monaf,Tony Pollard TEN,9,Flex2
+2,Chuy,D'Andre Swift CHI,12,Flex2
+2,Doy,Alvin Kamara NOS,11,Flex2
+2,Jay,Rome Odunze CHI,26,Flex2
+2,Elaf,Tetairoa McMillan CAR,10,Flex2
 1,Elaf,Tetairoa McMillan CAR,6,Flex2
 1,ATL,Keon Coleman BUF,18,Flex2
 1,Gaybo,Zay Flowers BAL,22,Flex2
 1,Larry,Javonte Williams DAL,18,Flex2
 1,Greg,Jerome Ford CLE,0,Flex2
 1,Monaf,Emeka Egbuka TBB,23,Flex2
+2,Larry,Javonte Williams DAL,21,Flex2
+2,Julio,J.K. Dobbins DEN,13,Flex2
+2,ATL,Keon Coleman BUF,2,Flex2
+2,Paco,Marquise Brown KCC,3,Flex2
+2,Gaybo,Zay Flowers BAL,7,Flex2
+2,Greg,Jakobi Meyers LVR,6,Flex2
