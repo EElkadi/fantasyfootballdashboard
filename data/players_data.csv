@@ -17,6 +17,12 @@ Week,Team,Player,Score,Position
 3,Julio,Baker Mayfield TBB,19,QB
 3,Larry,Bo Nix DEN,17,QB
 3,Doy,Matthew Stafford LAR,17,QB
+4,Doy,Matthew Stafford LAR,43,QB
+4,Larry,Bo Nix DEN,32,QB
+4,ATL,Lamar Jackson BAL,11,QB
+4,Monaf,Brock Purdy SFO,26,QB
+4,Kenny,Patrick Mahomes II KCC,36,QB
+4,Paco,Josh Allen BUF,34,QB
 1,Elaf,Drake Maye NEP,15,QB
 1,ATL,Lamar Jackson BAL,39,QB
 1,Gaybo,Jalen Hurts PHI,21,QB
@@ -35,6 +41,12 @@ Week,Team,Player,Score,Position
 3,Gaybo,Jalen Hurts PHI,40,QB
 3,Jay,Justin Herbert LAC,18,QB
 3,Greg,Spencer Rattler NOS,14,QB
+4,Chuy,Jordan Love GBP,35,QB
+4,Julio,Baker Mayfield TBB,35,QB
+4,Elaf,Drake Maye NEP,31,QB
+4,Gaybo,Jalen Hurts PHI,21,QB
+4,Greg,Justin Fields NYJ,40,QB
+4,Jay,Justin Herbert LAC,16,QB
 1,Paco,Bijan Robinson ATL,23,RB1
 1,Julio,Jonathan Taylor IND,9,RB1
 1,Kenny,Christian McCaffrey SFO,13,RB1
@@ -53,6 +65,12 @@ Week,Team,Player,Score,Position
 3,Julio,Jonathan Taylor IND,33,RB1
 3,Larry,Bucky Irving TBB,9,RB1
 3,Doy,Saquon Barkley PHI,4,RB1
+4,Doy,Saquon Barkley PHI,13,RB1
+4,Larry,Bucky Irving TBB,29,RB1
+4,ATL,Jahmyr Gibbs DET,15,RB1
+4,Monaf,Ashton Jeanty LVR,38,RB1
+4,Kenny,Christian McCaffrey SFO,19,RB1
+4,Paco,Bijan Robinson ATL,24,RB1
 1,Elaf,De'Von Achane MIA,14,RB1
 1,ATL,Jahmyr Gibbs DET,4,RB1
 1,Gaybo,Derrick Henry BAL,36,RB1
@@ -71,6 +89,12 @@ Week,Team,Player,Score,Position
 3,Gaybo,Derrick Henry BAL,13,RB1
 3,Jay,Chase Brown CIN,1,RB1
 3,Greg,James Conner ARI,3,RB1
+4,Chuy,James Cook BUF,18,RB1
+4,Julio,Jonathan Taylor IND,9,RB1
+4,Elaf,De'Von Achane MIA,15,RB1
+4,Gaybo,Derrick Henry BAL,5,RB1
+4,Greg,Quinshon Judkins CLE,17,RB1
+4,Jay,Chase Brown CIN,7,RB1
 1,Paco,Tyrone Tracy Jr. NYG,3,RB2
 1,Julio,Kyren Williams LAR,12,RB2
 1,Kenny,Chuba Hubbard CAR,16,RB2
@@ -89,6 +113,12 @@ Week,Team,Player,Score,Position
 3,Julio,Kyren Williams LAR,17,RB2
 3,Larry,Breece Hall NYJ,5,RB2
 3,Doy,Kenneth Walker III SEA,16,RB2
+4,Doy,Kenneth Walker III SEA,10,RB2
+4,Larry,Breece Hall NYJ,11,RB2
+4,ATL,Cam Skattebo NYG,11,RB2
+4,Monaf,Omarion Hampton LAC,26,RB2
+4,Kenny,David Montgomery DET,1,RB2
+4,Paco,Chris Rodriguez Jr. WAS,5,RB2
 1,Elaf,Isiah Pacheco KCC,2,RB2
 1,ATL,Rhamondre Stevenson NEP,2,RB2
 1,Gaybo,Nick Chubb HOU,6,RB2
@@ -107,6 +137,12 @@ Week,Team,Player,Score,Position
 3,Gaybo,Jacory Croskey-Merritt WAS,8,RB2
 3,Jay,Jordan Mason MIN,23,RB2
 3,Greg,Jaylen Warren PIT,7,RB2
+4,Chuy,Josh Jacobs GBP,28,RB2
+4,Julio,Kyren Williams LAR,8,RB2
+4,Elaf,Isiah Pacheco KCC,10,RB2
+4,Gaybo,Nick Chubb HOU,5,RB2
+4,Greg,Jaylen Warren PIT,0,RB2
+4,Jay,Jordan Mason MIN,6,RB2
 1,Paco,Puka Nacua LAR,13,WR1
 1,Julio,A.J. Brown PHI,0,WR1
 1,Kenny,Malik Nabers NYG,7,WR1
@@ -125,6 +161,12 @@ Week,Team,Player,Score,Position
 3,Julio,Tyreek Hill MIA,10,WR1
 3,Larry,Brian Thomas Jr. JAC,5,WR1
 3,Doy,Marvin Harrison Jr. ARI,4,WR1
+4,Doy,Marvin Harrison Jr. ARI,13,WR1
+4,Larry,Brian Thomas Jr. JAC,4,WR1
+4,ATL,Drake London ATL,17,WR1
+4,Monaf,Ladd McConkey LAC,1,WR1
+4,Kenny,Malik Nabers NYG,2,WR1
+4,Paco,Puka Nacua LAR,23,WR1
 1,Elaf,Ja'Marr Chase CIN,2,WR1
 1,ATL,Drake London ATL,5,WR1
 1,Gaybo,Amon-Ra St. Brown DET,4,WR1
@@ -143,6 +185,12 @@ Week,Team,Player,Score,Position
 3,Gaybo,Amon-Ra St. Brown DET,14,WR1
 3,Jay,CeeDee Lamb DAL,0,WR1
 3,Greg,Justin Jefferson MIN,7,WR1
+4,Chuy,Davante Adams LAR,12,WR1
+4,Julio,A.J. Brown PHI,0,WR1
+4,Elaf,Ja'Marr Chase CIN,2,WR1
+4,Gaybo,Amon-Ra St. Brown DET,19,WR1
+4,Greg,Justin Jefferson MIN,12,WR1
+4,Jay,Quentin Johnston LAC,18,WR1
 1,Paco,DK Metcalf PIT,8,WR2
 1,Julio,Tyreek Hill MIA,4,WR2
 1,Kenny,Travis Kelce KCC,13,WR2
@@ -161,6 +209,12 @@ Week,Team,Player,Score,Position
 3,Julio,A.J. Brown PHI,16,WR2
 3,Larry,Terry McLaurin WAS,7,WR2
 3,Doy,DJ Moore CHI,8,WR2
+4,Doy,DJ Moore CHI,3,WR2
+4,Larry,Garrett Wilson NYJ,16,WR2
+4,ATL,Ricky Pearsall SFO,4,WR2
+4,Monaf,Emeka Egbuka TBB,23,WR2
+4,Kenny,Chris Godwin TBB,2,WR2
+4,Paco,DK Metcalf PIT,26,WR2
 1,Elaf,Courtland Sutton DEN,14,WR2
 1,ATL,Mike Evans TBB,5,WR2
 1,Gaybo,DeVonta Smith PHI,1,WR2
@@ -179,6 +233,12 @@ Week,Team,Player,Score,Position
 3,Gaybo,Tee Higgins CIN,1,WR2
 3,Jay,Rome Odunze CHI,15,WR2
 3,Greg,Nico Collins HOU,21,WR2
+4,Chuy,Jameson Williams DET,4,WR2
+4,Julio,Tyreek Hill MIA,6,WR2
+4,Elaf,Courtland Sutton DEN,16,WR2
+4,Gaybo,Zay Flowers BAL,7,WR2
+4,Greg,Nico Collins HOU,7,WR2
+4,Jay,Rome Odunze CHI,14,WR2
 1,Paco,Denver Broncos DEN,25,DEF
 1,Julio,Pittsburgh Steelers PIT,5,DEF
 1,Kenny,Cincinnati Bengals CIN,10,DEF
@@ -197,6 +257,12 @@ Week,Team,Player,Score,Position
 3,Julio,Pittsburgh Steelers PIT,25,DEF
 3,Larry,Cleveland Browns CLE,16,DEF
 3,Doy,Houston Texans HOU,7,DEF
+4,Doy,Houston Texans HOU,20,DEF
+4,Larry,Cleveland Browns CLE,3,DEF
+4,ATL,Minnesota Vikings MIN,4,DEF
+4,Monaf,New England Patriots NEP,16,DEF
+4,Kenny,Indianapolis Colts IND,9,DEF
+4,Paco,Denver Broncos DEN,16,DEF
 1,Elaf,Detroit Lions DET,0,DEF
 1,ATL,Minnesota Vikings MIN,7,DEF
 1,Gaybo,Kansas City Chiefs KCC,6,DEF
@@ -215,6 +281,12 @@ Week,Team,Player,Score,Position
 3,Gaybo,Kansas City Chiefs KCC,13,DEF
 3,Jay,Seattle Seahawks SEA,22,DEF
 3,Greg,Buffalo Bills BUF,3,DEF
+4,Chuy,Green Bay Packers GBP,-1,DEF
+4,Julio,Pittsburgh Steelers PIT,18,DEF
+4,Elaf,Detroit Lions DET,30,DEF
+4,Gaybo,Miami Dolphins MIA,13,DEF
+4,Greg,Buffalo Bills BUF,9,DEF
+4,Jay,Seattle Seahawks SEA,18,DEF
 1,Paco,Chris Boswell PIT,16,K
 1,Julio,Brandon Aubrey DAL,11,K
 1,Kenny,Harrison Butker KCC,9,K
@@ -233,6 +305,12 @@ Week,Team,Player,Score,Position
 3,Julio,Brandon Aubrey DAL,9,K
 3,Larry,Will Reichard MIN,15,K
 3,Doy,Jake Bates DET,8,K
+4,Doy,Jake Bates DET,13,K
+4,Larry,Will Reichard MIN,5,K
+4,ATL,Ka'imi Fairbairn HOU,8,K
+4,Monaf,Jason Myers SEA,20,K
+4,Kenny,Harrison Butker KCC,11,K
+4,Paco,Chris Boswell PIT,6,K
 1,Elaf,Matt Gay WAS,3,K
 1,ATL,Ka'imi Fairbairn HOU,15,K
 1,Gaybo,Cameron Dicker LAC,9,K
@@ -251,6 +329,12 @@ Week,Team,Player,Score,Position
 3,Gaybo,Cameron Dicker LAC,15,K
 3,Jay,Jake Elliott PHI,3,K
 3,Greg,Chase McLaughlin TBB,27,K
+4,Chuy,Tyler Loop BAL,8,K
+4,Julio,Brandon Aubrey DAL,6,K
+4,Elaf,Matt Gay WAS,16,K
+4,Gaybo,Cameron Dicker LAC,4,K
+4,Greg,Chase McLaughlin TBB,17,K
+4,Jay,Jake Elliott PHI,7,K
 1,Paco,Trey McBride ARI,6,Flex
 1,Julio,Travis Hunter JAC,3,Flex
 1,Kenny,David Montgomery DET,3,Flex
@@ -269,6 +353,12 @@ Week,Team,Player,Score,Position
 3,Julio,J.K. Dobbins DEN,15,Flex
 3,Larry,Garrett Wilson NYJ,15,Flex
 3,Doy,Alvin Kamara NOS,5,Flex
+4,Doy,Alvin Kamara NOS,7,Flex
+4,Larry,Trey Benson ARI,4,Flex
+4,ATL,Keon Coleman BUF,4,Flex
+4,Monaf,Travis Etienne Jr. JAC,22,Flex
+4,Kenny,Chuba Hubbard CAR,6,Flex
+4,Paco,Trey McBride ARI,5,Flex
 1,Elaf,Jaxon Smith-Njigba SEA,12,Flex
 1,ATL,Ricky Pearsall SFO,10,Flex
 1,Gaybo,Tee Higgins CIN,3,Flex
@@ -287,6 +377,12 @@ Week,Team,Player,Score,Position
 3,Gaybo,Nick Chubb HOU,3,Flex
 3,Jay,Brock Bowers LVR,5,Flex
 3,Greg,George Pickens DAL,12,Flex
+4,Chuy,D'Andre Swift CHI,11,Flex
+4,Julio,J.K. Dobbins DEN,10,Flex
+4,Elaf,Jaxon Smith-Njigba SEA,8,Flex
+4,Gaybo,DeVonta Smith PHI,2,Flex
+4,Greg,George Pickens DAL,28,Flex
+4,Jay,Brock Bowers LVR,4,Flex
 1,Paco,Jauan Jennings SFO,1,Flex2
 1,Julio,J.K. Dobbins DEN,13,Flex2
 1,Kenny,Aaron Jones Sr. MIN,14,Flex2
@@ -305,6 +401,12 @@ Week,Team,Player,Score,Position
 3,Julio,Keenan Allen FA,14,Flex2
 3,Larry,Javonte Williams DAL,8,Flex2
 3,Doy,Cooper Kupp SEA,3,Flex2
+4,Doy,Jaylen Waddle MIA,4,Flex2
+4,Larry,Javonte Williams DAL,15,Flex2
+4,ATL,Troy Franklin DEN,5,Flex2
+4,Monaf,Tony Pollard TEN,7,Flex2
+4,Kenny,Travis Kelce KCC,4,Flex2
+4,Paco,Michael Pittman Jr. IND,10,Flex2
 1,Elaf,Tetairoa McMillan CAR,6,Flex2
 1,ATL,Keon Coleman BUF,18,Flex2
 1,Gaybo,Zay Flowers BAL,22,Flex2
@@ -323,3 +425,9 @@ Week,Team,Player,Score,Position
 3,Gaybo,Zay Flowers BAL,1,Flex2
 3,Jay,Chris Olave NOS,5,Flex2
 3,Greg,Jakobi Meyers LVR,6,Flex2
+4,Chuy,TreVeyon Henderson NEP,10,Flex2
+4,Julio,Keenan Allen FA,3,Flex2
+4,Elaf,Tetairoa McMillan CAR,6,Flex2
+4,Gaybo,Tee Higgins CIN,3,Flex2
+4,Greg,Jakobi Meyers LVR,3,Flex2
+4,Jay,Chris Olave NOS,8,Flex2
