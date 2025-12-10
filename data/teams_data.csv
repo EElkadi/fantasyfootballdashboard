@@ -77,6 +77,12 @@ Week,Team,Score,Opponent,Result
 13,Chuy,145,ATL,Win
 13,Kenny,113,Larry,Win
 13,Jay,111,Gaybo,Win
+14,Jay,112,Larry,Win
+14,Chuy,91,Elaf,Loss
+14,Kenny,40,Paco,Loss
+14,Gaybo,108,Julio,Win
+14,Monaf,117,ATL,Win
+14,Greg,97,Doy,Loss
 1,Elaf,68,Paco,Loss
 1,ATL,105,Julio,Win
 1,Gaybo,108,Kenny,Loss
@@ -155,3 +161,9 @@ Week,Team,Score,Opponent,Result
 13,ATL,74,Chuy,Loss
 13,Larry,76,Kenny,Loss
 13,Gaybo,79,Jay,Loss
+14,Larry,81,Jay,Loss
+14,Elaf,100,Chuy,Win
+14,Paco,137,Kenny,Win
+14,Julio,88,Gaybo,Loss
+14,ATL,108,Monaf,Loss
+14,Doy,124,Greg,Win
