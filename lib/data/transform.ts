@@ -1,4 +1,4 @@
-import { Matchup, PlayerScore, PlayerWeek, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek } from '@/lib/types'
+import { DraftPick, Matchup, PlayerScore, PlayerWeek, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, WaiverMove } from '@/lib/types'
 import { resolveOwner } from '@/lib/league'
 
 /** Canonicalize a team spelling from any source (sheet, CSV, chat). */
@@ -127,6 +127,94 @@ export function longToMatchups(
     matchups.push({ week, team1: t1, team2: t2, winner, loser: winner === team ? opp : team })
   }
   return matchups.sort((a, b) => a.week - b.week)
+}
+
+/** Archived draft.csv rows or equivalent -> DraftPick[] */
+export function rowsToDraft(rows: { Round: string; Slot: string; Team: string; Player: string }[]): DraftPick[] {
+  return rows
+    .map((r) => {
+      const parsed = parseSheetPlayer(r.Player ?? '')
+      return {
+        round: parseInt(r.Round),
+        slot: parseInt(r.Slot),
+        team: canonTeam(r.Team ?? ''),
+        ...parsed,
+      }
+    })
+    .filter((p) => p.round > 0 && p.player)
+    .sort((a, b) => a.round - b.round || a.slot - b.slot)
+}
+
+/** Waiver rows (Week/Team/Player/Cost) -> WaiverMove[] */
+export function rowsToWaivers(rows: Record<string, string>[]): WaiverMove[] {
+  return rows
+    .map((r) => {
+      const week = parseInt(r['Week'] ?? r['WEEK'] ?? '')
+      const team = canonTeam(r['Team'] ?? r['TEAM'] ?? '')
+      const raw = r['Player'] ?? r['PLAYER'] ?? ''
+      const cost = parseFloat((r['Cost'] ?? r['COST'] ?? '0').replace(/[^\d.]/g, ''))
+      const parsed = parseSheetPlayer(raw)
+      return { week, team, ...parsed, cost: Number.isFinite(cost) ? cost : 0 }
+    })
+    .filter((m) => m.week > 0 && m.team && m.player)
+    .sort((a, b) => a.week - b.week)
+}
+
+/**
+ * Live "Final Draft Board" grid + "Teams" tab rows -> DraftPick[].
+ * The board's columns follow draft order; the Teams tab maps order -> owner.
+ */
+export function gridToDraft(board: string[][], teamsRows: Record<string, string>[]): DraftPick[] {
+  const order = new Map<number, string>()
+  for (const r of teamsRows) {
+    const n = parseInt(r['DRAFT ORDER'] ?? '')
+    const owner = canonTeam(r['TEAMS'] ?? '')
+    if (n && owner) order.set(n, owner)
+  }
+  const picks: DraftPick[] = []
+  for (const row of board.slice(1)) {
+    const roundMatch = (row[0] ?? '').match(/round\s*0*(\d+)/i)
+    if (!roundMatch) continue
+    const round = parseInt(roundMatch[1])
+    for (let col = 1; col <= 12; col++) {
+      const team = order.get(col)
+      const cell = (row[col] ?? '').trim()
+      if (!team || !cell) continue
+      picks.push({ round, slot: col, team, ...parseDraftCell(cell) })
+    }
+  }
+  return picks.sort((a, b) => a.round - b.round || a.slot - b.slot)
+}
+
+const POSITIONS = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DST'])
+
+/** "Bijan Robinson ATL RB" / "Kareem Hunt (RB, KC)" / "Name TEAM (POS)" -> parts */
+export function parseDraftCell(cell: string): { player: string; nflTeam?: string; position?: string } {
+  const s = cell.replace(/\s+/g, ' ').trim()
+  const posTeam = s.match(/^(.*?)\s*\(([^,)]+),\s*([^)]+)\)$/)
+  if (posTeam && POSITIONS.has(posTeam[2].trim().toUpperCase().replace('D/ST', 'DEF'))) {
+    return {
+      player: posTeam[1].trim(),
+      nflTeam: posTeam[3].trim().toUpperCase(),
+      position: posTeam[2].trim().toUpperCase().replace('D/ST', 'DEF').replace('DST', 'DEF'),
+    }
+  }
+  const parenPos = parseSheetPlayer(s)
+  if (parenPos.position) return parenPos
+  const toks = s.replace(/\((QB|RB|WR|TE|K|DEF|D\/ST)\)/gi, ' ').replace(/\s+/g, ' ').trim().split(' ')
+  let position: string | undefined
+  let nflTeam: string | undefined
+  const last = toks[toks.length - 1]?.toUpperCase().replace('D/ST', 'DEF')
+  if (last && POSITIONS.has(last)) {
+    position = last === 'DST' ? 'DEF' : last
+    toks.pop()
+  }
+  const maybeTeam = toks[toks.length - 1]
+  if (maybeTeam && /^[A-Z]{2,3}$/.test(maybeTeam) && !['II', 'III', 'IV'].includes(maybeTeam)) {
+    nflTeam = maybeTeam
+    toks.pop()
+  }
+  return { player: toks.join(' ').trim(), nflTeam, position }
 }
 
 /** Schedule grid (Week column + one column per team) -> ScheduleWeek[] */

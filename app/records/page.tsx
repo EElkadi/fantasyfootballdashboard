@@ -1,7 +1,9 @@
 import { Metadata } from 'next'
 import { getAllSeasons } from '@/lib/data'
 import { buildRecordBook, RecordEntry } from '@/lib/data/records'
+import Link from 'next/link'
 import { HONORS, resolveOwner } from '@/lib/league'
+import { playerSlug } from '@/lib/players'
 import { TeamMark } from '@/components/league/TeamMark'
 
 export const revalidate = 300
@@ -65,6 +67,13 @@ function RecordSection({ title, entries }: { title: string; entries: RecordEntry
             <div className="mt-1.5 flex items-baseline justify-between gap-2">
               {resolveOwner(e.holder) ? (
                 <TeamMark team={e.holder} className="min-w-0 truncate" />
+              ) : e.kind === 'player' ? (
+                <Link
+                  href={`/players/${playerSlug(e.holder)}?season=${e.season}`}
+                  className="min-w-0 truncate font-semibold hover:underline"
+                >
+                  {e.holder}
+                </Link>
               ) : (
                 <p className="min-w-0 truncate font-semibold">{e.holder}</p>
               )}

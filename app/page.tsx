@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getDefaultSeason } from '@/lib/data'
-import { CURRENT_SEASON, LEAGUE, teamNameOf } from '@/lib/league'
+import { computePot, CURRENT_SEASON, LEAGUE } from '@/lib/league'
 import { MatchupCard } from '@/components/league/MatchupCard'
 import { StandingsTable } from '@/components/league/StandingsTable'
 import { TeamMark } from '@/components/league/TeamMark'
@@ -123,7 +123,7 @@ export default async function HomePage() {
           {weekMatchups.length > 0 ? (
             <div className="space-y-3">
               {weekMatchups.map((m, i) => (
-                <MatchupCard key={i} matchup={m} />
+                <MatchupCard key={i} matchup={m} season={season.season} />
               ))}
             </div>
           ) : (
@@ -168,19 +168,39 @@ export default async function HomePage() {
             </p>
           )}
 
-          <div className="rounded-xl border bg-card p-4 text-sm shadow-sm">
-            <h3 className="font-semibold">The pot</h3>
-            <ul className="mt-2 space-y-1">
-              {LEAGUE.payouts.map((p) => (
-                <li key={p.place} className="flex justify-between">
-                  <span className="text-muted-foreground">{p.place}</span>
-                  <span className="tabular font-medium">${p.amount.toLocaleString()}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <PotCard isArchive={isArchive} waiverFees={season.waivers.reduce((s, m) => s + m.cost, 0)} />
         </section>
       </div>
+    </div>
+  )
+}
+
+function PotCard({ isArchive, waiverFees }: { isArchive: boolean; waiverFees: number }) {
+  // Live pot: dues plus every waiver fee paid; archive seasons show the
+  // current payout structure instead.
+  const pot = computePot(isArchive ? 0 : waiverFees)
+  return (
+    <div className="rounded-xl border bg-card p-4 text-sm shadow-sm">
+      <div className="flex items-baseline justify-between">
+        <h3 className="font-semibold">The pot</h3>
+        <span className="tabular text-lg font-extrabold">${pot.pot.toLocaleString()}</span>
+      </div>
+      {!isArchive && waiverFees > 0 && (
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          ${pot.base.toLocaleString()} dues + ${waiverFees.toLocaleString()} in{' '}
+          <Link href="/waivers" className="underline">
+            waiver fees
+          </Link>
+        </p>
+      )}
+      <ul className="mt-2 space-y-1">
+        {pot.payouts.map((p) => (
+          <li key={p.place} className="flex justify-between">
+            <span className="text-muted-foreground">{p.place}</span>
+            <span className="tabular font-medium">${p.amount.toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

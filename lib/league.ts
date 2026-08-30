@@ -58,6 +58,7 @@ export const LEAGUE = {
   name: 'Premier League Fantasy Football',
   since: 2015,
   dues: 300,
+  scoringChampPrize: 250,
   payouts: [
     { place: '1st Place', amount: 2010 },
     { place: '2nd Place', amount: 1005 },
@@ -78,6 +79,27 @@ export const CURRENT_SEASON = Number(process.env.CURRENT_SEASON ?? 2026)
 
 /** Seasons with archived CSV data under data/seasons/<year>/ */
 export const ARCHIVED_SEASONS = [2025, 2024]
+
+/**
+ * The pot: 12 × dues plus every waiver fee paid during the season. The
+ * scoring champ prize is fixed at $250; the rest splits 60/30/10.
+ */
+export function computePot(waiverFees: number) {
+  const base = LEAGUE.dues * 12
+  const pot = base + waiverFees
+  const prizePool = pot - LEAGUE.scoringChampPrize
+  return {
+    base,
+    waiverFees,
+    pot,
+    payouts: [
+      { place: '1st Place', amount: Math.round(prizePool * 0.6) },
+      { place: '2nd Place', amount: Math.round(prizePool * 0.3) },
+      { place: '3rd Place', amount: Math.round(prizePool * 0.1) },
+      { place: 'Scoring Champ', amount: LEAGUE.scoringChampPrize },
+    ],
+  }
+}
 
 /** Past champions — extend as history gets filled in. */
 export const HONORS: { season: number; champion?: string; runnerUp?: string; scoringChamp?: string; turd?: string }[] = []

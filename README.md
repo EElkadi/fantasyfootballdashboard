@@ -32,6 +32,9 @@ WhatsApp scores ──paste──▶ /commish ──review──▶ Google Sheet
 | `/matchups` | Week browser with full box scores (`?week=`, `?season=`) |
 | `/standings` | Full table with playoff line + Turd Bowl zone, Monte Carlo playoff odds, power rankings, luck index |
 | `/teams/<owner>` | Team page: weekly chart vs league average, top contributors, all-time H2H, season history |
+| `/draft` | Position-color-coded draft board per season; every pick links to the player's page |
+| `/waivers` | Waiver log with per-team spending and the live pot (dues + waiver fees) |
+| `/players/<slug>` | Player analytics: weekly chart, game log, position rank, draft/waiver history |
 | `/records` | All-time record book computed from the box scores |
 | `/rules` | The constitution and full scoring tables |
 | `/recap/<week>` | Shareable 1080×1080 recap card (native share on mobile → straight into WhatsApp) |
@@ -64,6 +67,12 @@ Three tabs (names configurable via env):
   Romeo Doubs, "Mathew Stafford" → Matthew Stafford). Update it after the
   draft and after waiver adds; without it, parsing still works but spellings
   aren't corrected.
+- **Final Draft Board** + **Teams** — the draft grid (one column per team in
+  draft order, `Round NN` rows) and the Teams tab whose `DRAFT ORDER`/`TEAMS`
+  columns map board columns to owners. Powers `/draft`.
+- **Waiver Wire** — `WEEK | TEAM | PLAYER | COST` rows. Powers `/waivers` and
+  the live pot math (fees join the pot; scoring champ stays $250 and the rest
+  splits 60/30/10). `/commish` has a one-click form that appends rows here.
 
 ## Weekly routine (commissioner)
 

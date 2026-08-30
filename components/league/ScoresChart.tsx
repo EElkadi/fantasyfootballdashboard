@@ -17,11 +17,14 @@ export function ScoresChart({
   teams,
   leagueAvg,
   height = 280,
+  seriesColors,
 }: {
   data: SeriesPoint[]
   teams: string[]
   leagueAvg?: Record<number, number>
   height?: number
+  /** Override the per-series color (defaults to the owner's team color) */
+  seriesColors?: Record<string, string>
 }) {
   const merged = data.map((d) => ({
     ...d,
@@ -66,7 +69,7 @@ export function ScoresChart({
               key={team}
               type="monotone"
               dataKey={team}
-              stroke={ownerColor(team)}
+              stroke={seriesColors?.[team] ?? ownerColor(team)}
               strokeWidth={2.25}
               dot={{ r: 2.5 }}
               activeDot={{ r: 4 }}

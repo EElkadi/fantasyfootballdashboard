@@ -6,8 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { parseSubmission, decideWinner, ParsedLineup } from '@/lib/parser/parse'
-import { ScheduleWeek, Slot, SLOTS } from '@/lib/types'
-import { OWNERS } from '@/lib/league'
+import { ScheduleWeek, Slot, SLOTS, WaiverMove } from '@/lib/types'
 
 interface Context {
   authed: boolean
@@ -18,6 +17,7 @@ interface Context {
   teams: string[]
   rosters: Record<string, string[]>
   schedule: ScheduleWeek[]
+  waivers: WaiverMove[]
 }
 
 interface EditablePlayer {
@@ -254,7 +254,99 @@ export default function CommishPage() {
           onSubmit={() => submit(m)}
         />
       ))}
+
+      <WaiverLogger ctx={ctx} defaultWeek={week} onLogged={loadContext} />
     </div>
+  )
+}
+
+function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWeek: number; onLogged: () => void }) {
+  const [team, setTeam] = useState('')
+  const [player, setPlayer] = useState('')
+  const [week, setWeek] = useState(defaultWeek)
+  const [cost, setCost] = useState<number | ''>('')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+
+  // Fees escalate per manager: $20 for their first add, $40 for the second…
+  const suggestedCost = (t: string) => 20 * ((ctx.waivers?.filter((m) => m.team === t).length ?? 0) + 1)
+
+  const submit = async () => {
+    setBusy(true)
+    setNote('')
+    const res = await fetch('/api/commish/waiver', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ week, team, player, cost: cost === '' ? suggestedCost(team) : cost }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok) {
+      setNote(`Logged: ${data.team} adds ${data.player} for $${data.cost}`)
+      setPlayer('')
+      setCost('')
+      onLogged()
+    } else {
+      setNote(data.error ?? 'Failed to log the move')
+    }
+    setBusy(false)
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Log a waiver add</CardTitle>
+        <CardDescription>
+          Appends to the Waiver Wire tab — the fee lands in the pot. Fee auto-fills from that manager&apos;s add count
+          ($20, $40, $60…).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Team</label>
+            <select
+              value={team}
+              onChange={(e) => {
+                setTeam(e.target.value)
+                setCost('')
+              }}
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
+            >
+              <option value="">Pick…</option>
+              {ctx.teams.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="min-w-[200px] flex-1">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Player</label>
+            <Input value={player} onChange={(e) => setPlayer(e.target.value)} placeholder="Puka Nacua LAR (WR)" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Week</label>
+            <Input type="number" min={1} max={18} value={week} onChange={(e) => setWeek(parseInt(e.target.value) || 1)} className="w-20" />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Fee $</label>
+            <Input
+              type="number"
+              min={0}
+              step={20}
+              value={cost}
+              placeholder={team ? String(suggestedCost(team)) : '20'}
+              onChange={(e) => setCost(e.target.value === '' ? '' : parseInt(e.target.value))}
+              className="w-24"
+            />
+          </div>
+          <Button onClick={submit} disabled={!team || !player.trim() || busy || !ctx.sheetConfigured}>
+            {busy ? 'Saving…' : 'Log move'}
+          </Button>
+        </div>
+        {note && <p className="text-sm text-muted-foreground">{note}</p>}
+      </CardContent>
+    </Card>
   )
 }
 

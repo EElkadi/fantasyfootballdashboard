@@ -11,6 +11,8 @@ const LINKS = [
   { href: '/matchups', label: 'Matchups' },
   { href: '/standings', label: 'Standings' },
   { href: '/teams', label: 'Teams' },
+  { href: '/draft', label: 'Draft' },
+  { href: '/waivers', label: 'Waivers' },
   { href: '/records', label: 'Records' },
   { href: '/rules', label: 'Rules' },
 ]

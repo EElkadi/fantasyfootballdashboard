@@ -72,6 +72,25 @@ export interface TeamStanding {
   gamesPlayed: number
 }
 
+export interface DraftPick {
+  round: number
+  /** Draft-order column, 1–12 */
+  slot: number
+  team: string
+  player: string
+  nflTeam?: string
+  position?: string
+}
+
+export interface WaiverMove {
+  week: number
+  team: string
+  player: string
+  nflTeam?: string
+  position?: string
+  cost: number
+}
+
 export interface ScheduleWeek {
   week: number
   label?: string
@@ -91,4 +110,6 @@ export interface SeasonData {
   playerWeeks: PlayerWeek[]
   standings: TeamStanding[]
   schedule: ScheduleWeek[]
+  draft: DraftPick[]
+  waivers: WaiverMove[]
 }

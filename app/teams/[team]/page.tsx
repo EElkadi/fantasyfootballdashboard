@@ -5,6 +5,7 @@ import { getAllSeasons, getDefaultSeason } from '@/lib/data'
 import { careerHeadToHead } from '@/lib/data/records'
 import { resolveOwner, teamNameOf, ownerColor } from '@/lib/league'
 import { ScoresChart, SeriesPoint } from '@/components/league/ScoresChart'
+import { playerSlug } from '@/lib/players'
 import { TeamMark } from '@/components/league/TeamMark'
 
 export const revalidate = 60
@@ -133,7 +134,11 @@ export default async function TeamPage({ params }: { params: { team: string } })
                 <tbody>
                   {contributors.map((c) => (
                     <tr key={c.player} className="border-b border-border/40 last:border-0">
-                      <td className="px-3 py-2 font-medium">{c.player}</td>
+                      <td className="px-3 py-2 font-medium">
+                        <Link href={`/players/${playerSlug(c.player)}?season=${season.season}`} className="hover:underline">
+                          {c.player}
+                        </Link>
+                      </td>
                       <td className="px-3 py-2 text-xs text-muted-foreground">{Array.from(c.slots).join(', ')}</td>
                       <td className="tabular px-3 py-2 text-right text-muted-foreground">{c.weeks}</td>
                       <td className="tabular px-3 py-2 text-right font-semibold">{c.total}</td>

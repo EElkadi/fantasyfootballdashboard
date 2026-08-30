@@ -7,6 +7,8 @@ export interface RecordEntry {
   detail: string
   season: number
   week?: number
+  /** 'player' entries link to the player page */
+  kind?: 'team' | 'player'
 }
 
 export interface RecordBook {
@@ -120,6 +122,7 @@ export function buildRecordBook(seasons: SeasonData[]): RecordBook {
       detail: `${bestPlayer.slot} for ${bestPlayer.team}`,
       season: bestPlayer.season,
       week: bestPlayer.week,
+      kind: 'player',
     })
   }
   for (const group of [
@@ -141,6 +144,7 @@ export function buildRecordBook(seasons: SeasonData[]): RecordBook {
         detail: `for ${best.team}`,
         season: best.season,
         week: best.week,
+        kind: 'player',
       })
     }
   }
@@ -164,6 +168,18 @@ export function buildRecordBook(seasons: SeasonData[]): RecordBook {
       detail: `${best.h2h.wins}-${best.h2h.losses} H2H · ${best.top6.wins}-${best.top6.losses} top-6`,
       season: s.season,
     })
+    if (s.waivers.length > 0) {
+      const spend = new Map<string, number>()
+      for (const m of s.waivers) spend.set(m.team, (spend.get(m.team) ?? 0) + m.cost)
+      const [team, amount] = Array.from(spend.entries()).sort((a, b) => b[1] - a[1])[0]
+      seasonRecords.push({
+        label: `${s.season} waiver whale`,
+        holder: team,
+        value: `$${fmt(amount)}`,
+        detail: `${s.waivers.filter((m) => m.team === team).length} adds — all into the pot`,
+        season: s.season,
+      })
+    }
   }
 
   // --- Streaks (H2H, within a season) ---

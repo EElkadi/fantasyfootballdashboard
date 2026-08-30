@@ -18,6 +18,9 @@ export const SHEET_ID = process.env.LEAGUE_SHEET_ID ?? ''
 export const SCORES_TAB = process.env.SCORES_TAB ?? 'Scores'
 export const SCHEDULE_TAB = process.env.SCHEDULE_TAB ?? 'Schedule'
 export const ROSTERS_TAB = process.env.ROSTERS_TAB ?? 'Rosters'
+export const DRAFT_TAB = process.env.DRAFT_TAB ?? 'Final Draft Board'
+export const WAIVERS_TAB = process.env.WAIVERS_TAB ?? 'Waiver Wire'
+export const TEAMS_TAB = process.env.TEAMS_TAB ?? 'Teams'
 
 function credentials(): { email: string; key: string } | null {
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_KEY

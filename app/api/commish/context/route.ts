@@ -21,5 +21,6 @@ export async function GET() {
     teams: ACTIVE_OWNERS.map((o) => o.name),
     rosters,
     schedule: season.schedule,
+    waivers: season.waivers,
   })
 }

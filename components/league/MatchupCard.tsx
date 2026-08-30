@@ -1,11 +1,33 @@
+import Link from 'next/link'
 import { Matchup, SLOTS } from '@/lib/types'
+import { playerSlug } from '@/lib/players'
 import { TeamMark } from './TeamMark'
+
+function PlayerCell({ name, season, strong }: { name?: string; season?: number; strong: boolean }) {
+  if (!name) return <>—</>
+  return (
+    <Link
+      href={`/players/${playerSlug(name)}${season ? `?season=${season}` : ''}`}
+      className={`hover:underline ${strong ? 'font-medium' : ''}`}
+    >
+      {name}
+    </Link>
+  )
+}
 
 /**
  * One matchup result with the full box score behind a disclosure —
  * server-rendered, no JS needed.
  */
-export function MatchupCard({ matchup, defaultOpen = false }: { matchup: Matchup; defaultOpen?: boolean }) {
+export function MatchupCard({
+  matchup,
+  defaultOpen = false,
+  season,
+}: {
+  matchup: Matchup
+  defaultOpen?: boolean
+  season?: number
+}) {
   const { team1, team2, winner } = matchup
   const sides = [team1, team2]
   const tie = team1.total === team2.total
@@ -59,12 +81,14 @@ export function MatchupCard({ matchup, defaultOpen = false }: { matchup: Matchup
               return (
                 <tr key={slot} className="border-t border-border/40">
                   <td className="py-1 pr-2 text-xs font-medium text-muted-foreground">{slot}</td>
-                  <td className={`py-1 pr-2 ${hi1 ? 'font-medium' : 'text-muted-foreground'}`}>{p1?.player ?? '—'}</td>
+                  <td className={`py-1 pr-2 ${hi1 ? '' : 'text-muted-foreground'}`}>
+                    <PlayerCell name={p1?.player} season={season} strong={hi1} />
+                  </td>
                   <td className={`tabular py-1 text-right ${hi1 ? 'font-semibold' : 'text-muted-foreground'}`}>
                     {p1?.score ?? ''}
                   </td>
-                  <td className={`py-1 pl-4 pr-2 ${hi2 ? 'font-medium' : 'text-muted-foreground'}`}>
-                    {p2?.player ?? '—'}
+                  <td className={`py-1 pl-4 pr-2 ${hi2 ? '' : 'text-muted-foreground'}`}>
+                    <PlayerCell name={p2?.player} season={season} strong={hi2} />
                   </td>
                   <td className={`tabular py-1 text-right ${hi2 ? 'font-semibold' : 'text-muted-foreground'}`}>
                     {p2?.score ?? ''}

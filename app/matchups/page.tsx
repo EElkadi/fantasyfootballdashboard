@@ -75,7 +75,7 @@ export default async function MatchupsPage({
       {matchups.length > 0 ? (
         <div className="space-y-3">
           {matchups.map((m, i) => (
-            <MatchupCard key={i} matchup={m} defaultOpen={matchups.length === 1} />
+            <MatchupCard key={i} matchup={m} defaultOpen={matchups.length === 1} season={season.season} />
           ))}
           {!seasonParam && (
             <p className="text-sm">
