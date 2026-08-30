@@ -1,12 +1,14 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
+import { parseDraftCell } from '@/lib/data/transform'
 import { computePot, CURRENT_SEASON } from '@/lib/league'
 import { playerSlug, positionColor } from '@/lib/players'
+import { Trade } from '@/lib/types'
 import { TeamMark } from '@/components/league/TeamMark'
 
 export const revalidate = 60
-export const metadata: Metadata = { title: 'Waiver Wire' }
+export const metadata: Metadata = { title: 'Transactions' }
 
 export default async function WaiversPage({ searchParams }: { searchParams: { season?: string } }) {
   const seasonParam = searchParams.season ? parseInt(searchParams.season) : undefined
@@ -34,9 +36,9 @@ export default async function WaiversPage({ searchParams }: { searchParams: { se
     <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Waiver Wire</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">Transactions</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {season.season} · fees start at $20 and climb $20 per add — every dollar goes into the pot.
+            {season.season} · waiver fees start at $20 and climb $20 per add — every dollar goes into the pot.
           </p>
         </div>
         <div className="flex gap-1.5 text-sm">
@@ -163,6 +165,74 @@ export default async function WaiversPage({ searchParams }: { searchParams: { se
           </section>
         </div>
       )}
+
+      <TradesSection trades={season.trades} season={season.season} />
     </div>
+  )
+}
+
+function TradeAssets({ assets, season }: { assets: string[]; season: number }) {
+  return (
+    <ul className="space-y-1">
+      {assets.map((asset, i) => {
+        const parsed = parseDraftCell(asset)
+        if (!parsed.position) {
+          // A pick swap or other non-player asset
+          return (
+            <li key={i} className="text-sm text-muted-foreground">
+              {asset}
+            </li>
+          )
+        }
+        return (
+          <li key={i} className="text-sm">
+            <Link href={`/players/${playerSlug(parsed.player)}?season=${season}`} className="font-medium hover:underline">
+              {parsed.player}
+            </Link>
+            <span
+              className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+              style={{ backgroundColor: positionColor(parsed.position) }}
+            >
+              {parsed.position}
+            </span>
+            {parsed.nflTeam && <span className="ml-1.5 text-xs text-muted-foreground">{parsed.nflTeam}</span>}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function TradesSection({ trades, season }: { trades: Trade[]; season: number }) {
+  if (trades.length === 0) return null
+  return (
+    <section className="space-y-4">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Trades</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {trades.length} deal{trades.length === 1 ? '' : 's'} in {season}. Trade deadline is Week 12.
+        </p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        {trades.map((t, i) => (
+          <div key={i} className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <TeamMark team={t.team1} className="text-sm normal-case tracking-normal" /> receives
+                </div>
+                <TradeAssets assets={t.team1Gets} season={season} />
+              </div>
+              <div className="space-y-2 border-l pl-4">
+                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <TeamMark team={t.team2} className="text-sm normal-case tracking-normal" /> receives
+                </div>
+                <TradeAssets assets={t.team2Gets} season={season} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }

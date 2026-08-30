@@ -1,4 +1,4 @@
-import { DraftPick, Matchup, PlayerScore, PlayerWeek, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, WaiverMove } from '@/lib/types'
+import { DraftPick, Matchup, PlayerScore, PlayerWeek, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
 import { resolveOwner } from '@/lib/league'
 
 /** Canonicalize a team spelling from any source (sheet, CSV, chat). */
@@ -151,20 +151,41 @@ export function longToMatchups(
   return matchups.sort((a, b) => a.week - b.week)
 }
 
+/** Overall pick number in a snake draft (even rounds run right-to-left). */
+export function snakeOverall(round: number, slot: number, teams: number): number {
+  const posInRound = round % 2 === 1 ? slot : teams - slot + 1
+  return (round - 1) * teams + posInRound
+}
+
+/** Inverse of snakeOverall: which (round, slot) is pick N overall. */
+export function snakePosition(overall: number, teams: number): { round: number; slot: number } {
+  const round = Math.ceil(overall / teams)
+  const pos = overall - (round - 1) * teams
+  return { round, slot: round % 2 === 1 ? pos : teams - pos + 1 }
+}
+
+function numberPicks<T extends { round: number; slot: number }>(picks: T[]): (T & { overall: number })[] {
+  const teams = Math.max(12, ...picks.map((p) => p.slot))
+  return picks
+    .map((p) => ({ ...p, overall: snakeOverall(p.round, p.slot, teams) }))
+    .sort((a, b) => a.overall - b.overall)
+}
+
 /** Archived draft.csv rows or equivalent -> DraftPick[] */
 export function rowsToDraft(rows: { Round: string; Slot: string; Team: string; Player: string }[]): DraftPick[] {
-  return rows
-    .map((r) => {
-      const parsed = parseSheetPlayer(r.Player ?? '')
-      return {
-        round: parseInt(r.Round),
-        slot: parseInt(r.Slot),
-        team: canonTeam(r.Team ?? ''),
-        ...parsed,
-      }
-    })
-    .filter((p) => p.round > 0 && p.player)
-    .sort((a, b) => a.round - b.round || a.slot - b.slot)
+  return numberPicks(
+    rows
+      .map((r) => {
+        const parsed = parseSheetPlayer(r.Player ?? '')
+        return {
+          round: parseInt(r.Round),
+          slot: parseInt(r.Slot),
+          team: canonTeam(r.Team ?? ''),
+          ...parsed,
+        }
+      })
+      .filter((p) => p.round > 0 && p.player),
+  )
 }
 
 /** Waiver rows (Week/Team/Player/Cost) -> WaiverMove[] */
@@ -193,19 +214,43 @@ export function gridToDraft(board: string[][], teamsRows: Record<string, string>
     const owner = canonTeam(r['TEAMS'] ?? '')
     if (n && owner) order.set(n, owner)
   }
-  const picks: DraftPick[] = []
-  for (const row of board.slice(1)) {
+  const maxSlot = Math.max(0, ...Array.from(order.keys()))
+  const picks: Omit<DraftPick, 'overall'>[] = []
+  // Scan every row — the header row won't match the round pattern, so this
+  // also tolerates a board tab without a header.
+  for (const row of board) {
     const roundMatch = (row[0] ?? '').match(/round\s*0*(\d+)/i)
     if (!roundMatch) continue
     const round = parseInt(roundMatch[1])
-    for (let col = 1; col <= 12; col++) {
+    for (let col = 1; col <= maxSlot; col++) {
       const team = order.get(col)
       const cell = (row[col] ?? '').trim()
       if (!team || !cell) continue
       picks.push({ round, slot: col, team, ...parseDraftCell(cell) })
     }
   }
-  return picks.sort((a, b) => a.round - b.round || a.slot - b.slot)
+  return numberPicks(picks)
+}
+
+/**
+ * Trades rows (TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS) -> Trade[].
+ * Live tab rows list one asset per line with blank team cells continuing the
+ * previous trade; archived trades.csv packs assets with "; " separators.
+ */
+export function rowsToTrades(rows: Record<string, string>[]): Trade[] {
+  const trades: Trade[] = []
+  for (const r of rows) {
+    const t1 = canonTeam(r['Team 1'] ?? r['TEAM 1'] ?? '')
+    const t2 = canonTeam(r['Team 2'] ?? r['TEAM 2'] ?? '')
+    const g1 = (r['Team 1 Gets'] ?? r['TEAM 1 GETS'] ?? '').trim()
+    const g2 = (r['Team 2 Gets'] ?? r['TEAM 2 GETS'] ?? '').trim()
+    if (t1 && t2) trades.push({ team1: t1, team2: t2, team1Gets: [], team2Gets: [] })
+    const current = trades[trades.length - 1]
+    if (!current) continue
+    if (g1) current.team1Gets.push(...g1.split(';').map((s) => s.trim()).filter(Boolean))
+    if (g2) current.team2Gets.push(...g2.split(';').map((s) => s.trim()).filter(Boolean))
+  }
+  return trades.filter((t) => t.team1Gets.length > 0 || t.team2Gets.length > 0)
 }
 
 const POSITIONS = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DST'])
@@ -222,7 +267,9 @@ export function parseDraftCell(cell: string): { player: string; nflTeam?: string
     }
   }
   const parenPos = parseSheetPlayer(s)
-  if (parenPos.position) return parenPos
+  // Only trust a parenthesized suffix that is an actual position — trade
+  // assets like "Monaf's 1st Round Pick (Pick 4)" must not parse as players
+  if (parenPos.position && POSITIONS.has(parenPos.position)) return parenPos
   const toks = s.replace(/\((QB|RB|WR|TE|K|DEF|D\/ST)\)/gi, ' ').replace(/\s+/g, ' ').trim().split(' ')
   let position: string | undefined
   let nflTeam: string | undefined

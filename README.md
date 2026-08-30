@@ -32,13 +32,14 @@ WhatsApp scores ──paste──▶ /commish ──review──▶ Google Sheet
 | `/matchups` | Week browser with full box scores (`?week=`, `?season=`) |
 | `/standings` | Full table with playoff line + Turd Bowl zone, Monte Carlo playoff odds, power rankings, luck index |
 | `/teams/<owner>` | Team page: weekly chart vs league average, top contributors, all-time H2H, season history |
-| `/draft` | Position-color-coded draft board per season; every pick links to the player's page |
-| `/waivers` | Waiver log with per-team spending and the live pot (dues + waiver fees) |
+| `/draft` | Position-color-coded draft board per season with steals/busts value analysis; live-updating on draft night |
+| `/waivers` | Transactions: waiver log with per-team spending, the live pot (dues + waiver fees), and the trade ledger |
 | `/players/<slug>` | Player analytics: weekly chart, game log, position rank, draft/waiver history |
 | `/records` | All-time record book computed from the box scores |
 | `/rules` | The constitution and full scoring tables |
 | `/recap/<week>` | Shareable 1080×1080 recap card (native share on mobile → straight into WhatsApp) |
 | `/commish` | Passcode-protected score entry: paste WhatsApp reports, review, save to the Sheet |
+| `/commish/draft` | Draft-night mode: enter picks live; the public board updates as you go |
 
 ## Setup
 
@@ -73,6 +74,9 @@ Three tabs (names configurable via env):
 - **Waiver Wire** — `WEEK | TEAM | PLAYER | COST` rows. Powers `/waivers` and
   the live pot math (fees join the pot; scoring champ stays $250 and the rest
   splits 60/30/10). `/commish` has a one-click form that appends rows here.
+- **Trades** (optional) — `TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS`, one
+  asset per row with blank team cells continuing a multi-player deal. Powers
+  the trade ledger on `/waivers`.
 - **Adjustments** (optional) — `Week | Team | Points | Reason` rows explaining
   any gap between a row's official total and its players' sum (e.g. the §VII
   -5 confirmation penalty). The site detects the gap automatically either way

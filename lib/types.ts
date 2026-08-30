@@ -81,10 +81,28 @@ export interface DraftPick {
   round: number
   /** Draft-order column, 1–12 */
   slot: number
+  /** Overall pick number (snake order) */
+  overall: number
   team: string
   player: string
   nflTeam?: string
   position?: string
+}
+
+/** Live draft state served by /api/commish/draft */
+export interface DraftState {
+  order: { slot: number; team: string }[]
+  picks: DraftPick[]
+  next: { round: number; slot: number; overall: number; team: string } | null
+  rounds: number
+}
+
+export interface Trade {
+  team1: string
+  team2: string
+  /** Asset descriptions, e.g. "Zack Moss (RB, CIN)" or "Round 1, Pick 4" */
+  team1Gets: string[]
+  team2Gets: string[]
 }
 
 export interface WaiverMove {
@@ -117,4 +135,5 @@ export interface SeasonData {
   schedule: ScheduleWeek[]
   draft: DraftPick[]
   waivers: WaiverMove[]
+  trades: Trade[]
 }

@@ -22,6 +22,7 @@ export const DRAFT_TAB = process.env.DRAFT_TAB ?? 'Final Draft Board'
 export const WAIVERS_TAB = process.env.WAIVERS_TAB ?? 'Waiver Wire'
 export const TEAMS_TAB = process.env.TEAMS_TAB ?? 'Teams'
 export const ADJUSTMENTS_TAB = process.env.ADJUSTMENTS_TAB ?? 'Adjustments'
+export const TRADES_TAB = process.env.TRADES_TAB ?? 'Trades'
 
 function credentials(): { email: string; key: string } | null {
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
@@ -91,6 +92,14 @@ export async function appendRow(tab: string, row: (string | number)[]): Promise<
     `/values/${encodeURIComponent(`${tab}!A1`)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
     { method: 'POST', body: JSON.stringify({ values: [row] }) },
   )
+}
+
+/** Write one cell (A1 notation), e.g. updateCell('Final Draft Board', 'C5', 'Bijan Robinson ATL RB'). */
+export async function updateCell(tab: string, cell: string, value: string | number): Promise<void> {
+  await sheetsFetch(`/values/${encodeURIComponent(`${tab}!${cell}`)}?valueInputOption=USER_ENTERED`, {
+    method: 'PUT',
+    body: JSON.stringify({ values: [[value]] }),
+  })
 }
 
 /** Rows keyed by header row. Blank header cells and blank rows are dropped. */

@@ -5,7 +5,7 @@ import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
 import { Matchup, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE } from '@/lib/league'
-import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TAB, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB } from './sheets'
+import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TAB, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -14,6 +14,7 @@ import {
   matchupsToPlayerWeeks,
   matchupsToTeamWeeks,
   rowsToDraft,
+  rowsToTrades,
   rowsToWaivers,
   wideRowToMatchup,
 } from './transform'
@@ -56,6 +57,7 @@ function assemble(
   schedule: ScheduleWeek[],
   draft: SeasonData['draft'] = [],
   waivers: SeasonData['waivers'] = [],
+  trades: SeasonData['trades'] = [],
 ): SeasonData {
   const teamWeeks = matchupsToTeamWeeks(matchups)
   const playerWeeks = matchupsToPlayerWeeks(matchups)
@@ -86,17 +88,19 @@ function assemble(
     schedule,
     draft,
     waivers,
+    trades,
   }
 }
 
 async function loadArchiveSeason(season: number): Promise<SeasonData> {
-  const [teamRows, playerRows, scheduleRows, draftRows, waiverRows, adjustmentRows] = await Promise.all([
+  const [teamRows, playerRows, scheduleRows, draftRows, waiverRows, adjustmentRows, tradeRows] = await Promise.all([
     readCsv(season, 'teams.csv'),
     readCsv(season, 'players.csv'),
     readCsv(season, 'schedule.csv'),
     readCsv(season, 'draft.csv'),
     readCsv(season, 'waivers.csv'),
     readCsv(season, 'adjustments.csv'),
+    readCsv(season, 'trades.csv'),
   ])
   const matchups = longToMatchups(teamRows as any, playerRows as any)
   annotateAdjustments(matchups, adjustmentRows)
@@ -107,26 +111,29 @@ async function loadArchiveSeason(season: number): Promise<SeasonData> {
     gridToSchedule(scheduleRows),
     rowsToDraft(draftRows as any),
     rowsToWaivers(waiverRows),
+    rowsToTrades(tradeRows),
   )
 }
 
 async function loadLiveSeason(season: number): Promise<SeasonData> {
-  const [scoreRows, scheduleRows, draftRows, teamsRows, waiverRows, adjustmentRows] = await Promise.all([
+  const [scoreRows, scheduleRows, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows] = await Promise.all([
     readTab(SCORES_TAB).catch(() => [] as string[][]),
     readTab(SCHEDULE_TAB).catch(() => [] as string[][]),
     readTab(DRAFT_TAB).catch(() => [] as string[][]),
     readTab(TEAMS_TAB).catch(() => [] as string[][]),
     readTab(WAIVERS_TAB).catch(() => [] as string[][]),
     readTab(ADJUSTMENTS_TAB).catch(() => [] as string[][]),
+    readTab(TRADES_TAB).catch(() => [] as string[][]),
   ])
   const matchups = toObjects(scoreRows)
     .map(wideRowToMatchup)
     .filter((m): m is Matchup => m !== null)
   annotateAdjustments(matchups, toObjects(adjustmentRows))
   const schedule = gridToSchedule(toObjects(scheduleRows))
-  const draft = draftRows.length > 1 && teamsRows.length > 1 ? gridToDraft(draftRows, toObjects(teamsRows)) : []
+  const draft = draftRows.length > 0 && teamsRows.length > 1 ? gridToDraft(draftRows, toObjects(teamsRows)) : []
   const waivers = rowsToWaivers(toObjects(waiverRows))
-  return assemble(season, 'sheet', matchups, schedule, draft, waivers)
+  const trades = rowsToTrades(toObjects(tradeRows))
+  return assemble(season, 'sheet', matchups, schedule, draft, waivers, trades)
 }
 
 const cachedLive = unstable_cache(loadLiveSeason, ['live-season'], { revalidate: 60, tags: ['season-live'] })

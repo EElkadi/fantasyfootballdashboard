@@ -17,6 +17,18 @@ export const metadata: Metadata = {
     template: `%s · ${LEAGUE.name}`,
   },
   description: 'Standings, matchups, records and rules for the Premier League Fantasy Football league — since 2015.',
+  // Installable as a home-screen app. No service worker on purpose: scores
+  // must never be served from a stale cache.
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/icons/icon-192.png',
+    apple: '/icons/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'PLFF',
+  },
 }
 
 export const viewport: Viewport = {

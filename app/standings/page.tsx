@@ -4,6 +4,7 @@ import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
 import { StandingsTable } from '@/components/league/StandingsTable'
 import { TeamMark } from '@/components/league/TeamMark'
 import { simulateSeason } from '@/lib/data/simulate'
+import { playoffClinchStatus } from '@/lib/data/clinch'
 import { CURRENT_SEASON, LEAGUE } from '@/lib/league'
 
 export const revalidate = 60
@@ -14,6 +15,7 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
   const season = seasonParam ? await getSeason(seasonParam) : await getDefaultSeason()
   const regularSeasonDone = season.lastCompletedWeek >= LEAGUE.regularSeasonWeeks
   const sim = season.season === CURRENT_SEASON && !regularSeasonDone ? simulateSeason(season) : null
+  const clinch = sim ? playoffClinchStatus(season) : null
 
   const powerRanked = [...season.standings].sort((a, b) => b.power - a.power)
   const luckiest = [...season.standings].sort((a, b) => b.luck - a.luck)
@@ -73,7 +75,19 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                     {sim.odds.map((o) => (
                       <tr key={o.team} className="border-b border-border/40 last:border-0">
                         <td className="px-3 py-2.5">
-                          <TeamMark team={o.team} />
+                          <span className="flex items-center gap-2">
+                            <TeamMark team={o.team} />
+                            {clinch?.get(o.team) === 'clinched' && (
+                              <span className="rounded bg-[hsl(var(--win))]/15 px-1.5 py-0.5 text-[10px] font-bold text-win">
+                                CLINCHED
+                              </span>
+                            )}
+                            {clinch?.get(o.team) === 'eliminated' && (
+                              <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-bold text-loss">
+                                OUT
+                              </span>
+                            )}
+                          </span>
                         </td>
                         <Pct value={o.playoffPct} strong />
                         <Pct value={o.byePct} />

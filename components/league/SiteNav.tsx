@@ -12,7 +12,7 @@ const LINKS = [
   { href: '/standings', label: 'Standings' },
   { href: '/teams', label: 'Teams' },
   { href: '/draft', label: 'Draft' },
-  { href: '/waivers', label: 'Waivers' },
+  { href: '/waivers', label: 'Transactions' },
   { href: '/records', label: 'Records' },
   { href: '/rules', label: 'Rules' },
 ]

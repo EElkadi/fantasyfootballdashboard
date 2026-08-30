@@ -66,6 +66,7 @@ export const LEAGUE = {
     { place: 'Scoring Champ', amount: 250 },
   ],
   regularSeasonWeeks: 14,
+  draftRounds: 20,
   playoffWeeks: [15, 16, 17],
   playoffTeams: 6,
   playoffByes: 2,

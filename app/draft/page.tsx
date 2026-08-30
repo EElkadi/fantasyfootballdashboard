@@ -1,8 +1,11 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
-import { ownerColor, teamNameOf } from '@/lib/league'
+import { draftValue, PickValue } from '@/lib/data/draftValue'
+import { CURRENT_SEASON, LEAGUE, ownerColor, teamNameOf } from '@/lib/league'
 import { playerSlug, POSITION_COLORS, positionColor } from '@/lib/players'
+import { AutoRefresh } from '@/components/league/AutoRefresh'
+import { TeamMark } from '@/components/league/TeamMark'
 
 export const revalidate = 60
 export const metadata: Metadata = { title: 'Draft Board' }
@@ -11,6 +14,16 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
   const seasonParam = searchParams.season ? parseInt(searchParams.season) : undefined
   const season = seasonParam ? await getSeason(seasonParam) : await getDefaultSeason()
   const { draft } = season
+  const value = draftValue(season)
+
+  // Draft night: keep the board refreshing while picks are coming in. Once
+  // week-1 scores exist the draft is definitively over, so a permanently
+  // blank cell can't leave the page refreshing all season.
+  const liveDraft =
+    season.season === CURRENT_SEASON &&
+    season.lastCompletedWeek === 0 &&
+    draft.length > 0 &&
+    draft.length < LEAGUE.draftRounds * season.teams.length
 
   const rounds = Array.from(new Set(draft.map((p) => p.round))).sort((a, b) => a - b)
   const slots = Array.from(new Set(draft.map((p) => p.slot))).sort((a, b) => a - b)
@@ -20,9 +33,17 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-8">
+      {liveDraft && <AutoRefresh seconds={20} />}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Draft Board</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            Draft Board
+            {liveDraft && (
+              <span className="ml-3 inline-flex items-center gap-1.5 align-middle text-sm font-semibold text-win">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-[hsl(var(--win))]" /> live
+              </span>
+            )}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {season.season} · {draft.length} picks · click any player for their season
           </p>
@@ -97,6 +118,7 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
                         <td key={slot} className="border-b border-l border-border/40 p-0.5 align-top">
                           <Link
                             href={`/players/${playerSlug(p.player)}?season=${season.season}`}
+                            title={`Pick ${p.overall} overall`}
                             className="block rounded-[5px] px-1.5 py-1 leading-tight text-white transition-opacity hover:opacity-85"
                             style={{ backgroundColor: positionColor(p.position) }}
                           >
@@ -104,6 +126,7 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
                             <span className="text-[10px] opacity-85">
                               {p.position}
                               {p.nflTeam ? ` · ${p.nflTeam}` : ''}
+                              {value ? ` · ${value.totals.get(playerSlug(p.player)) ?? 0}p` : ''}
                             </span>
                           </Link>
                         </td>
@@ -114,8 +137,80 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
               </tbody>
             </table>
           </div>
+
+          {value && (
+            <div className="grid gap-6 md:grid-cols-2">
+              <ValueList
+                title="Steals of the draft"
+                subtitle="Outscored their draft slot the most"
+                entries={value.steals}
+                season={season.season}
+                good
+              />
+              <ValueList
+                title="Busts of the draft"
+                subtitle="Early picks that never paid off (rounds 1–5)"
+                entries={value.busts}
+                season={season.season}
+              />
+            </div>
+          )}
         </>
       )}
     </div>
+  )
+}
+
+function ValueList({
+  title,
+  subtitle,
+  entries,
+  season,
+  good = false,
+}: {
+  title: string
+  subtitle: string
+  entries: PickValue[]
+  season: number
+  good?: boolean
+}) {
+  if (entries.length === 0) return null
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-xl font-bold tracking-tight">{title}</h2>
+        <p className="text-sm text-muted-foreground">{subtitle}</p>
+      </div>
+      <ol className="space-y-2">
+        {entries.map((v) => (
+          <li key={`${v.pick.round}-${v.pick.slot}`} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2 shadow-sm">
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
+              style={{ backgroundColor: positionColor(v.pick.position) }}
+            >
+              {v.pick.position ?? '?'}
+            </span>
+            <div className="min-w-0 flex-1">
+              <Link
+                href={`/players/${playerSlug(v.pick.player)}?season=${season}`}
+                className="block truncate font-semibold hover:underline"
+              >
+                {v.pick.player}
+              </Link>
+              <p className="text-xs text-muted-foreground">
+                Rd {v.pick.round}, pick {v.pick.overall} · <TeamMark team={v.pick.team} className="text-xs" /> ·{' '}
+                {v.starts} start{v.starts === 1 ? '' : 's'}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="tabular font-bold">{v.total} pts</p>
+              <p className={`tabular text-xs font-semibold ${good ? 'text-win' : 'text-loss'}`}>
+                {v.delta > 0 ? `+${v.delta}` : v.delta} vs slot
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
   )
 }

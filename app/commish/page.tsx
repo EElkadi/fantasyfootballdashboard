@@ -189,12 +189,17 @@ export default function CommishPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Score Entry</h1>
-        <p className="text-sm text-muted-foreground">
-          Paste the WhatsApp score reports below — headers, typos and all. Review what the parser found, fix anything
-          it flagged, then save each matchup straight to the Sheet.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Score Entry</h1>
+          <p className="text-sm text-muted-foreground">
+            Paste the WhatsApp score reports below — headers, typos and all. Review what the parser found, fix anything
+            it flagged, then save each matchup straight to the Sheet.
+          </p>
+        </div>
+        <a href="/commish/draft" className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-secondary">
+          Draft night mode →
+        </a>
       </div>
 
       {!ctx.sheetConfigured && (
