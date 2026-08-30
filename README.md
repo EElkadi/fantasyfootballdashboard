@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Premier League Fantasy Football
 
-## Getting Started
+The league website: standings, matchups, records, rules, playoff odds — and a
+commissioner tool that turns pasted WhatsApp score reports into rows in the
+league's Google Sheet.
 
-First, run the development server:
+Built with Next.js 14 (App Router), Tailwind, and the Google Sheets API.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## How data flows
+
+```
+WhatsApp scores ──paste──▶ /commish ──review──▶ Google Sheet (Scores tab)
+                                                      │
+                                            site reads it live (60s cache)
+                                                      ▼
+                                     standings · matchups · records · odds
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **The Google Sheet stays the source of truth.** The site reads it directly
+  server-side; there is no script to run and no redeploy after entering scores.
+- **Standings are computed from the box scores** (H2H + weekly top-6, ranked by
+  overall wins → two-team H2H → point differential), so they can't drift from
+  the results like a hand-maintained tab can.
+- **Past seasons** are archived as CSVs under `data/seasons/<year>/` and feed
+  the Record Book and all-time head-to-head numbers.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Pages
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | What it shows |
+| --- | --- |
+| `/` | Weekly hub: results, awards (top score, MVP, beatdown, nailbiter), next slate, standings snapshot |
+| `/matchups` | Week browser with full box scores (`?week=`, `?season=`) |
+| `/standings` | Full table with playoff line + Turd Bowl zone, Monte Carlo playoff odds, power rankings, luck index |
+| `/teams/<owner>` | Team page: weekly chart vs league average, top contributors, all-time H2H, season history |
+| `/draft` | Position-color-coded draft board per season with steals/busts value analysis; live-updating on draft night |
+| `/waivers` | Transactions: waiver log with per-team spending, the live pot (dues + waiver fees), and the trade ledger |
+| `/players/<slug>` | Player analytics: weekly chart, game log, position rank, draft/waiver history |
+| `/records` | All-time record book computed from the box scores |
+| `/rules` | The constitution and full scoring tables |
+| `/recap/<week>` | Shareable 1080×1080 recap card (native share on mobile → straight into WhatsApp) |
+| `/commish` | Passcode-protected score entry: paste WhatsApp reports, review, save to the Sheet |
+| `/commish/draft` | Draft-night mode: enter picks live; the public board updates as you go |
 
-## Learn More
+## Setup
 
-To learn more about Next.js, take a look at the following resources:
+1. **Service account** — in Google Cloud Console create a service account,
+   download a JSON key, and share the league spreadsheet with the service
+   account's email (Editor, so `/commish` can append rows).
+2. **Env vars** — copy `.env.example` to `.env.local` and fill it in. On
+   Vercel, set the same variables in Project Settings → Environment Variables.
+3. `npm install && npm run dev`
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Without Sheet credentials the site still runs, serving the most recent
+archived season — useful for local development.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## The spreadsheet contract
 
-## Deploy on Vercel
+Three tabs (names configurable via env):
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Scores** — one row per matchup in the historical 43-column layout:
+  `Week, Team 1, QB Name, QB, RB1 Name, RB1, … Flex2, Total1, Team 2, …,
+  Total2, Winner, Loser`. `/commish` appends rows in exactly this shape.
+- **Schedule** — a grid: `Week` column plus one column per team, cells naming
+  that week's opponent. A row label like `RIVALRY WEEK 7` still parses as
+  week 7 and shows as "Rivalry Week" on the site.
+- **Rosters** — one column per team (owner name as the header), rostered
+  players below. This powers the parser's fuzzy name matching ("Romeo" →
+  Romeo Doubs, "Mathew Stafford" → Matthew Stafford). Fill it once after the
+  draft; the waiver and trade forms keep it current from then on. Without it,
+  parsing still works but spellings aren't corrected.
+- **Final Draft Board** + **Teams** — the draft grid (one column per team in
+  draft order, `Round NN` rows) and the Teams tab whose `DRAFT ORDER`/`TEAMS`
+  columns map board columns to owners. Powers `/draft`.
+- **Waiver Wire** — `WEEK | TEAM | PLAYER | COST` rows. Powers `/waivers` and
+  the live pot math (fees join the pot; scoring champ stays $250 and the rest
+  splits 60/30/10). `/commish` has a one-click form that appends rows here.
+- **Trades** (optional) — `TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS`, one
+  asset per row with blank team cells continuing a multi-player deal. Powers
+  the trade ledger on `/waivers`.
+- **Adjustments** (optional) — `Week | Team | Points | Reason` rows explaining
+  any gap between a row's official total and its players' sum (e.g. the §VII
+  -5 confirmation penalty). The site detects the gap automatically either way
+  and shows it as an "Adj" line in the box score; this tab just supplies the
+  reason. `/commish` writes here when you apply a penalty at score entry.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Weekly routine (commissioner)
+
+Everything runs from `/commish` — the Sheet is the database, not the interface:
+
+1. Paste the score reports from the matchup chats, hit **Parse scores**, check
+   anything flagged in amber (unknown names, totals that don't add up,
+   schedule mismatches, the -5 non-confirm toggle), **Save to Sheet**.
+2. Log waiver adds and trades with their forms — both write their tabs AND
+   keep the Rosters tab (the parser's name matching) current automatically.
+3. Optionally open `/recap/<week>` and share the card back into the chat.
+
+The site updates within a minute of any save.
+
+## New season checklist
+
+1. Archive last season: export the final Scores/Schedule tabs into
+   `data/seasons/<year>/` as `teams.csv`, `players.csv`, `schedule.csv`
+   (same long format as `data/seasons/2025/`), and add the year to
+   `ARCHIVED_SEASONS` in `lib/league.ts`.
+2. Point `LEAGUE_SHEET_ID` at the new sheet (or clear the old tabs), bump
+   `CURRENT_SEASON`, and update the Rosters tab after the draft.
+3. Update team names / new members in `lib/league.ts` (`OWNERS` — aliases
+   handle nickname spellings like Eloy/Elaf, Mono/Monaf).
+4. Record last season's champion in `HONORS` in `lib/league.ts`.
+
+## Tests
+
+```
+npx tsx tests/parser.test.ts   # parser acceptance tests (real league samples)
+npm run lint && npx tsc --noEmit
+```

@@ -1,237 +1,215 @@
-'use client'
+import Link from 'next/link'
+import { getDefaultSeason } from '@/lib/data'
+import { computePot, CURRENT_SEASON, LEAGUE } from '@/lib/league'
+import { MatchupCard } from '@/components/league/MatchupCard'
+import { StandingsTable } from '@/components/league/StandingsTable'
+import { TeamMark } from '@/components/league/TeamMark'
+import { simulateSeason } from '@/lib/data/simulate'
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { LeagueStandings } from '@/app/components/LeagueStandings'
-import { TeamChart } from '@/app/components/TeamChart'
-import { PlayerChart } from '@/app/components/PlayerChart'
-import { DashboardCards } from '@/app/components/DashboardCards'
-import { PlayerPerformanceTrends } from '@/app/components/PlayerPerformanceTrends'
-import { HeadToHeadAnalysis } from '@/app/components/HeadToHeadAnalysis'
-import { PositionAnalysis } from '@/app/components/PositionAnalysis'
-import { WeeklyMVPShowcase } from '@/app/components/WeeklyMVPShowcase'
-import { StrengthOfSchedule } from '@/app/components/StrengthOfSchedule'
-import { PositionPerformance } from '@/app/components/PositionPerformance'
-import { PlayerLeaderboard } from '@/app/components/PlayerLeaderboard'
-import WeeklyBestLineup from '@/app/components/WeeklyBestLineup'
-import { PlayerScatterPlot } from '@/app/components/PlayerScatterPlot'
-import { WeeklyMatchups } from '@/app/components/WeeklyMatchups'
-import { TopSixTeams } from '@/app/components/TopSixTeams'
+export const revalidate = 60
 
-interface Data {
-  teams: any[]
-  players: any[]
-  standings: any[]
-  schedule: any[]
-  weeklyMatchups: Record<number, Matchup[]>
-}
+export default async function HomePage() {
+  const season = await getDefaultSeason()
+  const week = season.lastCompletedWeek
+  const weekMatchups = season.matchups.filter((m) => m.week === week)
+  const isArchive = season.season !== CURRENT_SEASON
+  const regularSeasonDone = week >= LEAGUE.regularSeasonWeeks
 
-interface PositionData {
-  position: string
-  [team: string]: string | number
-}
+  // Weekly awards
+  const weekRows = season.teamWeeks.filter((r) => r.week === week)
+  const topScore = weekRows.length ? weekRows.reduce((a, b) => (b.score > a.score ? b : a)) : null
+  const weekPlayers = season.playerWeeks.filter((p) => p.week === week)
+  const mvp = weekPlayers.length ? weekPlayers.reduce((a, b) => (b.score > a.score ? b : a)) : null
+  const margins = weekMatchups.map((m) => ({ m, margin: Math.abs(m.team1.total - m.team2.total) }))
+  const blowout = margins.length ? margins.reduce((a, b) => (b.margin > a.margin ? b : a)) : null
+  const closest = margins.length ? margins.reduce((a, b) => (b.margin < a.margin ? b : a)) : null
 
-interface Player {
-  Player: string
-  Position: string
-  Score: number
-}
-
-interface TeamMatchup {
-  Team: string
-  Players: Player[]
-  TotalScore: number
-}
-
-interface Matchup {
-  Team1: TeamMatchup
-  Team2: TeamMatchup
-}
-
-export default function Home() {
-  const [data, setData] = useState<Data>({ teams: [], players: [], standings: [], schedule: [], weeklyMatchups: {} })
-  const [selectedTeam, setSelectedTeam] = useState('')
-  const [currentWeek, setCurrentWeek] = useState(1)
-  const [isLoading, setIsLoading] = useState(true)
-  const [selectedTeams, setSelectedTeams] = useState<string[]>([])
-
-  const calculateCurrentWeek = (startDate: Date): number => {
-    const today = new Date()
-    const diffTime = Math.abs(today.getTime() - startDate.getTime())
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    const weeksSinceStart = Math.floor(diffDays / 7)
-    return Math.min(weeksSinceStart + 1, 17) // Assuming a 17-week season
+  // Next week's slate
+  const nextWeek = season.schedule.find((s) => s.week === week + 1 && week + 1 <= LEAGUE.regularSeasonWeeks)
+  const nextPairs: [string, string][] = []
+  if (nextWeek) {
+    const seen = new Set<string>()
+    for (const [team, opp] of Object.entries(nextWeek.opponents)) {
+      if (seen.has(team) || seen.has(opp)) continue
+      seen.add(team)
+      seen.add(opp)
+      nextPairs.push([team, opp])
+    }
   }
 
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true)
-      try {
-        const response = await fetch('/api/getData')
-        const fetchedData: Data = await response.json()
-        setData(fetchedData)
-        if (fetchedData.standings.length > 0) {
-          setSelectedTeam(fetchedData.standings[0].Team)
-          setSelectedTeams(fetchedData.standings.map(team => team.Team))
-        }
-        
-        // Set the current week based on the current date
-        const seasonStartDate = new Date('2025-09-10') // Update this date each year
-        const calculatedWeek = calculateCurrentWeek(seasonStartDate)
-        setCurrentWeek(calculatedWeek)
-      } catch (error) {
-        console.error('Error fetching data:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadData()
-  }, [])
-
-  const selectedTeamStats = data.standings.find(team => team.Team === selectedTeam)
-  const topPlayer = data.players
-    .filter(player => player.Team === selectedTeam)
-    .reduce((top, player) => (player.Score > top.Score ? player : top), { Score: 0 })
-
-  const getNextMatch = (team: string, week: number): string => {
-    const nextWeek = week + 1
-    if (!data.schedule) return 'No schedule data'
-    const scheduleRow = data.schedule.find(row => parseInt(row.Week) === nextWeek)
-    if (scheduleRow) {
-      const opponent = Object.entries(scheduleRow).find(([key, value]: [string, unknown]) => 
-        key !== 'Week' && (value === team || key === team)
-      )
-      return opponent ? (opponent[0] === team ? opponent[1] as string : opponent[0]) : 'Bye'
-    }
-    return 'Season End'
-  }
-
-  const calculatePositionPerformance = (playersData: any[]): PositionData[] => {
-    const positions = ['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'Flex', 'K', 'DEF'];
-    const teamScores: { [key: string]: { [key: string]: number[] } } = {};
-
-    playersData.forEach(player => {
-      if (!teamScores[player.Team]) {
-        teamScores[player.Team] = {};
-      }
-      if (!teamScores[player.Team][player.Position]) {
-        teamScores[player.Team][player.Position] = [];
-      }
-      teamScores[player.Team][player.Position].push(player.Score);
-    });
-
-    return positions.map(position => {
-      const positionData: PositionData = { position };
-      Object.keys(teamScores).forEach(team => {
-        const scores = teamScores[team][position] || [];
-        positionData[team] = scores.length > 0 ? scores.reduce((a, b) => a + b) / scores.length : 0;
-      });
-      return positionData;
-    });
-  };
-
-  const positionPerformanceData = calculatePositionPerformance(data.players);
+  const odds = !isArchive && !regularSeasonDone ? simulateSeason(season) : null
 
   return (
-    <div className="container mx-auto py-10 px-4 sm:px-6 lg:px-8">
-      <Card className="mb-10 shadow-lg hover:shadow-xl transition-shadow duration-300">
-        <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-700 text-white">
-          <div className="flex flex-col sm:flex-row justify-between items-center">
-            <CardTitle className="text-3xl font-bold mb-4 sm:mb-0">Premier League Fantasy Football Dashboard</CardTitle>
-            <Select onValueChange={setSelectedTeam} value={selectedTeam}>
-              <SelectTrigger className="w-full sm:w-[280px] bg-white text-black border-2 border-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300">
-                <SelectValue placeholder="Select a team" />
-              </SelectTrigger>
-              <SelectContent>
-                {data.standings.map(team => (
-                  <SelectItem key={team.Team} value={team.Team}>{team.Team}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-      </Card>
-
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
+      <section className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-widest text-primary">
+            {season.season} season{isArchive ? ' · final' : ''}
+          </p>
+          <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">
+            {week === 0
+              ? 'The season is almost here'
+              : regularSeasonDone
+                ? `Regular season complete`
+                : `Week ${week} is in the books`}
+          </h1>
+          <p className="mt-2 max-w-xl text-muted-foreground">
+            {week === 0
+              ? `Draft day is the Saturday of Labor Day weekend. $${LEAGUE.payouts[0].amount.toLocaleString()} to the champ.`
+              : regularSeasonDone
+                ? `Playoffs run Weeks 15–17 — top ${LEAGUE.playoffTeams} in, top ${LEAGUE.playoffByes} get byes. The bottom ${LEAGUE.turdBowlTeams} fight out the Turd Bowl.`
+                : `${LEAGUE.regularSeasonWeeks - week} week${LEAGUE.regularSeasonWeeks - week === 1 ? '' : 's'} left in the regular season.`}
+          </p>
         </div>
-      ) : (
-        <>
-          <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="flex flex-wrap justify-center sm:justify-start bg-gray-100 p-1 rounded-lg">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:shadow-md">Overview</TabsTrigger>
-              <TabsTrigger value="team-analysis" className="data-[state=active]:bg-white data-[state=active]:shadow-md">Team Analysis</TabsTrigger>
-              <TabsTrigger value="player-analysis" className="data-[state=active]:bg-white data-[state=active]:shadow-md">Player Analysis</TabsTrigger>
-              <TabsTrigger value="league-insights" className="data-[state=active]:bg-white data-[state=active]:shadow-md">League Insights</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="overview" className="space-y-6">
-              <DashboardCards
-                teamStats={selectedTeamStats || {}}
-                leaguePosition={{
-                  rank: selectedTeamStats?.Rank || 0,
-                  totalTeams: data.standings.length,
-                  pointsFor: selectedTeamStats?.['Points For'] || 0,
-                }}
-                topPlayer={{
-                  player: topPlayer.Player,
-                  position: topPlayer.Position,
-                  seasonAverage: (data.players.filter(p => p.Player === topPlayer.Player).reduce((sum, p) => sum + p.Score, 0) / 
-                    data.players.filter(p => p.Player === topPlayer.Player).length),
-                }}
-                nextMatch={{
-                  opponent: getNextMatch(selectedTeam, currentWeek),
-                  week: currentWeek + 1,
-                  opponentRank: data.standings.find(team => team.Team === getNextMatch(selectedTeam, currentWeek))?.Rank || 0,
-                  opponentAverageScore: data.standings.find(team => team.Team === getNextMatch(selectedTeam, currentWeek))?.['Average Points For'] || 0,
-                }}
-              />
-              <TeamChart 
-                teamData={data.teams} 
-                selectedTeams={selectedTeams}
-                onTeamToggle={(team) => {
-                  setSelectedTeams(prev => 
-                    prev.includes(team) 
-                      ? prev.filter(t => t !== team) 
-                      : [...prev, team]
-                  )
-                }}
-              />
-              <LeagueStandings standingsData={data.standings} currentWeek={currentWeek} />
-              <WeeklyMatchups />
-            </TabsContent>
+        {isArchive && (
+          <p className="rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground">
+            Showing last season while {CURRENT_SEASON} waits for kickoff.
+          </p>
+        )}
+      </section>
 
-            <TabsContent value="team-analysis" className="space-y-4">
-              <TeamChart 
-                teamData={data.teams.filter(team => team.Team === selectedTeam)}
-                selectedTeams={[selectedTeam]}
-                onTeamToggle={() => {}} // No-op function since we're not toggling teams here
-              />
-              <HeadToHeadAnalysis teamsData={data.teams} />
-              <PlayerChart playerData={data.players.filter(player => player.Team === selectedTeam)} />
-              <PlayerPerformanceTrends playerData={data.players.filter(player => player.Team === selectedTeam)} />
-            </TabsContent>
-
-            <TabsContent value="player-analysis" className="space-y-4">
-              <PlayerLeaderboard playerData={data.players} />
-              <PositionAnalysis playerData={data.players} />
-              <PlayerScatterPlot playerData={data.players} />
-            </TabsContent>
-
-            <TabsContent value="league-insights" className="space-y-4">
-              <LeagueStandings standingsData={data.standings} currentWeek={currentWeek} />
-              <TopSixTeams />
-              <WeeklyMVPShowcase playerData={data.players} />
-              <WeeklyBestLineup />
-              <StrengthOfSchedule standingsData={data.standings} />
-              <PositionPerformance data={positionPerformanceData} />
-            </TabsContent>
-          </Tabs>
-        </>
+      {season.standings.length > 0 && (
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {topScore && (
+            <AwardCard title={`Week ${week} top score`}>
+              <TeamMark team={topScore.team} />
+              <p className="tabular mt-1 text-2xl font-bold">{topScore.score} pts</p>
+              <p className="text-xs text-muted-foreground">vs {topScore.opponent}</p>
+            </AwardCard>
+          )}
+          {mvp && (
+            <AwardCard title={`Week ${week} MVP`}>
+              <p className="truncate font-semibold">{mvp.player}</p>
+              <p className="tabular mt-1 text-2xl font-bold">{mvp.score} pts</p>
+              <p className="text-xs text-muted-foreground">
+                {mvp.slot} · {mvp.team}
+              </p>
+            </AwardCard>
+          )}
+          {blowout && blowout.margin > 0 && (
+            <AwardCard title="Beatdown of the week">
+              <TeamMark team={blowout.m.winner} />
+              <p className="tabular mt-1 text-2xl font-bold">+{blowout.margin}</p>
+              <p className="text-xs text-muted-foreground">over {blowout.m.loser}</p>
+            </AwardCard>
+          )}
+          {closest && (
+            <AwardCard title="Nailbiter of the week">
+              <TeamMark team={closest.m.winner} />
+              <p className="tabular mt-1 text-2xl font-bold">
+                {closest.margin === 0 ? 'tiebreaker' : `by ${closest.margin}`}
+              </p>
+              <p className="text-xs text-muted-foreground">over {closest.m.loser}</p>
+            </AwardCard>
+          )}
+        </section>
       )}
+
+      <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
+        <section className="space-y-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-xl font-bold tracking-tight">{week > 0 ? `Week ${week} results` : 'Matchups'}</h2>
+            <div className="flex gap-4">
+              {week > 0 && (
+                <Link href={`/recap/${week}`} className="text-sm font-medium text-primary hover:underline">
+                  Share recap
+                </Link>
+              )}
+              <Link href="/matchups" className="text-sm font-medium text-primary hover:underline">
+                All weeks →
+              </Link>
+            </div>
+          </div>
+          {weekMatchups.length > 0 ? (
+            <div className="space-y-3">
+              {weekMatchups.map((m, i) => (
+                <MatchupCard key={i} matchup={m} season={season.season} />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+              No scores reported yet. Once the commissioner enters Week 1, results land here.
+            </p>
+          )}
+
+          {nextPairs.length > 0 && (
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-muted-foreground">
+                Up next — Week {week + 1}
+                {season.schedule.find((s) => s.week === week + 1)?.label
+                  ? ` · ${season.schedule.find((s) => s.week === week + 1)!.label}`
+                  : ''}
+              </h3>
+              <ul className="mt-2 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+                {nextPairs.map(([a, b]) => (
+                  <li key={a} className="flex items-center justify-between gap-2">
+                    <TeamMark team={a} />
+                    <span className="text-xs text-muted-foreground">vs</span>
+                    <TeamMark team={b} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
+        <section className="space-y-4">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-xl font-bold tracking-tight">Standings</h2>
+            <Link href="/standings" className="text-sm font-medium text-primary hover:underline">
+              Full table →
+            </Link>
+          </div>
+          {season.standings.length > 0 ? (
+            <StandingsTable standings={season.standings} compact odds={odds?.odds ?? null} />
+          ) : (
+            <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
+              Standings appear after the first week of scores.
+            </p>
+          )}
+
+          <PotCard isArchive={isArchive} waiverFees={season.waivers.reduce((s, m) => s + m.cost, 0)} />
+        </section>
+      </div>
+    </div>
+  )
+}
+
+function PotCard({ isArchive, waiverFees }: { isArchive: boolean; waiverFees: number }) {
+  // Live pot: dues plus every waiver fee paid; archive seasons show the
+  // current payout structure instead.
+  const pot = computePot(isArchive ? 0 : waiverFees)
+  return (
+    <div className="rounded-xl border bg-card p-4 text-sm shadow-sm">
+      <div className="flex items-baseline justify-between">
+        <h3 className="font-semibold">The pot</h3>
+        <span className="tabular text-lg font-extrabold">${pot.pot.toLocaleString()}</span>
+      </div>
+      {!isArchive && waiverFees > 0 && (
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          ${pot.base.toLocaleString()} dues + ${waiverFees.toLocaleString()} in{' '}
+          <Link href="/waivers" className="underline">
+            waiver fees
+          </Link>
+        </p>
+      )}
+      <ul className="mt-2 space-y-1">
+        {pot.payouts.map((p) => (
+          <li key={p.place} className="flex justify-between">
+            <span className="text-muted-foreground">{p.place}</span>
+            <span className="tabular font-medium">${p.amount.toLocaleString()}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function AwardCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border bg-card p-4 shadow-sm">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+      <div className="mt-2">{children}</div>
     </div>
   )
 }
