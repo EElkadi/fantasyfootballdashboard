@@ -11,13 +11,15 @@ export interface Owner {
   /** Alternate spellings seen in chats and sheets */
   aliases: string[]
   color: string
+  /** false for former members who appear only in archived seasons */
+  active?: boolean
 }
 
 export const OWNERS: Owner[] = [
   { name: 'Paco', teamName: 'We Dem Boyz', aliases: [], color: '#e11d48' },
   { name: 'ATL', teamName: 'A.T.L.', aliases: [], color: '#f97316' },
   { name: 'Doy', teamName: 'Crypt Keeper', aliases: [], color: '#a16207' },
-  { name: 'Chuy', teamName: 'Latino Velvet', aliases: [], color: '#16a34a' },
+  { name: 'Chuy', teamName: 'Latino Velvet', aliases: ['Zeus'], color: '#16a34a' },
   { name: 'Gaybo', teamName: 'SnakeBite', aliases: [], color: '#0d9488' },
   { name: 'Kenny', teamName: '2 Gurleys, 1 Kupp', aliases: [], color: '#0284c7' },
   { name: 'Elaf', teamName: 'El Facho', aliases: ['Eloy'], color: '#4f46e5' },
@@ -26,7 +28,12 @@ export const OWNERS: Owner[] = [
   { name: 'Monaf', teamName: 'Planet of the Monos', aliases: ['Mono'], color: '#db2777' },
   { name: 'Greg', teamName: 'El Borracho', aliases: [], color: '#65a30d' },
   { name: 'Larry', teamName: 'Team Fun', aliases: [], color: '#64748b' },
+  // Former members (archived seasons only)
+  { name: 'Marco', teamName: 'Real Narco', aliases: [], color: '#78716c', active: false },
+  { name: 'Ivo', teamName: 'The Autumn Wind', aliases: [], color: '#155e75', active: false },
 ]
+
+export const ACTIVE_OWNERS = OWNERS.filter((o) => o.active !== false)
 
 const aliasIndex = new Map<string, Owner>()
 for (const o of OWNERS) {
@@ -70,7 +77,7 @@ export const LEAGUE = {
 export const CURRENT_SEASON = Number(process.env.CURRENT_SEASON ?? 2026)
 
 /** Seasons with archived CSV data under data/seasons/<year>/ */
-export const ARCHIVED_SEASONS = [2025]
+export const ARCHIVED_SEASONS = [2025, 2024]
 
 /** Past champions — extend as history gets filled in. */
 export const HONORS: { season: number; champion?: string; runnerUp?: string; scoringChamp?: string; turd?: string }[] = []

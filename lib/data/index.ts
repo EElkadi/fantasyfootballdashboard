@@ -4,7 +4,7 @@ import path from 'path'
 import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
 import { Matchup, ScheduleWeek, SeasonData } from '@/lib/types'
-import { ARCHIVED_SEASONS, CURRENT_SEASON, OWNERS } from '@/lib/league'
+import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE } from '@/lib/league'
 import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TAB, ROSTERS_TAB } from './sheets'
 import {
   canonTeam,
@@ -30,14 +30,20 @@ async function readCsv(season: number, file: string): Promise<Record<string, str
 function assemble(season: number, source: SeasonData['source'], matchups: Matchup[], schedule: ScheduleWeek[]): SeasonData {
   const teamWeeks = matchupsToTeamWeeks(matchups)
   const playerWeeks = matchupsToPlayerWeeks(matchups)
-  const standings = computeStandings(teamWeeks, matchups)
+  // Standings only count the regular season; playoff matchups (weeks 15+)
+  // still show up in matchups, records, and team results.
+  const regular = (week: number) => week <= LEAGUE.regularSeasonWeeks
+  const standings = computeStandings(
+    teamWeeks.filter((r) => regular(r.week)),
+    matchups.filter((m) => regular(m.week)),
+  )
   const weeks = Array.from(new Set(matchups.map((m) => m.week))).sort((a, b) => a - b)
   const teams =
     standings.length > 0
       ? standings.map((s) => s.team)
       : schedule.length > 0
         ? Object.keys(schedule[0].opponents)
-        : OWNERS.map((o) => o.name)
+        : ACTIVE_OWNERS.map((o) => o.name)
   return {
     season,
     source,

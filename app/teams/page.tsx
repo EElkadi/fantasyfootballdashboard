@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { getDefaultSeason } from '@/lib/data'
-import { OWNERS, ownerColor, teamNameOf } from '@/lib/league'
+import { ACTIVE_OWNERS, OWNERS, ownerColor, teamNameOf } from '@/lib/league'
 
 export const revalidate = 60
 export const metadata: Metadata = { title: 'Teams' }
@@ -16,7 +16,7 @@ export default async function TeamsPage() {
         <p className="mt-1 text-sm text-muted-foreground">All twelve franchises.</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {OWNERS.map((o) => {
+        {ACTIVE_OWNERS.map((o) => {
           const s = season.standings.find((x) => x.team === o.name)
           return (
             <Link
@@ -52,6 +52,20 @@ export default async function TeamsPage() {
           )
         })}
       </div>
+
+      {OWNERS.some((o) => o.active === false) && (
+        <div className="text-sm text-muted-foreground">
+          Former franchises:{' '}
+          {OWNERS.filter((o) => o.active === false).map((o, i, arr) => (
+            <span key={o.name}>
+              <Link href={`/teams/${o.name.toLowerCase()}`} className="font-medium text-foreground hover:underline">
+                {teamNameOf(o.name)} ({o.name})
+              </Link>
+              {i < arr.length - 1 ? ' · ' : ''}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

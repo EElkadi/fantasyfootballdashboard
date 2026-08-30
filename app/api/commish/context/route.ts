@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { commishConfigured, isCommish } from '@/lib/commish/auth'
 import { getRosters, getSeason } from '@/lib/data'
 import { hasLiveSheet } from '@/lib/data/sheets'
-import { CURRENT_SEASON, OWNERS } from '@/lib/league'
+import { ACTIVE_OWNERS, CURRENT_SEASON } from '@/lib/league'
 
 export const dynamic = 'force-dynamic'
 
@@ -18,7 +18,7 @@ export async function GET() {
     sheetConfigured: hasLiveSheet(),
     season: CURRENT_SEASON,
     nextWeek: season.lastCompletedWeek + 1,
-    teams: OWNERS.map((o) => o.name),
+    teams: ACTIVE_OWNERS.map((o) => o.name),
     rosters,
     schedule: season.schedule,
   })

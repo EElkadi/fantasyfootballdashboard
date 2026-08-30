@@ -14,6 +14,22 @@ export function computeStandings(teamWeeks: TeamWeek[], matchups: Matchup[]): Te
 
   const weeks = Array.from(new Set(teamWeeks.map((r) => r.week))).sort((a, b) => a - b)
 
+  // Slot scores for breaking exact score ties (constitution §IX: RB1 → WR1 → QB)
+  const slotScore = new Map<string, number>()
+  for (const m of matchups) {
+    for (const side of [m.team1, m.team2]) {
+      for (const p of side.players) slotScore.set(`${m.week}|${side.team}|${p.slot}`, p.score)
+    }
+  }
+  const slotTiebreak = (week: number, a: string, b: string): number => {
+    for (const slot of ['RB1', 'WR1', 'QB']) {
+      const sa = slotScore.get(`${week}|${a}|${slot}`) ?? 0
+      const sb = slotScore.get(`${week}|${b}|${slot}`) ?? 0
+      if (sa !== sb) return sb - sa
+    }
+    return 0
+  }
+
   // Top-6 results per week
   const top6Wins = new Map<string, number>()
   const top6Losses = new Map<string, number>()
@@ -21,7 +37,7 @@ export function computeStandings(teamWeeks: TeamWeek[], matchups: Matchup[]): Te
   const weeklyRankCount = new Map<string, number>()
   for (const week of weeks) {
     const rows = teamWeeks.filter((r) => r.week === week)
-    const sorted = [...rows].sort((a, b) => b.score - a.score)
+    const sorted = [...rows].sort((a, b) => b.score - a.score || slotTiebreak(week, a.team, b.team))
     const cutoff = Math.min(6, Math.ceil(sorted.length / 2))
     sorted.forEach((row, i) => {
       row.top6 = i < cutoff

@@ -52,6 +52,8 @@ export function MatchupCard({ matchup, defaultOpen = false }: { matchup: Matchup
             {SLOTS.map((slot) => {
               const p1 = team1.players.find((p) => p.slot === slot)
               const p2 = team2.players.find((p) => p.slot === slot)
+              // Seasons before 2025 had a single flex — skip slots nobody filled
+              if (!p1?.player && !p2?.player) return null
               const hi1 = (p1?.score ?? 0) > (p2?.score ?? 0)
               const hi2 = (p2?.score ?? 0) > (p1?.score ?? 0)
               return (
