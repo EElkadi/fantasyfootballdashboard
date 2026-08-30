@@ -15,7 +15,12 @@ export interface PlayerScore {
 export interface TeamLineup {
   team: string
   players: PlayerScore[]
+  /** Official total (includes any penalty/adjustment) */
   total: number
+  /** Official total minus the players' sum, when they differ */
+  adjustment?: number
+  /** Why — e.g. "Late confirmation penalty (§VII)" */
+  adjustmentNote?: string
 }
 
 export interface Matchup {

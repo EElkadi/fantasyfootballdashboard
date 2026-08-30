@@ -27,6 +27,24 @@ function num(v: string | undefined): number {
 }
 
 /**
+ * Fallback label when no Adjustments entry explains a total/player-sum gap.
+ * Clean -5 multiples match the constitution's confirmation penalty (§VII).
+ */
+export function defaultAdjustmentNote(points: number): string {
+  if (points < 0 && points % 5 === 0) return 'Late confirmation penalty (§VII)'
+  return 'Commissioner score adjustment'
+}
+
+function attachAdjustment(side: TeamLineup): void {
+  const sum = side.players.reduce((s, p) => s + p.score, 0)
+  const diff = side.total - sum
+  if (diff !== 0 && side.players.some((p) => p.player)) {
+    side.adjustment = diff
+    side.adjustmentNote = defaultAdjustmentNote(diff)
+  }
+}
+
+/**
  * One wide Scores row (keyed by header) -> a Matchup.
  * Column layout: Week, Team 1, <slot pairs>, Total1, Team 2, <slot _2 pairs>, Total2, Winner, Loser.
  */
@@ -52,6 +70,8 @@ export function wideRowToMatchup(row: Record<string, string>): Matchup | null {
 
   const team1 = lineup('', team1Name, 'Total1')
   const team2 = lineup('_2', team2Name, 'Total2')
+  attachAdjustment(team1)
+  attachAdjustment(team2)
   const winner = canonTeam(row['Winner'] ?? '') || (team1.total >= team2.total ? team1Name : team2Name)
   const loser = winner === team1Name ? team2Name : team1Name
   return { week, team1, team2, winner, loser }
@@ -123,6 +143,8 @@ export function longToMatchups(
       players: lineupIndex.get(`${week}|${opp}`) ?? [],
       total: oppRow ? num(oppRow.Score) : 0,
     }
+    attachAdjustment(t1)
+    attachAdjustment(t2)
     const winner = r.Result === 'Win' ? team : opp
     matchups.push({ week, team1: t1, team2: t2, winner, loser: winner === team ? opp : team })
   }

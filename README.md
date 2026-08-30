@@ -73,6 +73,11 @@ Three tabs (names configurable via env):
 - **Waiver Wire** — `WEEK | TEAM | PLAYER | COST` rows. Powers `/waivers` and
   the live pot math (fees join the pot; scoring champ stays $250 and the rest
   splits 60/30/10). `/commish` has a one-click form that appends rows here.
+- **Adjustments** (optional) — `Week | Team | Points | Reason` rows explaining
+  any gap between a row's official total and its players' sum (e.g. the §VII
+  -5 confirmation penalty). The site detects the gap automatically either way
+  and shows it as an "Adj" line in the box score; this tab just supplies the
+  reason. `/commish` writes here when you apply a penalty at score entry.
 
 ## Weekly routine (commissioner)
 

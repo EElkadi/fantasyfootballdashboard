@@ -21,6 +21,7 @@ export const ROSTERS_TAB = process.env.ROSTERS_TAB ?? 'Rosters'
 export const DRAFT_TAB = process.env.DRAFT_TAB ?? 'Final Draft Board'
 export const WAIVERS_TAB = process.env.WAIVERS_TAB ?? 'Waiver Wire'
 export const TEAMS_TAB = process.env.TEAMS_TAB ?? 'Teams'
+export const ADJUSTMENTS_TAB = process.env.ADJUSTMENTS_TAB ?? 'Adjustments'
 
 function credentials(): { email: string; key: string } | null {
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_KEY

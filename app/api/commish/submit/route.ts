@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { appendRow, hasLiveSheet, SCORES_TAB } from '@/lib/data/sheets'
+import { ADJUSTMENTS_TAB, appendRow, hasLiveSheet, SCORES_TAB } from '@/lib/data/sheets'
 import { decideWinner } from '@/lib/parser/parse'
 import { resolveOwner } from '@/lib/league'
 import { Slot, SLOTS } from '@/lib/types'
@@ -17,6 +17,8 @@ interface SubmitPlayer {
 interface SubmitLineup {
   team: string
   players: SubmitPlayer[]
+  /** Point adjustment to the official total (e.g. -5 confirmation penalty) */
+  penalty?: number
 }
 
 function validateLineup(l: SubmitLineup): string | null {
@@ -60,7 +62,8 @@ export async function POST(req: Request) {
   const team2 = resolveOwner(l2.team)!.name
   if (team1 === team2) return NextResponse.json({ error: 'A team cannot play itself' }, { status: 400 })
 
-  const total = (l: SubmitLineup) => l.players.reduce((s, p) => s + p.score, 0)
+  // Official totals include any penalty; the box score keeps raw player points
+  const total = (l: SubmitLineup) => l.players.reduce((s, p) => s + p.score, 0) + (Number(l.penalty) || 0)
   const slotScore = (l: SubmitLineup) => (slot: Slot) => l.players.find((p) => p.slot === slot)?.score ?? 0
   const total1 = total(l1)
   const total2 = total(l2)
@@ -83,7 +86,36 @@ export async function POST(req: Request) {
     console.error('Sheet append failed:', err)
     return NextResponse.json({ error: 'Writing to the Google Sheet failed — try again' }, { status: 502 })
   }
+
+  // Log penalties to the Adjustments tab so the site can show the reason.
+  // Best-effort: the score row is already saved either way.
+  let adjustmentWarning: string | null = null
+  for (const [l, teamName] of [
+    [l1, team1],
+    [l2, team2],
+  ] as const) {
+    const penalty = Number(l.penalty) || 0
+    if (penalty === 0) continue
+    const reason = penalty === -5 ? 'Late confirmation penalty (§VII)' : 'Commissioner score adjustment'
+    try {
+      await appendRow(ADJUSTMENTS_TAB, [week, teamName, penalty, reason])
+    } catch (err) {
+      console.error('Adjustments append failed:', err)
+      adjustmentWarning = `Saved the matchup, but couldn't log the ${teamName} adjustment — add an "${ADJUSTMENTS_TAB}" tab (Week | Team | Points | Reason) to the sheet.`
+    }
+  }
   revalidateTag('season-live')
 
-  return NextResponse.json({ ok: true, week, team1, team2, total1, total2, winner, loser, tiebreaker: tiebreaker ?? null })
+  return NextResponse.json({
+    ok: true,
+    week,
+    team1,
+    team2,
+    total1,
+    total2,
+    winner,
+    loser,
+    tiebreaker: tiebreaker ?? null,
+    warning: adjustmentWarning,
+  })
 }

@@ -43,10 +43,17 @@ export function MatchupCard({
             {sides.map((side) => (
               <div key={side.team} className="flex items-center justify-between gap-3">
                 <TeamMark team={side.team} className={side.team === winner ? '' : 'opacity-70'} />
-                <span
-                  className={`tabular text-lg font-bold ${side.team === winner ? 'text-foreground' : 'text-muted-foreground'}`}
-                >
-                  {side.total}
+                <span className="flex items-baseline gap-1.5">
+                  {side.adjustment !== undefined && side.adjustment < 0 && (
+                    <span className="text-xs font-semibold text-loss" title={side.adjustmentNote}>
+                      {side.adjustment}
+                    </span>
+                  )}
+                  <span
+                    className={`tabular text-lg font-bold ${side.team === winner ? 'text-foreground' : 'text-muted-foreground'}`}
+                  >
+                    {side.total}
+                  </span>
                 </span>
               </div>
             ))}
@@ -96,6 +103,19 @@ export function MatchupCard({
                 </tr>
               )
             })}
+            {(team1.adjustment !== undefined || team2.adjustment !== undefined) && (
+              <tr className="border-t border-border/40">
+                <td className="py-1 pr-2 text-xs font-medium text-muted-foreground">Adj</td>
+                <td className="py-1 pr-2 text-xs italic text-muted-foreground">{team1.adjustmentNote ?? ''}</td>
+                <td className={`tabular py-1 text-right text-xs font-semibold ${(team1.adjustment ?? 0) < 0 ? 'text-loss' : (team1.adjustment ?? 0) > 0 ? 'text-win' : 'text-muted-foreground'}`}>
+                  {team1.adjustment !== undefined ? (team1.adjustment > 0 ? `+${team1.adjustment}` : team1.adjustment) : ''}
+                </td>
+                <td className="py-1 pl-4 pr-2 text-xs italic text-muted-foreground">{team2.adjustmentNote ?? ''}</td>
+                <td className={`tabular py-1 text-right text-xs font-semibold ${(team2.adjustment ?? 0) < 0 ? 'text-loss' : (team2.adjustment ?? 0) > 0 ? 'text-win' : 'text-muted-foreground'}`}>
+                  {team2.adjustment !== undefined ? (team2.adjustment > 0 ? `+${team2.adjustment}` : team2.adjustment) : ''}
+                </td>
+              </tr>
+            )}
             <tr className="border-t font-semibold">
               <td className="py-1.5 pr-2 text-xs text-muted-foreground">Total</td>
               <td className="py-1.5"></td>

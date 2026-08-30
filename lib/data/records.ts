@@ -182,6 +182,30 @@ export function buildRecordBook(seasons: SeasonData[]): RecordBook {
     }
   }
 
+  // --- Wall of shame: confirmation penalties (clean -5 multiples) ---
+  const penaltyCounts = new Map<string, { hits: number; points: number }>()
+  for (const m of allMatchups) {
+    for (const side of [m.team1, m.team2]) {
+      const adj = side.adjustment ?? 0
+      if (adj < 0 && adj % 5 === 0) {
+        if (!penaltyCounts.has(side.team)) penaltyCounts.set(side.team, { hits: 0, points: 0 })
+        const e = penaltyCounts.get(side.team)!
+        e.hits += Math.abs(adj) / 5
+        e.points += Math.abs(adj)
+      }
+    }
+  }
+  if (penaltyCounts.size > 0) {
+    const [team, e] = Array.from(penaltyCounts.entries()).sort((a, b) => b[1].points - a[1].points)[0]
+    streaks.push({
+      label: 'Most confirmation penalties',
+      holder: team,
+      value: `−${e.points} pts`,
+      detail: `${e.hits} late-confirm hit${e.hits === 1 ? '' : 's'} (§VII) — confirm your scores`,
+      season: 0,
+    })
+  }
+
   // --- Streaks (H2H, within a season) ---
   let bestWin = { team: '', len: 0, season: 0 }
   let bestLoss = { team: '', len: 0, season: 0 }

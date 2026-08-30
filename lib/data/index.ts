@@ -5,7 +5,7 @@ import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
 import { Matchup, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE } from '@/lib/league'
-import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TAB, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB } from './sheets'
+import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TAB, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -27,6 +27,25 @@ async function readCsv(season: number, file: string): Promise<Record<string, str
     return parse(content, { columns: true, skip_empty_lines: true, trim: true })
   } catch {
     return []
+  }
+}
+
+/** Overlay commissioner-supplied reasons onto detected total adjustments. */
+function annotateAdjustments(matchups: Matchup[], meta: Record<string, string>[]): void {
+  if (meta.length === 0) return
+  const reasons = new Map<string, string>()
+  for (const r of meta) {
+    const week = parseInt(r['Week'] ?? r['WEEK'] ?? '')
+    const team = canonTeam(r['Team'] ?? r['TEAM'] ?? '')
+    const reason = (r['Reason'] ?? r['REASON'] ?? '').trim()
+    if (week && team && reason) reasons.set(`${week}|${team}`, reason)
+  }
+  for (const m of matchups) {
+    for (const side of [m.team1, m.team2]) {
+      if (side.adjustment === undefined) continue
+      const reason = reasons.get(`${m.week}|${side.team}`)
+      if (reason) side.adjustmentNote = reason
+    }
   }
 }
 
@@ -71,14 +90,16 @@ function assemble(
 }
 
 async function loadArchiveSeason(season: number): Promise<SeasonData> {
-  const [teamRows, playerRows, scheduleRows, draftRows, waiverRows] = await Promise.all([
+  const [teamRows, playerRows, scheduleRows, draftRows, waiverRows, adjustmentRows] = await Promise.all([
     readCsv(season, 'teams.csv'),
     readCsv(season, 'players.csv'),
     readCsv(season, 'schedule.csv'),
     readCsv(season, 'draft.csv'),
     readCsv(season, 'waivers.csv'),
+    readCsv(season, 'adjustments.csv'),
   ])
   const matchups = longToMatchups(teamRows as any, playerRows as any)
+  annotateAdjustments(matchups, adjustmentRows)
   return assemble(
     season,
     matchups.length ? 'archive' : 'empty',
@@ -90,16 +111,18 @@ async function loadArchiveSeason(season: number): Promise<SeasonData> {
 }
 
 async function loadLiveSeason(season: number): Promise<SeasonData> {
-  const [scoreRows, scheduleRows, draftRows, teamsRows, waiverRows] = await Promise.all([
+  const [scoreRows, scheduleRows, draftRows, teamsRows, waiverRows, adjustmentRows] = await Promise.all([
     readTab(SCORES_TAB).catch(() => [] as string[][]),
     readTab(SCHEDULE_TAB).catch(() => [] as string[][]),
     readTab(DRAFT_TAB).catch(() => [] as string[][]),
     readTab(TEAMS_TAB).catch(() => [] as string[][]),
     readTab(WAIVERS_TAB).catch(() => [] as string[][]),
+    readTab(ADJUSTMENTS_TAB).catch(() => [] as string[][]),
   ])
   const matchups = toObjects(scoreRows)
     .map(wideRowToMatchup)
     .filter((m): m is Matchup => m !== null)
+  annotateAdjustments(matchups, toObjects(adjustmentRows))
   const schedule = gridToSchedule(toObjects(scheduleRows))
   const draft = draftRows.length > 1 && teamsRows.length > 1 ? gridToDraft(draftRows, toObjects(teamsRows)) : []
   const waivers = rowsToWaivers(toObjects(waiverRows))

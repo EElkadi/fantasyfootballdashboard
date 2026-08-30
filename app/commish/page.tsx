@@ -32,6 +32,8 @@ interface EditableLineup {
   team: string
   players: EditablePlayer[]
   issues: string[]
+  /** Point adjustment applied to the official total, e.g. -5 non-confirm penalty */
+  penalty: number
 }
 
 interface EditableMatchup {
@@ -53,7 +55,7 @@ function toEditable(l: ParsedLineup | undefined, fallbackTeam: string): Editable
       confidence: p?.confidence ?? 0,
     }
   })
-  return { team: l?.team ?? fallbackTeam, players, issues: l?.issues ?? [] }
+  return { team: l?.team ?? fallbackTeam, players, issues: l?.issues ?? [], penalty: 0 }
 }
 
 export default function CommishPage() {
@@ -131,6 +133,7 @@ export default function CommishPage() {
         lineups: [m.team1, m.team2].map((l) => ({
           team: l.team,
           players: l.players.map((p) => ({ slot: p.slot, name: p.name, score: p.score })),
+          penalty: l.penalty || 0,
         })),
       }),
     })
@@ -142,7 +145,7 @@ export default function CommishPage() {
             ? {
                 ...x,
                 status: 'done',
-                message: `Saved — ${data.winner} beats ${data.loser} ${Math.max(data.total1, data.total2)}–${Math.min(data.total1, data.total2)}${data.tiebreaker ? ` (${data.tiebreaker} tiebreaker)` : ''}`,
+                message: `Saved — ${data.winner} beats ${data.loser} ${Math.max(data.total1, data.total2)}–${Math.min(data.total1, data.total2)}${data.tiebreaker ? ` (${data.tiebreaker} tiebreaker)` : ''}${data.warning ? ` ⚠ ${data.warning}` : ''}`,
               }
             : { ...x, status: 'error', message: data.error ?? 'Submit failed' }
           : x,
@@ -365,7 +368,8 @@ function MatchupEditor({
   onChange: (m: EditableMatchup) => void
   onSubmit: () => void
 }) {
-  const total = (l: EditableLineup) => l.players.reduce((s, p) => s + (Number.isFinite(p.score) ? p.score : 0), 0)
+  const total = (l: EditableLineup) =>
+    l.players.reduce((s, p) => s + (Number.isFinite(p.score) ? p.score : 0), 0) + (l.penalty || 0)
   const t1 = total(matchup.team1)
   const t2 = total(matchup.team2)
 
@@ -436,6 +440,40 @@ function MatchupEditor({
                   ⚠ {issue}
                 </p>
               ))}
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = structuredClone(matchup)
+                    const target = side === 0 ? next.team1 : next.team2
+                    target.penalty = target.penalty === -5 ? 0 : -5
+                    onChange(next)
+                  }}
+                  className={`rounded-md border px-2 py-1 font-medium transition-colors ${
+                    lineup.penalty === -5
+                      ? 'border-destructive bg-destructive/10 text-destructive'
+                      : 'border-input text-muted-foreground hover:bg-secondary'
+                  }`}
+                >
+                  −5 non-confirm (§VII)
+                </button>
+                <label className="text-muted-foreground">or adj.</label>
+                <input
+                  type="number"
+                  value={lineup.penalty || ''}
+                  placeholder="0"
+                  onChange={(e) => {
+                    const next = structuredClone(matchup)
+                    const target = side === 0 ? next.team1 : next.team2
+                    target.penalty = parseInt(e.target.value) || 0
+                    onChange(next)
+                  }}
+                  className="tabular w-16 rounded border border-input bg-background px-2 py-1 text-right"
+                />
+                {lineup.penalty !== 0 && (
+                  <span className="text-muted-foreground">official total includes {lineup.penalty}</span>
+                )}
+              </div>
               <table className="w-full text-sm">
                 <tbody>
                   {lineup.players.map((p, pi) => (

@@ -80,7 +80,7 @@ function RecordSection({ title, entries }: { title: string; entries: RecordEntry
               <p className="tabular shrink-0 text-lg font-bold">{e.value}</p>
             </div>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {e.detail} · {e.season}
+              {e.detail} · {e.season || 'all-time'}
               {e.week ? `, week ${e.week}` : ''}
             </p>
           </div>
