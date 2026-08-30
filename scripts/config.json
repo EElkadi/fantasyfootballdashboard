@@ -1,8 +1,0 @@
-{
-    "credentials_path": "credentials.json",
-    "sheet_id": "1_UkolcfScqlouT5QbmSHwYDeQogsU7tnwW2EaGM5YbY",
-    "worksheet_name": "Scores",
-    "teams_output_path": "/Users/elaf/projects/fantasyfootballdashboard/data/teams_data.csv",
-    "players_output_path": "/Users/elaf/projects/fantasyfootballdashboard/data/players_data.csv",
-    "standings_output_path": "/Users/elaf/projects/fantasyfootballdashboard/data/standings_data.csv"
-}
