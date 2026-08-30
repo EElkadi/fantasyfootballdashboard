@@ -166,7 +166,7 @@ export function RecapShare({ data }: { data: RecapData }) {
     ctx.font = font(500, 22)
     ctx.fillText('Since 2015 · $3,600 on the line', PAD, H - PAD + 8)
     ctx.textAlign = 'right'
-    ctx.fillText(`Week ${data.week} of 14`, W - PAD, H - PAD + 8)
+    ctx.fillText(data.week > 14 ? `Playoffs · week ${data.week}` : `Week ${data.week} of 14`, W - PAD, H - PAD + 8)
     ctx.textAlign = 'left'
   }, [data])
 

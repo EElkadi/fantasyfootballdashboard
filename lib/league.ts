@@ -17,13 +17,13 @@ export interface Owner {
 
 export const OWNERS: Owner[] = [
   { name: 'Paco', teamName: 'We Dem Boyz', aliases: [], color: '#e11d48' },
-  { name: 'ATL', teamName: 'A.T.L.', aliases: [], color: '#f97316' },
+  { name: 'ATL', teamName: 'A.T.L.', aliases: ['Atole'], color: '#f97316' },
   { name: 'Doy', teamName: 'Crypt Keeper', aliases: [], color: '#a16207' },
   { name: 'Chuy', teamName: 'Latino Velvet', aliases: ['Zeus'], color: '#16a34a' },
   { name: 'Gaybo', teamName: 'SnakeBite', aliases: [], color: '#0d9488' },
   { name: 'Kenny', teamName: '2 Gurleys, 1 Kupp', aliases: [], color: '#0284c7' },
   { name: 'Elaf', teamName: 'El Facho', aliases: ['Eloy'], color: '#4f46e5' },
-  { name: 'Julio', teamName: 'Gunner Galáctico', aliases: [], color: '#9333ea' },
+  { name: 'Julio', teamName: 'Gunner Galáctico', aliases: ['Bert'], color: '#9333ea' },
   { name: 'Jay', teamName: 'El Buki', aliases: [], color: '#c026d3' },
   { name: 'Monaf', teamName: 'Planet of the Monos', aliases: ['Mono'], color: '#db2777' },
   { name: 'Greg', teamName: 'El Borracho', aliases: [], color: '#65a30d' },
@@ -73,6 +73,11 @@ export const LEAGUE = {
   turdBowlTeams: 4,
   /** Weeks whose schedule row carries a special label */
   rivalryWeek: 7,
+  playoffWeekLabels: {
+    15: 'Quarterfinals · Turd Bowl semifinals',
+    16: 'Semifinals · Turd Bowl final',
+    17: 'Championship · 3rd place game',
+  } as Record<number, string>,
 } as const
 
 /** The season currently being played (or about to start). */
@@ -103,4 +108,13 @@ export function computePot(waiverFees: number) {
 }
 
 /** Past champions — extend as history gets filled in. */
-export const HONORS: { season: number; champion?: string; runnerUp?: string; scoringChamp?: string; turd?: string }[] = []
+export const HONORS: {
+  season: number
+  champion?: string
+  runnerUp?: string
+  third?: string
+  scoringChamp?: string
+  turd?: string
+}[] = [
+  { season: 2025, champion: 'Chuy', runnerUp: 'Jay', third: 'Paco', scoringChamp: 'Paco', turd: 'Kenny' },
+]

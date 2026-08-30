@@ -34,7 +34,12 @@ export default async function RecordsPage() {
               <div key={h.season} className="rounded-xl border bg-card p-4 shadow-sm">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{h.season}</p>
                 {h.champion && <p className="mt-1 text-lg font-bold">🏆 {h.champion}</p>}
-                {h.turd && <p className="text-sm text-muted-foreground">💩 Turd: {h.turd}</p>}
+                <div className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+                  {h.runnerUp && <p>🥈 {h.runnerUp}</p>}
+                  {h.third && <p>🥉 {h.third}</p>}
+                  {h.scoringChamp && <p>🎯 Scoring champ: {h.scoringChamp}</p>}
+                  {h.turd && <p>💩 Turd: {h.turd}</p>}
+                </div>
               </div>
             ))}
           </div>
