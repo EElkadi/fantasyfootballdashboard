@@ -109,9 +109,16 @@ export default async function HomePage() {
         <section className="space-y-4">
           <div className="flex items-baseline justify-between">
             <h2 className="text-xl font-bold tracking-tight">{week > 0 ? `Week ${week} results` : 'Matchups'}</h2>
-            <Link href="/matchups" className="text-sm font-medium text-primary hover:underline">
-              All weeks →
-            </Link>
+            <div className="flex gap-4">
+              {week > 0 && (
+                <Link href={`/recap/${week}`} className="text-sm font-medium text-primary hover:underline">
+                  Share recap
+                </Link>
+              )}
+              <Link href="/matchups" className="text-sm font-medium text-primary hover:underline">
+                All weeks →
+              </Link>
+            </div>
           </div>
           {weekMatchups.length > 0 ? (
             <div className="space-y-3">

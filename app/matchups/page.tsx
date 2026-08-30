@@ -77,6 +77,13 @@ export default async function MatchupsPage({
           {matchups.map((m, i) => (
             <MatchupCard key={i} matchup={m} defaultOpen={matchups.length === 1} />
           ))}
+          {!seasonParam && (
+            <p className="text-sm">
+              <Link href={`/recap/${week}`} className="font-medium text-primary hover:underline">
+                Share the week {week} recap card →
+              </Link>
+            </p>
+          )}
         </div>
       ) : upcoming.length > 0 ? (
         <div className="rounded-xl border bg-card p-5 shadow-sm">
