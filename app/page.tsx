@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getDefaultSeason } from '@/lib/data'
-import { computePot, CURRENT_SEASON, LEAGUE } from '@/lib/league'
+import { computePot, CURRENT_SEASON, HONORS, LEAGUE } from '@/lib/league'
 import { MatchupCard } from '@/components/league/MatchupCard'
 import { StandingsTable } from '@/components/league/StandingsTable'
 import { TeamMark } from '@/components/league/TeamMark'
@@ -38,6 +38,8 @@ export default async function HomePage() {
   }
 
   const odds = !isArchive && !regularSeasonDone ? simulateSeason(season) : null
+  const playoffsDone = week > LEAGUE.regularSeasonWeeks
+  const honors = HONORS.find((h) => h.season === season.season)
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
@@ -49,16 +51,26 @@ export default async function HomePage() {
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight sm:text-4xl">
             {week === 0
               ? 'The season is almost here'
-              : regularSeasonDone
-                ? `Regular season complete`
-                : `Week ${week} is in the books`}
+              : playoffsDone && honors?.champion
+                ? `${honors.champion} took the crown`
+                : regularSeasonDone
+                  ? `Regular season complete`
+                  : `Week ${week} is in the books`}
           </h1>
           <p className="mt-2 max-w-xl text-muted-foreground">
             {week === 0
               ? `Draft day is the Saturday of Labor Day weekend. $${LEAGUE.payouts[0].amount.toLocaleString()} to the champ.`
-              : regularSeasonDone
-                ? `Playoffs run Weeks 15–17 — top ${LEAGUE.playoffTeams} in, top ${LEAGUE.playoffByes} get byes. The bottom ${LEAGUE.turdBowlTeams} fight out the Turd Bowl.`
-                : `${LEAGUE.regularSeasonWeeks - week} week${LEAGUE.regularSeasonWeeks - week === 1 ? '' : 's'} left in the regular season.`}
+              : playoffsDone && honors?.champion
+                ? [
+                    honors.runnerUp && `${honors.runnerUp} fell in the final`,
+                    honors.scoringChamp && `${honors.scoringChamp} took the scoring title`,
+                    honors.turd && `${honors.turd} is the Turd`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') + '.'
+                : regularSeasonDone
+                  ? `Playoffs run Weeks 15–17 — top ${LEAGUE.playoffTeams} in, ${LEAGUE.playoffByes === 1 ? 'the #1 seed gets a bye' : `top ${LEAGUE.playoffByes} get byes`}. The bottom ${LEAGUE.turdBowlTeams} fight out the Turd Bowl.`
+                  : `${LEAGUE.regularSeasonWeeks - week} week${LEAGUE.regularSeasonWeeks - week === 1 ? '' : 's'} left in the regular season.`}
           </p>
         </div>
         {isArchive && (

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { getDefaultSeason } from '@/lib/data'
 import { computeStandings } from '@/lib/data/standings'
+import { LEAGUE } from '@/lib/league'
 import { RecapShare, RecapData } from '@/components/league/RecapShare'
 
 export const revalidate = 60
@@ -24,10 +25,11 @@ export default async function RecapPage({ params }: { params: { week: string } }
   const weekPlayers = season.playerWeeks.filter((p) => p.week === week)
   const mvp = weekPlayers.length ? weekPlayers.reduce((a, b) => (b.score > a.score ? b : a)) : undefined
 
-  // Standings as they stood after this week
+  // Standings as they stood after this week (playoff games never count)
+  const cutoff = Math.min(week, LEAGUE.regularSeasonWeeks)
   const throughWeek = computeStandings(
-    season.teamWeeks.filter((r) => r.week <= week).map((r) => ({ ...r })),
-    season.matchups.filter((m) => m.week <= week),
+    season.teamWeeks.filter((r) => r.week <= cutoff).map((r) => ({ ...r })),
+    season.matchups.filter((m) => m.week <= cutoff),
   )
 
   const data: RecapData = {

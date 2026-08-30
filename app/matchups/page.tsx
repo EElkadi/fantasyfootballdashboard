@@ -46,7 +46,11 @@ export default async function MatchupsPage({
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">Matchups</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {season.season} season{scheduleWeek?.label ? ` · ${scheduleWeek.label}` : ''}
+            {season.season} season
+            {(() => {
+              const label = scheduleWeek?.label ?? LEAGUE.playoffWeekLabels[week]
+              return label ? ` · ${label}` : ''
+            })()}
           </p>
         </div>
         <SeasonSwitcher current={season.season} basePath="/matchups" />

@@ -259,7 +259,7 @@ export const CONSTITUTION: RuleSection[] = [
     numeral: 'XVI',
     title: 'Playoffs',
     body: [
-      'Playoffs run Weeks 15–17. Six teams qualify; the top two seeds get a first-round bye. The top remaining seed always plays the lowest remaining seed.',
+      'Playoffs run Weeks 15–17. Seven teams qualify; the #1 seed gets a first-round bye. The top remaining seed always plays the lowest remaining seed.',
     ],
   },
   {
