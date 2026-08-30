@@ -67,12 +67,13 @@ for (const [raw, player, nflTeam, position] of cells) {
   check('draft: pick 13 = Larry (snake)', picks[12].team === 'Larry', picks[12])
 }
 
-// --- Clinch/elimination bounds ---
+// --- Clinch/elimination bounds (7 playoff spots) ---
 {
-  // 12 teams, fixed pairings, fixed pecking order: every week A..F beat and
-  // outscore G..L, so after w complete weeks A-F have 2w wins, G-L zero.
+  // 12 teams, adjacent pairings, fixed pecking order (A outscores B outscores
+  // C…): each week A,C,E,G,I,K win their matchups and A-F take the top-6
+  // spots, so weekly wins are A:2 C:2 E:2, B/D/F/G/I/K:1, H/J/L:0.
   const TEAMS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L']
-  const pairs: [string, string][] = [['A', 'L'], ['B', 'K'], ['C', 'J'], ['D', 'I'], ['E', 'H'], ['F', 'G']]
+  const pairs: [string, string][] = [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G', 'H'], ['I', 'J'], ['K', 'L']]
   const weekRows = (week: number) =>
     pairs.flatMap(([hi, lo]) => {
       const hiScore = 120 - TEAMS.indexOf(hi) * 5
@@ -92,15 +93,17 @@ for (const [raw, player, nflTeam, position] of cells) {
       ],
     }) as unknown as SeasonData
 
-  // After 5 complete weeks (A-F on 10 wins, 9 weeks left) nothing is decided
+  // After 5 complete weeks (9 left, ceilings +18) nothing is decided
   const early = playoffClinchStatus(season(5))
   check('clinch: everyone alive early', TEAMS.every((t) => early.get(t) === 'alive'), Object.fromEntries(early))
 
-  // After 12 complete weeks: A-F on 24 with only 5 rivals able to catch them;
-  // G-L max out at 4 with six teams already past that
+  // After 12 complete weeks (2 left): A on 24 with only C and E able to
+  // catch its floor -> clinched; B on 12 with 8 rivals able to reach 12 ->
+  // alive; H maxes at 4 with 9 teams already past that -> eliminated
   const late = playoffClinchStatus(season(12))
-  check('clinch: top six clinched', late.get('A') === 'clinched' && late.get('F') === 'clinched', Object.fromEntries(late))
-  check('clinch: bottom six eliminated', late.get('G') === 'eliminated' && late.get('L') === 'eliminated', late.get('G'))
+  check('clinch: runaway leader clinched', late.get('A') === 'clinched', Object.fromEntries(late))
+  check('clinch: bubble team alive', late.get('B') === 'alive', late.get('B'))
+  check('clinch: doomed teams eliminated', late.get('H') === 'eliminated' && late.get('L') === 'eliminated', late.get('H'))
 
   // A half-entered week 13 (2 of 12 rows) must not change any verdict
   const partial = playoffClinchStatus(season(12, 2))

@@ -68,8 +68,11 @@ export const LEAGUE = {
   regularSeasonWeeks: 14,
   draftRounds: 20,
   playoffWeeks: [15, 16, 17],
-  playoffTeams: 6,
-  playoffByes: 2,
+  // Constitution §XVI says six teams with two byes, but the league actually
+  // runs seven with a single bye for the #1 seed (confirmed 2025: the 2 seed
+  // played the 7 seed in a quarterfinal).
+  playoffTeams: 7,
+  playoffByes: 1,
   turdBowlTeams: 4,
   /** Weeks whose schedule row carries a special label */
   rivalryWeek: 7,

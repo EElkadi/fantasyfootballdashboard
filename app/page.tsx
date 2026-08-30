@@ -69,7 +69,7 @@ export default async function HomePage() {
                     .filter(Boolean)
                     .join(' · ') + '.'
                 : regularSeasonDone
-                  ? `Playoffs run Weeks 15–17 — top ${LEAGUE.playoffTeams} in, top ${LEAGUE.playoffByes} get byes. The bottom ${LEAGUE.turdBowlTeams} fight out the Turd Bowl.`
+                  ? `Playoffs run Weeks 15–17 — top ${LEAGUE.playoffTeams} in, ${LEAGUE.playoffByes === 1 ? 'the #1 seed gets a bye' : `top ${LEAGUE.playoffByes} get byes`}. The bottom ${LEAGUE.turdBowlTeams} fight out the Turd Bowl.`
                   : `${LEAGUE.regularSeasonWeeks - week} week${LEAGUE.regularSeasonWeeks - week === 1 ? '' : 's'} left in the regular season.`}
           </p>
         </div>

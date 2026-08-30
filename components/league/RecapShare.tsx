@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { ownerColor } from '@/lib/league'
+import { LEAGUE, ownerColor } from '@/lib/league'
 
 export interface RecapData {
   season: number
@@ -153,8 +153,9 @@ export function RecapShare({ data }: { data: RecapData }) {
       ctx.textAlign = 'right'
       ctx.fillText(t.record, rightX + rightW, mid)
       ctx.textAlign = 'left'
-      ctx.strokeStyle = i === 5 ? GREEN : LINE
-      ctx.lineWidth = i === 5 ? 3 : 1
+      const isPlayoffLine = i === LEAGUE.playoffTeams - 1
+      ctx.strokeStyle = isPlayoffLine ? GREEN : LINE
+      ctx.lineWidth = isPlayoffLine ? 3 : 1
       ctx.beginPath()
       ctx.moveTo(rightX, y + sRowH)
       ctx.lineTo(rightX + rightW, y + sRowH)
