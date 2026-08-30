@@ -264,7 +264,114 @@ export default function CommishPage() {
       ))}
 
       <WaiverLogger ctx={ctx} defaultWeek={week} onLogged={loadContext} />
+      <TradeLogger ctx={ctx} onLogged={loadContext} />
     </div>
+  )
+}
+
+function TradeLogger({ ctx, onLogged }: { ctx: Context; onLogged: () => void }) {
+  const [team1, setTeam1] = useState('')
+  const [team2, setTeam2] = useState('')
+  const [gets1, setGets1] = useState('')
+  const [gets2, setGets2] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+  const [warnings, setWarnings] = useState<string[]>([])
+
+  const toAssets = (text: string) => text.split('\n').map((l) => l.trim()).filter(Boolean)
+
+  const submit = async () => {
+    setBusy(true)
+    setNote('')
+    setWarnings([])
+    try {
+      const res = await fetch('/api/commish/trade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ team1, team2, team1Gets: toAssets(gets1), team2Gets: toAssets(gets2) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setNote(`Logged: ${data.team1} ⇄ ${data.team2}. Rosters updated.`)
+        setWarnings(data.warnings ?? [])
+        setGets1('')
+        setGets2('')
+        onLogged()
+      } else {
+        setNote(data.error ?? 'Failed to log the trade')
+      }
+    } catch {
+      setNote('Network error — the trade was NOT saved. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const teamPicker = (value: string, onChange: (v: string) => void, exclude: string) => (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm font-semibold"
+    >
+      <option value="">Pick team…</option>
+      {ctx.teams
+        .filter((t) => t !== exclude)
+        .map((t) => (
+          <option key={t} value={t}>
+            {t}
+          </option>
+        ))}
+    </select>
+  )
+
+  const ready = team1 && team2 && toAssets(gets1).length > 0 && toAssets(gets2).length > 0
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Log a trade</CardTitle>
+        <CardDescription>
+          One asset per line — players as &quot;Name TEAM (POS)&quot;, pick swaps as plain text (e.g. &quot;Round 2,
+          Pick 19&quot;). Writes the Trades tab and moves the players between rosters.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(
+            [
+              [team1, setTeam1, team2, gets1, setGets1],
+              [team2, setTeam2, team1, gets2, setGets2],
+            ] as const
+          ).map(([team, setTeam, other, gets, setGets], side) => (
+            <div key={side} className="space-y-2">
+              <div className="flex items-center gap-2">
+                {teamPicker(team, setTeam, other)}
+                <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  receives
+                </span>
+              </div>
+              <textarea
+                value={gets}
+                onChange={(e) => setGets(e.target.value)}
+                placeholder={side === 0 ? 'Zack Moss CIN (RB)' : 'Jordan Mason SFO (RB)'}
+                className="h-24 w-full rounded-md border border-input bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <Button onClick={submit} disabled={!ready || busy || !ctx.sheetConfigured}>
+            {busy ? 'Saving…' : 'Log trade'}
+          </Button>
+          {note && <span className="text-sm text-muted-foreground">{note}</span>}
+        </div>
+        {warnings.map((w, i) => (
+          <p key={i} className="text-xs text-amber-600 dark:text-amber-400">
+            ⚠ {w}
+          </p>
+        ))}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -289,7 +396,9 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
     })
     const data = await res.json().catch(() => ({}))
     if (res.ok) {
-      setNote(`Logged: ${data.team} adds ${data.player} for $${data.cost}`)
+      setNote(
+        `Logged: ${data.team} adds ${data.player} for $${data.cost} (roster updated)${data.warning ? ` — ⚠ ${data.warning}` : ''}`,
+      )
       setPlayer('')
       setCost('')
       onLogged()

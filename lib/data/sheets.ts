@@ -94,6 +94,18 @@ export async function appendRow(tab: string, row: (string | number)[]): Promise<
   )
 }
 
+/** 1-based column index -> letter(s): 1 -> A, 27 -> AA. */
+export function columnLetter(index: number): string {
+  let s = ''
+  let n = index
+  while (n > 0) {
+    const rem = (n - 1) % 26
+    s = String.fromCharCode(65 + rem) + s
+    n = Math.floor((n - 1) / 26)
+  }
+  return s
+}
+
 /** Write one cell (A1 notation), e.g. updateCell('Final Draft Board', 'C5', 'Bijan Robinson ATL RB'). */
 export async function updateCell(tab: string, cell: string, value: string | number): Promise<void> {
   await sheetsFetch(`/values/${encodeURIComponent(`${tab}!${cell}`)}?valueInputOption=USER_ENTERED`, {

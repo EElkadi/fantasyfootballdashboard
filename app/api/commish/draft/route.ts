@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { DRAFT_TAB, TEAMS_TAB, hasLiveSheet, readTab, toObjects, updateCell } from '@/lib/data/sheets'
+import { DRAFT_TAB, TEAMS_TAB, columnLetter, hasLiveSheet, readTab, toObjects, updateCell } from '@/lib/data/sheets'
 import { gridToDraft, snakePosition } from '@/lib/data/transform'
 import { LEAGUE } from '@/lib/league'
 import { DraftState } from '@/lib/types'
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 /** Column letter for a draft slot (col A holds round labels, slots start at B). */
 function slotColumn(slot: number): string {
-  return String.fromCharCode(65 + slot)
+  return columnLetter(slot + 1)
 }
 
 /**

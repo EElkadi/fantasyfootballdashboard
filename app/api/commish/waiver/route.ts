@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
 import { appendRow, hasLiveSheet, WAIVERS_TAB } from '@/lib/data/sheets'
+import { addToRoster } from '@/lib/data/rosters'
 import { resolveOwner } from '@/lib/league'
 
 export const dynamic = 'force-dynamic'
@@ -28,6 +29,8 @@ export async function POST(req: Request) {
     console.error('Waiver append failed:', err)
     return NextResponse.json({ error: 'Writing to the Google Sheet failed — try again' }, { status: 502 })
   }
+  // Keep the Rosters tab (and the parser's name matching) current
+  const rosterWarning = await addToRoster(owner.name, player)
   revalidateTag('season-live')
-  return NextResponse.json({ ok: true, week, team: owner.name, player, cost })
+  return NextResponse.json({ ok: true, week, team: owner.name, player, cost, warning: rosterWarning })
 }

@@ -65,9 +65,9 @@ Three tabs (names configurable via env):
   week 7 and shows as "Rivalry Week" on the site.
 - **Rosters** — one column per team (owner name as the header), rostered
   players below. This powers the parser's fuzzy name matching ("Romeo" →
-  Romeo Doubs, "Mathew Stafford" → Matthew Stafford). Update it after the
-  draft and after waiver adds; without it, parsing still works but spellings
-  aren't corrected.
+  Romeo Doubs, "Mathew Stafford" → Matthew Stafford). Fill it once after the
+  draft; the waiver and trade forms keep it current from then on. Without it,
+  parsing still works but spellings aren't corrected.
 - **Final Draft Board** + **Teams** — the draft grid (one column per team in
   draft order, `Round NN` rows) and the Teams tab whose `DRAFT ORDER`/`TEAMS`
   columns map board columns to owners. Powers `/draft`.
@@ -85,11 +85,16 @@ Three tabs (names configurable via env):
 
 ## Weekly routine (commissioner)
 
-1. Open `/commish`, paste the score reports from the matchup chats.
-2. Hit **Parse scores** — check anything flagged in amber (unknown names,
-   totals that don't add up, schedule mismatches).
-3. **Save to Sheet** per matchup. The site updates within a minute.
-4. Optionally open `/recap/<week>` and share the card back into the chat.
+Everything runs from `/commish` — the Sheet is the database, not the interface:
+
+1. Paste the score reports from the matchup chats, hit **Parse scores**, check
+   anything flagged in amber (unknown names, totals that don't add up,
+   schedule mismatches, the -5 non-confirm toggle), **Save to Sheet**.
+2. Log waiver adds and trades with their forms — both write their tabs AND
+   keep the Rosters tab (the parser's name matching) current automatically.
+3. Optionally open `/recap/<week>` and share the card back into the chat.
+
+The site updates within a minute of any save.
 
 ## New season checklist
 
