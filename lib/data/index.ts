@@ -74,7 +74,7 @@ async function loadLiveSeason(season: number): Promise<SeasonData> {
   return assemble(season, 'sheet', matchups, schedule)
 }
 
-const cachedLive = unstable_cache(loadLiveSeason, ['live-season'], { revalidate: 60 })
+const cachedLive = unstable_cache(loadLiveSeason, ['live-season'], { revalidate: 60, tags: ['season-live'] })
 
 /** All seasons that can be displayed, newest first. */
 export function availableSeasons(): number[] {

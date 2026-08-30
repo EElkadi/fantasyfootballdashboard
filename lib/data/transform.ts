@@ -132,7 +132,7 @@ export function longToMatchups(
 /** Schedule grid (Week column + one column per team) -> ScheduleWeek[] */
 export function gridToSchedule(rows: Record<string, string>[]): ScheduleWeek[] {
   return rows
-    .map((row) => {
+    .map((row): ScheduleWeek | null => {
       const weekRaw = row['Week'] ?? ''
       const weekNum = parseInt(weekRaw.replace(/[^\d]/g, ''))
       if (!weekNum) return null
