@@ -5,7 +5,7 @@ import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
 import { Matchup, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE } from '@/lib/league'
-import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TAB, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB } from './sheets'
+import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -115,22 +115,49 @@ async function loadArchiveSeason(season: number): Promise<SeasonData> {
   )
 }
 
+/** Read a tab, treating a missing/unreadable one as empty but saying so in the logs. */
+async function readTabOrEmpty(tab: string): Promise<string[][]> {
+  try {
+    return await readTab(tab)
+  } catch (err) {
+    console.warn(`Sheet tab "${tab}" could not be read (treated as empty):`, err)
+    return []
+  }
+}
+
 async function loadLiveSeason(season: number): Promise<SeasonData> {
-  const [scoreRows, scheduleRows, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows] = await Promise.all([
-    readTab(SCORES_TAB).catch(() => [] as string[][]),
-    readTab(SCHEDULE_TAB).catch(() => [] as string[][]),
-    readTab(DRAFT_TAB).catch(() => [] as string[][]),
-    readTab(TEAMS_TAB).catch(() => [] as string[][]),
-    readTab(WAIVERS_TAB).catch(() => [] as string[][]),
-    readTab(ADJUSTMENTS_TAB).catch(() => [] as string[][]),
-    readTab(TRADES_TAB).catch(() => [] as string[][]),
-  ])
+  const [scoreRows, scheduleCandidates, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows] =
+    await Promise.all([
+      readTabOrEmpty(SCORES_TAB),
+      Promise.all(SCHEDULE_TABS.map(readTabOrEmpty)),
+      readTabOrEmpty(DRAFT_TAB),
+      readTabOrEmpty(TEAMS_TAB),
+      readTabOrEmpty(WAIVERS_TAB),
+      readTabOrEmpty(ADJUSTMENTS_TAB),
+      readTabOrEmpty(TRADES_TAB),
+    ])
   const matchups = toObjects(scoreRows)
     .map(wideRowToMatchup)
     .filter((m): m is Matchup => m !== null)
   annotateAdjustments(matchups, toObjects(adjustmentRows))
-  const schedule = gridToSchedule(toObjects(scheduleRows))
-  const draft = draftRows.length > 0 && teamsRows.length > 1 ? gridToDraft(draftRows, toObjects(teamsRows)) : []
+  // First candidate tab that actually parses as a week grid wins
+  let schedule =
+    scheduleCandidates.map((rows) => gridToSchedule(toObjects(rows))).find((s) => s.length > 0) ?? []
+  let draft = draftRows.length > 0 && teamsRows.length > 1 ? gridToDraft(draftRows, toObjects(teamsRows)) : []
+
+  // The committed data/seasons/<year>/ files are a seed for the live season:
+  // reference data the Sheet doesn't actually supply — a tab that is empty,
+  // not created yet, or renamed — falls back to them. Without this a
+  // half-configured sheet silently blanks the schedule, since a missing tab
+  // reads as empty rather than throwing and so never reaches the catch in
+  // getSeason(). Scores, waivers and trades are deliberately excluded: those
+  // accumulate during the season, so empty is a legitimate state for them.
+  if (schedule.length === 0 || draft.length === 0) {
+    const seed = await loadArchiveSeason(season)
+    if (schedule.length === 0) schedule = seed.schedule
+    if (draft.length === 0) draft = seed.draft
+  }
+
   const waivers = rowsToWaivers(toObjects(waiverRows))
   const trades = rowsToTrades(toObjects(tradeRows))
   return assemble(season, 'sheet', matchups, schedule, draft, waivers, trades)

@@ -60,9 +60,12 @@ Three tabs (names configurable via env):
 - **Scores** — one row per matchup in the historical 43-column layout:
   `Week, Team 1, QB Name, QB, RB1 Name, RB1, … Flex2, Total1, Team 2, …,
   Total2, Winner, Loser`. `/commish` appends rows in exactly this shape.
-- **Schedule** — a grid: `Week` column plus one column per team, cells naming
-  that week's opponent. A row label like `RIVALRY WEEK 7` still parses as
-  week 7 and shows as "Rivalry Week" on the site.
+- **Team by Team Schedule** — the week grid: a `Week` column plus one column
+  per team, cells naming that week's opponent. A row label like
+  `RIVALRY WEEK 7` still parses as week 7 and shows as "Rivalry Week" on the
+  site. Note this is NOT the tab named `Schedule`, which in these workbooks is
+  a free-form weekly scratch area; both names are tried in order, and
+  `SCHEDULE_TAB` pins one explicitly.
 - **Rosters** — one column per team (owner name as the header), rostered
   players below. This powers the parser's fuzzy name matching ("Romeo" →
   Romeo Doubs, "Mathew Stafford" → Matthew Stafford). Fill it once after the

@@ -290,13 +290,15 @@ export function parseDraftCell(cell: string): { player: string; nflTeam?: string
 export function gridToSchedule(rows: Record<string, string>[]): ScheduleWeek[] {
   return rows
     .map((row): ScheduleWeek | null => {
-      const weekRaw = row['Week'] ?? ''
+      // Accept any capitalization of the week column, like the other parsers
+      const weekKey = Object.keys(row).find((k) => k.trim().toLowerCase() === 'week')
+      const weekRaw = weekKey ? row[weekKey] : ''
       const weekNum = parseInt(weekRaw.replace(/[^\d]/g, ''))
       if (!weekNum) return null
       const label = /rivalry/i.test(weekRaw) ? 'Rivalry Week' : undefined
       const opponents: Record<string, string> = {}
       for (const [col, val] of Object.entries(row)) {
-        if (col === 'Week' || !val) continue
+        if (col === weekKey || !val) continue
         opponents[canonTeam(col)] = canonTeam(val)
       }
       return { week: weekNum, label, opponents }
