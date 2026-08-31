@@ -1343,3 +1343,163 @@ Week,Team,Player,Score,Position
 14,Zeus,Younghoe Koo ATL (K),2,K
 14,Julio,Darnell Mooney ATL (WR),14,Flex
 14,Zeus,Jaylen Waddle MIA (WR),11,Flex
+15,Julio,Baker Mayfield,45,QB
+15,Julio,Jonathan Taylor,10,RB1
+15,Julio,Tony Pollard,10,RB2
+15,Julio,Mike Evans,35,WR1
+15,Julio,DeVonta Smith,16,WR2
+15,Julio,Minnesota Vikings,7,DEF
+15,Julio,Jason Sanders,9,K
+15,Julio,Darnell Mooney,0,Flex
+15,Kenny,Jared Goff,59,QB
+15,Kenny,Kyren Williams,10,RB1
+15,Kenny,David Montgomery,3,RB2
+15,Kenny,Tyreek Hill,3,WR1
+15,Kenny,Courtland Sutton,11,WR2
+15,Kenny,San Francisco 49ers,0,DEF
+15,Kenny,Cameron Dicker,3,K
+15,Kenny,Adam Thielen,5,Flex
+15,Elaf,Joe Burrow,27,QB
+15,Elaf,De'Von Achane,7,RB1
+15,Elaf,Isiah Pacheco,4,RB2
+15,Elaf,Amon-Ra St. Brown,31,WR1
+15,Elaf,Tee Higgins,17,WR2
+15,Elaf,Jacksonville Jaguars,2,DEF
+15,Elaf,Ka'imi Fairbairn,4,K
+15,Elaf,Ladd McConkey,12,Flex
+15,Greg,Josh Allen,45,QB
+15,Greg,Derrick Henry,6,RB1
+15,Greg,Chuba Hubbard,4,RB2
+15,Greg,Justin Jefferson,13,WR1
+15,Greg,Cooper Kupp,0,WR2
+15,Greg,Tampa Bay Buccaneers,12,DEF
+15,Greg,Brandon McManus,5,K
+15,Greg,Malik Nabers,16,Flex
+15,Monaf,C.J. Stroud,15,QB
+15,Monaf,Bijan Robinson,13,RB1
+15,Monaf,James Cook,28,RB2
+15,Monaf,Jaxon Smith-Njigba,8,WR1
+15,Monaf,Marvin Harrison Jr.,3,WR2
+15,Monaf,Los Angeles Chargers,5,DEF
+15,Monaf,Will Reichard,12,K
+15,Monaf,Rico Dowdle,14,Flex
+15,ATL,Lamar Jackson,58,QB
+15,ATL,Jahmyr Gibbs,24,RB1
+15,ATL,Aaron Jones,16,RB2
+15,ATL,A.J. Brown,17,WR1
+15,ATL,Drake London,14,WR2
+15,ATL,Houston Texans,18,DEF
+15,ATL,Jason Myers,6,K
+15,ATL,Jauan Jennings,3,Flex
+15,Gaybo,Tua Tagovailoa,4,QB
+15,Gaybo,Gus Edwards,2,RB1
+15,Gaybo,Jaleel McLaughlin,3,RB2
+15,Gaybo,Travis Kelce,2,WR1
+15,Gaybo,Khalil Shakir,9,WR2
+15,Gaybo,Buffalo Bills,4,DEF
+15,Gaybo,Justin Tucker,0,K
+15,Gaybo,Tyler Lockett,2,Flex
+15,Marco,Justin Herbert,0,QB
+15,Marco,Najee Harris,0,RB1
+15,Marco,James Conner,0,RB2
+15,Marco,Ja'Marr Chase,0,WR1
+15,Marco,Puka Nacua,0,WR2
+15,Marco,Dallas Cowboys,0,DEF
+15,Marco,Brandon Aubrey,0,K
+15,Marco,Terry McLaurin,0,Flex
+15,Ivo,Matthew Stafford,4,QB
+15,Ivo,Chase Brown,22,RB1
+15,Ivo,Bucky Irving,11,RB2
+15,Ivo,Nico Collins,13,WR1
+15,Ivo,Brock Bowers,3,WR2
+15,Ivo,Cincinnati Bengals,26,DEF
+15,Ivo,Blake Grupe,9,K
+15,Ivo,George Kittle,6,Flex
+15,Jay,Jordan Love,24,QB
+15,Jay,Brian Robinson Jr.,8,RB1
+15,Jay,Josh Jacobs,19,RB2
+15,Jay,CeeDee Lamb,18,WR1
+15,Jay,DeAndre Hopkins,3,WR2
+15,Jay,Detroit Lions,-5,DEF
+15,Jay,Chase McLaughlin,10,K
+15,Jay,Atlanta Falcons,0,Flex
+16,Julio,Baker Mayfield,28,QB
+16,Julio,Jonathan Taylor,52,RB1
+16,Julio,Tony Pollard,6,RB2
+16,Julio,Mike Evans,6,WR1
+16,Julio,DeVonta Smith,5,WR2
+16,Julio,Minnesota Vikings,10,DEF
+16,Julio,Jason Sanders,18,K
+16,Julio,Rachaad White,6,Flex
+16,ATL,Lamar Jackson,27,QB
+16,ATL,Jahmyr Gibbs,20,RB1
+16,ATL,Aaron Jones,8,RB2
+16,ATL,A.J. Brown,15,WR1
+16,ATL,Drake London,5,WR2
+16,ATL,Kansas City Chiefs,10,DEF
+16,ATL,Jason Myers,3,K
+16,ATL,Brian Thomas Jr.,25,Flex
+16,Elaf,Joe Burrow,32,QB
+16,Elaf,De'Von Achane,30,RB1
+16,Elaf,Isiah Pacheco,2,RB2
+16,Elaf,Amon-Ra St. Brown,13,WR1
+16,Elaf,Tee Higgins,11,WR2
+16,Elaf,Jacksonville Jaguars,4,DEF
+16,Elaf,Ka'imi Fairbairn,6,K
+16,Elaf,D'Andre Swift,5,Flex
+16,Chuy,Kyler Murray,26,QB
+16,Chuy,Saquon Barkley,33,RB1
+16,Chuy,Joe Mixon,6,RB2
+16,Chuy,DJ Moore,6,WR1
+16,Chuy,DK Metcalf,13,WR2
+16,Chuy,Indianapolis Colts,11,DEF
+16,Chuy,Will Reichard,9,K
+16,Chuy,Josh Downs,14,Flex
+16,Jay,Jordan Love,24,QB
+16,Jay,Brian Robinson Jr.,3,RB1
+16,Jay,Josh Jacobs,16,RB2
+16,Jay,CeeDee Lamb,19,WR1
+16,Jay,Zay Flowers,10,WR2
+16,Jay,Green Bay Packers,25,DEF
+16,Jay,Chase McLaughlin,3,K
+16,Jay,Rhamondre Stevenson,14,Flex
+16,Marco,Justin Herbert,25,QB
+16,Marco,Najee Harris,4,RB1
+16,Marco,James Conner,17,RB2
+16,Marco,Ja'Marr Chase,18,WR1
+16,Marco,Puka Nacua,5,WR2
+16,Marco,Dallas Cowboys,11,DEF
+16,Marco,Brandon Aubrey,10,K
+16,Marco,Terry McLaurin,12,Flex
+17,Julio,Baker Mayfield,47,QB
+17,Julio,Jonathan Taylor,27,RB1
+17,Julio,Tank Bigsby,3,RB2
+17,Julio,Mike Evans,21,WR1
+17,Julio,George Pickens,5,WR2
+17,Julio,Cleveland Browns,8,DEF
+17,Julio,Daniel Carlson,13,K
+17,Julio,Rachaad White,3,Flex
+17,Chuy,Sam Darnold,35,QB
+17,Chuy,Saquon Barkley,16,RB1
+17,Chuy,Joe Mixon,3,RB2
+17,Chuy,DJ Moore,5,WR1
+17,Chuy,DK Metcalf,4,WR2
+17,Chuy,Indianapolis Colts,-5,DEF
+17,Chuy,Will Reichard,7,K
+17,Chuy,Josh Downs,2,Flex
+17,Elaf,Joe Burrow,42,QB
+17,Elaf,De'Von Achane,3,RB1
+17,Elaf,Jerome Ford,2,RB2
+17,Elaf,Amon-Ra St. Brown,12,WR1
+17,Elaf,Tee Higgins,32,WR2
+17,Elaf,Jacksonville Jaguars,9,DEF
+17,Elaf,Ka'imi Fairbairn,0,K
+17,Elaf,D'Andre Swift,7,Flex
+17,ATL,Lamar Jackson,33,QB
+17,ATL,Jahmyr Gibbs,24,RB1
+17,ATL,Aaron Jones,7,RB2
+17,ATL,A.J. Brown,11,WR1
+17,ATL,Drake London,10,WR2
+17,ATL,Kansas City Chiefs,19,DEF
+17,ATL,Matt Gay,4,K
+17,ATL,Brian Thomas Jr.,17,Flex

@@ -72,8 +72,9 @@ export const LEAGUE = {
   draftRounds: 20,
   playoffWeeks: [15, 16, 17],
   // Constitution §XVI says six teams with two byes, but the league actually
-  // runs seven with a single bye for the #1 seed (confirmed 2025: the 2 seed
-  // played the 7 seed in a quarterfinal).
+  // runs seven with a single bye for the #1 seed. Both archived seasons agree:
+  // 2024's bracket was #1 bye, #2v#7, #3v#6, #4v#5, and 2025's 2 seed played
+  // the 7 seed in a quarterfinal.
   playoffTeams: 7,
   playoffByes: 1,
   turdBowlTeams: 4,
@@ -123,4 +124,5 @@ export const HONORS: {
   turd?: string
 }[] = [
   { season: 2025, champion: 'Chuy', runnerUp: 'Jay', third: 'Paco', scoringChamp: 'Paco', turd: 'Kenny' },
+  { season: 2024, champion: 'Julio', runnerUp: 'Chuy', third: 'ATL', scoringChamp: 'Chuy', turd: 'Marco' },
 ]
