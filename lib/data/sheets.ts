@@ -8,7 +8,8 @@ import { JWT } from 'google-auth-library'
  *  - LEAGUE_SHEET_ID                 spreadsheet to read/write
  *  - GOOGLE_SERVICE_ACCOUNT_KEY     full service-account JSON (preferred), or
  *  - GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY (\n-escaped newlines ok)
- *  - SCORES_TAB (default "Scores"), SCHEDULE_TAB (default "Schedule"),
+ *  - SCORES_TAB (default "Scores"), SCHEDULE_TAB (defaults to trying
+ *    "Team by Team Schedule" then "Schedule"),
  *    ROSTERS_TAB (default "Rosters")
  */
 
@@ -16,7 +17,17 @@ const SHEETS_BASE = 'https://sheets.googleapis.com/v4/spreadsheets'
 
 export const SHEET_ID = process.env.LEAGUE_SHEET_ID ?? ''
 export const SCORES_TAB = process.env.SCORES_TAB ?? 'Scores'
-export const SCHEDULE_TAB = process.env.SCHEDULE_TAB ?? 'Schedule'
+/**
+ * Where the week-by-week grid lives (Week + one column per team).
+ *
+ * This league's workbooks keep that grid on "Team by Team Schedule"; the tab
+ * actually named "Schedule" is a free-form weekly scratch area the parser
+ * can't read. Both are tried in order so either convention works. Setting
+ * SCHEDULE_TAB pins one explicitly.
+ */
+export const SCHEDULE_TABS = process.env.SCHEDULE_TAB
+  ? [process.env.SCHEDULE_TAB]
+  : ['Team by Team Schedule', 'Schedule']
 export const ROSTERS_TAB = process.env.ROSTERS_TAB ?? 'Rosters'
 export const DRAFT_TAB = process.env.DRAFT_TAB ?? 'Final Draft Board'
 export const WAIVERS_TAB = process.env.WAIVERS_TAB ?? 'Waiver Wire'

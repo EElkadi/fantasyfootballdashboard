@@ -5,7 +5,7 @@ import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
 import { Matchup, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE } from '@/lib/league'
-import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TAB, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB } from './sheets'
+import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -126,20 +126,23 @@ async function readTabOrEmpty(tab: string): Promise<string[][]> {
 }
 
 async function loadLiveSeason(season: number): Promise<SeasonData> {
-  const [scoreRows, scheduleRows, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows] = await Promise.all([
-    readTabOrEmpty(SCORES_TAB),
-    readTabOrEmpty(SCHEDULE_TAB),
-    readTabOrEmpty(DRAFT_TAB),
-    readTabOrEmpty(TEAMS_TAB),
-    readTabOrEmpty(WAIVERS_TAB),
-    readTabOrEmpty(ADJUSTMENTS_TAB),
-    readTabOrEmpty(TRADES_TAB),
-  ])
+  const [scoreRows, scheduleCandidates, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows] =
+    await Promise.all([
+      readTabOrEmpty(SCORES_TAB),
+      Promise.all(SCHEDULE_TABS.map(readTabOrEmpty)),
+      readTabOrEmpty(DRAFT_TAB),
+      readTabOrEmpty(TEAMS_TAB),
+      readTabOrEmpty(WAIVERS_TAB),
+      readTabOrEmpty(ADJUSTMENTS_TAB),
+      readTabOrEmpty(TRADES_TAB),
+    ])
   const matchups = toObjects(scoreRows)
     .map(wideRowToMatchup)
     .filter((m): m is Matchup => m !== null)
   annotateAdjustments(matchups, toObjects(adjustmentRows))
-  let schedule = gridToSchedule(toObjects(scheduleRows))
+  // First candidate tab that actually parses as a week grid wins
+  let schedule =
+    scheduleCandidates.map((rows) => gridToSchedule(toObjects(rows))).find((s) => s.length > 0) ?? []
   let draft = draftRows.length > 0 && teamsRows.length > 1 ? gridToDraft(draftRows, toObjects(teamsRows)) : []
 
   // The committed data/seasons/<year>/ files are a seed for the live season:
