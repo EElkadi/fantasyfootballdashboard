@@ -265,7 +265,119 @@ export default function CommishPage() {
 
       <WaiverLogger ctx={ctx} defaultWeek={week} onLogged={loadContext} />
       <TradeLogger ctx={ctx} onLogged={loadContext} />
+      {ctx.sheetConfigured && <SheetStatus />}
     </div>
+  )
+}
+
+interface TabStatus {
+  tab: string
+  purpose: string
+  rows: number
+  parsed: number
+  unit: string
+  status: 'ok' | 'empty' | 'error'
+  detail?: string
+}
+
+interface Diagnostics {
+  configured: boolean
+  sheetId: string
+  currentSeason: number
+  tabs: TabStatus[]
+}
+
+const STATUS_STYLE: Record<TabStatus['status'], string> = {
+  ok: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+  empty: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  error: 'bg-red-500/15 text-red-700 dark:text-red-400',
+}
+
+/**
+ * On-demand health check of the connected Sheet: which tabs the site can
+ * read and what it managed to parse out of each. Costs one Sheets read per
+ * tab, so it only runs when the button is pressed.
+ */
+function SheetStatus() {
+  const [diag, setDiag] = useState<Diagnostics | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const check = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      const res = await fetch('/api/commish/sheet-status')
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) setDiag(data)
+      else setError(data.error ?? 'Check failed')
+    } catch {
+      setError('Check failed — network error')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Sheet status</CardTitle>
+        <CardDescription>
+          Reads every tab the site depends on and reports what it could parse. Run this after renaming a tab or setting
+          up a new season&apos;s workbook.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" onClick={check} disabled={busy}>
+            {busy ? 'Checking…' : 'Check sheet status'}
+          </Button>
+          {diag && (
+            <span className="text-xs text-muted-foreground">
+              Sheet {diag.sheetId} · season {diag.currentSeason}
+            </span>
+          )}
+        </div>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {diag && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Tab</th>
+                  <th className="py-2 pr-3 font-medium">Used for</th>
+                  <th className="py-2 pr-3 text-right font-medium">Rows</th>
+                  <th className="py-2 pr-3 text-right font-medium">Parsed</th>
+                  <th className="py-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {diag.tabs.map((t) => (
+                  <tr key={t.tab} className="border-b last:border-0 align-top">
+                    <td className="py-2 pr-3 font-medium">{t.tab}</td>
+                    <td className="py-2 pr-3 text-muted-foreground">{t.purpose}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{t.rows}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">
+                      {t.parsed} {t.unit}
+                    </td>
+                    <td className="py-2">
+                      <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${STATUS_STYLE[t.status]}`}>
+                        {t.status}
+                      </span>
+                      {t.detail && <p className="mt-1 max-w-md text-xs text-muted-foreground">{t.detail}</p>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="mt-3 text-xs text-muted-foreground">
+              An empty Scores, Waiver Wire or Trades tab is normal before the season starts. An empty Team by Team
+              Schedule or Final Draft Board means the site is falling back to the committed {diag.currentSeason} files.
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
