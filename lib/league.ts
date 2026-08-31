@@ -18,17 +18,20 @@ export interface Owner {
 export const OWNERS: Owner[] = [
   { name: 'Paco', teamName: 'We Dem Boyz', aliases: [], color: '#e11d48' },
   { name: 'ATL', teamName: 'A.T.L.', aliases: ['Atole'], color: '#f97316' },
-  { name: 'Doy', teamName: 'Crypt Keeper', aliases: [], color: '#a16207' },
   { name: 'Chuy', teamName: 'Latino Velvet', aliases: ['Zeus'], color: '#16a34a' },
   { name: 'Gaybo', teamName: 'SnakeBite', aliases: [], color: '#0d9488' },
   { name: 'Kenny', teamName: '2 Gurleys, 1 Kupp', aliases: [], color: '#0284c7' },
   { name: 'Elaf', teamName: 'El Facho', aliases: ['Eloy'], color: '#4f46e5' },
   { name: 'Julio', teamName: 'Gunner Galáctico', aliases: ['Bert'], color: '#9333ea' },
   { name: 'Jay', teamName: 'El Buki', aliases: [], color: '#c026d3' },
-  { name: 'Monaf', teamName: 'Planet of the Monos', aliases: ['Mono'], color: '#db2777' },
+  { name: 'Monaf', teamName: 'Planet of the Monos', aliases: ['Mono', 'Mo'], color: '#db2777' },
   { name: 'Greg', teamName: 'El Borracho', aliases: [], color: '#65a30d' },
-  { name: 'Larry', teamName: 'Team Fun', aliases: [], color: '#64748b' },
+  // Joined for 2026 — set teamName once they name their franchise
+  { name: 'Bala', teamName: 'Bala', aliases: ['Bun'], color: '#0891b2' },
+  { name: 'Choy', teamName: 'Choy', aliases: [], color: '#7c2d12' },
   // Former members (archived seasons only)
+  { name: 'Doy', teamName: 'Crypt Keeper', aliases: [], color: '#a16207', active: false },
+  { name: 'Larry', teamName: 'Team Fun', aliases: [], color: '#64748b', active: false },
   { name: 'Marco', teamName: 'Real Narco', aliases: [], color: '#78716c', active: false },
   { name: 'Ivo', teamName: 'The Autumn Wind', aliases: [], color: '#155e75', active: false },
 ]
