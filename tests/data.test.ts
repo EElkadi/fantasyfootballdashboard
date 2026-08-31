@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs'
 import { parse } from 'csv-parse/sync'
-import { rowsToTrades, snakeOverall, parseDraftCell, rowsToDraft } from '../lib/data/transform'
+import { rowsToTrades, snakeOverall, parseDraftCell, rowsToDraft, gridToSchedule } from '../lib/data/transform'
+import { LEAGUE } from '../lib/league'
 import { playoffClinchStatus } from '../lib/data/clinch'
 import { SeasonData } from '../lib/types'
 
@@ -65,6 +66,61 @@ for (const [raw, player, nflTeam, position] of cells) {
   check('draft: 240 picks ordered', picks.length === 240 && picks[0].overall === 1 && picks[239].overall === 240)
   check('draft: pick 1 = Paco/Bijan', picks[0].team === 'Paco' && picks[0].player === 'Bijan Robinson', picks[0])
   check('draft: pick 13 = Larry (snake)', picks[12].team === 'Larry', picks[12])
+}
+
+// --- 2026 schedule obeys the league's scheduling rules ---
+{
+  const rows: any[] = parse(readFileSync('data/seasons/2026/schedule.csv', 'utf8'), {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  })
+  const weeks = gridToSchedule(rows)
+  const teams = Object.keys(weeks[0].opponents).sort()
+
+  // Every name must resolve to a known owner, or gridToSchedule leaves it raw
+  check('schedule: 12 teams, 14 weeks', teams.length === 12 && weeks.length === LEAGUE.regularSeasonWeeks, [teams.length, weeks.length])
+  check('schedule: week 7 labeled Rivalry Week', weeks.find((w) => w.week === 7)?.label === 'Rivalry Week')
+
+  const pairsOf = (w: (typeof weeks)[number]) => {
+    const seen = new Set<string>()
+    const pairs: string[][] = []
+    for (const [team, opp] of Object.entries(w.opponents)) {
+      if (seen.has(team)) continue
+      seen.add(team)
+      seen.add(opp)
+      pairs.push([team, opp].sort())
+    }
+    return pairs
+  }
+
+  // Symmetry: if A plays B, B plays A — and nobody plays themselves
+  const symmetric = weeks.every((w) =>
+    Object.entries(w.opponents).every(([t, o]) => t !== o && w.opponents[o] === t),
+  )
+  check('schedule: every week pairs off cleanly', symmetric)
+
+  const key = (p: string[]) => p.join('|')
+  const regular = weeks.filter((w) => w.week <= 11).flatMap(pairsOf).map(key)
+  const all = weeks.flatMap(pairsOf).map(key)
+  const everyPair = teams.flatMap((a, i) => teams.slice(i + 1).map((b) => key([a, b].sort())))
+
+  // Rule 3 (everyone plays everyone before a repeat) implies weeks 1-11 are a
+  // complete single round robin, which in turn gives rules 1 and 2.
+  check('schedule: weeks 1-11 are a complete round robin', regular.length === 66 && new Set(regular).size === 66)
+  check('schedule: every pairing happens at least once', everyPair.every((p) => all.includes(p)), everyPair.filter((p) => !all.includes(p)))
+  const counts = everyPair.map((p) => all.filter((x) => x === p).length)
+  check('schedule: no pairing happens more than twice', Math.max(...counts) === 2, Math.max(...counts))
+  check('schedule: every team plays 14 games', teams.every((t) => all.filter((p) => p.split('|').includes(t)).length === 14))
+
+  const rivalry = pairsOf(weeks.find((w) => w.week === 7)!).map(key).sort()
+  const expected = [
+    ['Monaf', 'Paco'], ['Chuy', 'Bala'], ['ATL', 'Greg'],
+    ['Kenny', 'Jay'], ['Julio', 'Choy'], ['Elaf', 'Gaybo'],
+  ]
+    .map((p) => key(p.sort()))
+    .sort()
+  check('schedule: rivalry week matchups exact', JSON.stringify(rivalry) === JSON.stringify(expected), rivalry)
 }
 
 // --- Clinch/elimination bounds (7 playoff spots) ---
