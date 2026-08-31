@@ -4,8 +4,8 @@ import path from 'path'
 import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
 import { Matchup, ScheduleWeek, SeasonData } from '@/lib/types'
-import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE } from '@/lib/league'
-import { hasLiveSheet, readTab, toObjects, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB } from './sheets'
+import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE, resolveOwner } from '@/lib/league'
+import { hasLiveSheet, readTab, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -228,4 +228,100 @@ export async function getRosters(): Promise<Record<string, string[]>> {
   } catch {
     return {}
   }
+}
+
+export interface TabStatus {
+  /** Tab actually read (for schedule, the candidate that won) */
+  tab: string
+  purpose: string
+  /** Raw rows returned by the Sheets API, header included */
+  rows: number
+  /** Meaningful records parsed out of those rows */
+  parsed: number
+  unit: string
+  status: 'ok' | 'empty' | 'error'
+  detail?: string
+}
+
+export interface SheetDiagnostics {
+  configured: boolean
+  sheetId: string
+  currentSeason: number
+  tabs: TabStatus[]
+}
+
+/** Mask all but the last 4 characters of the spreadsheet id. */
+function maskId(id: string): string {
+  return id.length > 8 ? `…${id.slice(-4)}` : id ? '(set)' : '(unset)'
+}
+
+async function probe(
+  tab: string,
+  purpose: string,
+  unit: string,
+  count: (rows: string[][]) => number,
+): Promise<TabStatus> {
+  try {
+    const rows = await readTab(tab)
+    const parsed = count(rows)
+    return {
+      tab,
+      purpose,
+      rows: rows.length,
+      parsed,
+      unit,
+      status: parsed > 0 ? 'ok' : 'empty',
+      detail:
+        parsed === 0 && rows.length > 0
+          ? 'Tab has rows but nothing parsed — check the header row matches what the site expects'
+          : undefined,
+    }
+  } catch (err) {
+    return {
+      tab,
+      purpose,
+      rows: 0,
+      parsed: 0,
+      unit,
+      status: 'error',
+      detail: err instanceof Error ? err.message.slice(0, 200) : 'Read failed',
+    }
+  }
+}
+
+/**
+ * Per-tab health check for the configured Sheet, used by the commissioner
+ * page. Makes one read per tab, so it runs on demand rather than on render.
+ */
+export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
+  const base = { configured: hasLiveSheet(), sheetId: maskId(SHEET_ID), currentSeason: CURRENT_SEASON }
+  if (!base.configured) return { ...base, tabs: [] }
+
+  const [scores, rosters, draft, teams, waivers, trades, adjustments] = await Promise.all([
+    probe(SCORES_TAB, 'Weekly box scores', 'matchups', (r) =>
+      toObjects(r).map(wideRowToMatchup).filter(Boolean).length,
+    ),
+    // Only headers that resolve to a real owner are usable columns — canonTeam
+    // echoes anything else back unchanged, so it can't be the test here.
+    probe(ROSTERS_TAB, 'Name matching for the parser', 'columns', (r) =>
+      r.length ? r[0].filter((h) => resolveOwner(h ?? '')).length : 0,
+    ),
+    probe(DRAFT_TAB, 'Draft board', 'rounds', (r) =>
+      r.filter((row) => /round\s*\d+/i.test(row[0] ?? '')).length,
+    ),
+    probe(TEAMS_TAB, 'Draft order (needed for draft night)', 'teams', (r) =>
+      toObjects(r).filter((o) => parseInt(o['DRAFT ORDER'] ?? '') > 0 && (o['TEAMS'] ?? '').trim()).length,
+    ),
+    probe(WAIVERS_TAB, 'Waiver log', 'moves', (r) => rowsToWaivers(toObjects(r)).length),
+    probe(TRADES_TAB, 'Trade ledger', 'trades', (r) => rowsToTrades(toObjects(r)).length),
+    probe(ADJUSTMENTS_TAB, 'Penalty reasons', 'entries', (r) => toObjects(r).length),
+  ])
+
+  // Schedule: report whichever candidate tab actually parses as a week grid
+  const candidates = await Promise.all(
+    SCHEDULE_TABS.map((tab) => probe(tab, 'Week-by-week grid', 'weeks', (r) => gridToSchedule(toObjects(r)).length)),
+  )
+  const schedule = candidates.find((c) => c.status === 'ok') ?? candidates[0]
+
+  return { ...base, tabs: [scores, schedule, teams, draft, rosters, waivers, trades, adjustments] }
 }
