@@ -5,6 +5,8 @@ import { MatchupCard } from '@/components/league/MatchupCard'
 import { StandingsTable } from '@/components/league/StandingsTable'
 import { TeamMark } from '@/components/league/TeamMark'
 import { simulateSeason } from '@/lib/data/simulate'
+import { AWARD_META, weeklyAwards } from '@/lib/data/awards'
+import { pairsOf } from '@/lib/data/transform'
 
 export const revalidate = 60
 
@@ -16,26 +18,13 @@ export default async function HomePage() {
   const regularSeasonDone = week >= LEAGUE.regularSeasonWeeks
 
   // Weekly awards
-  const weekRows = season.teamWeeks.filter((r) => r.week === week)
-  const topScore = weekRows.length ? weekRows.reduce((a, b) => (b.score > a.score ? b : a)) : null
+  const awards = weeklyAwards(season, week)
   const weekPlayers = season.playerWeeks.filter((p) => p.week === week)
   const mvp = weekPlayers.length ? weekPlayers.reduce((a, b) => (b.score > a.score ? b : a)) : null
-  const margins = weekMatchups.map((m) => ({ m, margin: Math.abs(m.team1.total - m.team2.total) }))
-  const blowout = margins.length ? margins.reduce((a, b) => (b.margin > a.margin ? b : a)) : null
-  const closest = margins.length ? margins.reduce((a, b) => (b.margin < a.margin ? b : a)) : null
 
   // Next week's slate
   const nextWeek = season.schedule.find((s) => s.week === week + 1 && week + 1 <= LEAGUE.regularSeasonWeeks)
-  const nextPairs: [string, string][] = []
-  if (nextWeek) {
-    const seen = new Set<string>()
-    for (const [team, opp] of Object.entries(nextWeek.opponents)) {
-      if (seen.has(team) || seen.has(opp)) continue
-      seen.add(team)
-      seen.add(opp)
-      nextPairs.push([team, opp])
-    }
-  }
+  const nextPairs = nextWeek ? pairsOf(nextWeek) : []
 
   const odds = !isArchive && !regularSeasonDone ? simulateSeason(season) : null
   const playoffsDone = week > LEAGUE.regularSeasonWeeks
@@ -80,40 +69,31 @@ export default async function HomePage() {
         )}
       </section>
 
-      {season.standings.length > 0 && (
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {topScore && (
-            <AwardCard title={`Week ${week} top score`}>
-              <TeamMark team={topScore.team} />
-              <p className="tabular mt-1 text-2xl font-bold">{topScore.score} pts</p>
-              <p className="text-xs text-muted-foreground">vs {topScore.opponent}</p>
-            </AwardCard>
-          )}
-          {mvp && (
-            <AwardCard title={`Week ${week} MVP`}>
-              <p className="truncate font-semibold">{mvp.player}</p>
-              <p className="tabular mt-1 text-2xl font-bold">{mvp.score} pts</p>
-              <p className="text-xs text-muted-foreground">
-                {mvp.slot} · {mvp.team}
-              </p>
-            </AwardCard>
-          )}
-          {blowout && blowout.margin > 0 && (
-            <AwardCard title="Beatdown of the week">
-              <TeamMark team={blowout.m.winner} />
-              <p className="tabular mt-1 text-2xl font-bold">+{blowout.margin}</p>
-              <p className="text-xs text-muted-foreground">over {blowout.m.loser}</p>
-            </AwardCard>
-          )}
-          {closest && (
-            <AwardCard title="Nailbiter of the week">
-              <TeamMark team={closest.m.winner} />
-              <p className="tabular mt-1 text-2xl font-bold">
-                {closest.margin === 0 ? 'tiebreaker' : `by ${closest.margin}`}
-              </p>
-              <p className="text-xs text-muted-foreground">over {closest.m.loser}</p>
-            </AwardCard>
-          )}
+      {season.standings.length > 0 && (awards.length > 0 || mvp) && (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Week {week} awards</h2>
+            <Link href="/awards" className="text-sm font-medium text-primary hover:underline">
+              Season tally →
+            </Link>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {mvp && (
+              <AwardCard title="⭐ MVP">
+                <p className="truncate font-semibold">{mvp.player}</p>
+                <p className="tabular mt-1 text-2xl font-bold">{mvp.score} pts</p>
+                <p className="text-xs text-muted-foreground">
+                  {mvp.slot} · {mvp.team}
+                </p>
+              </AwardCard>
+            )}
+            {awards.map((a) => (
+              <AwardCard key={a.key} title={`${AWARD_META[a.key].emoji} ${AWARD_META[a.key].name}`}>
+                <TeamMark team={a.team} />
+                <p className="mt-1 text-sm text-muted-foreground">{a.detail}</p>
+              </AwardCard>
+            ))}
+          </div>
         </section>
       )}
 

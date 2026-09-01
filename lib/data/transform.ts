@@ -1,4 +1,4 @@
-import { DraftPick, Matchup, PlayerScore, PlayerWeek, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
+import { DraftPick, Matchup, PlayerScore, PlayerWeek, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
 import { resolveOwner } from '@/lib/league'
 
 /** Canonicalize a team spelling from any source (sheet, CSV, chat). */
@@ -305,4 +305,50 @@ export function gridToSchedule(rows: Record<string, string>[]): ScheduleWeek[] {
     })
     .filter((w): w is ScheduleWeek => w !== null)
     .sort((a, b) => a.week - b.week)
+}
+
+/** A week's matchups as unique pairs, each team appearing once. */
+export function pairsOf(week: ScheduleWeek): [string, string][] {
+  const seen = new Set<string>()
+  const pairs: [string, string][] = []
+  for (const [team, opp] of Object.entries(week.opponents)) {
+    if (seen.has(team) || seen.has(opp)) continue
+    seen.add(team)
+    seen.add(opp)
+    pairs.push([team, opp])
+  }
+  return pairs
+}
+
+/**
+ * Predictions tab: `Submitted | Manager | Order | Champion | Turd | Bold Take`,
+ * Order being a comma-separated list, best first. A manager may resubmit
+ * before the lock — the latest row wins.
+ */
+export function rowsToPredictions(rows: Record<string, string>[]): Prediction[] {
+  const col = (row: Record<string, string>, ...names: string[]) => {
+    const key = Object.keys(row).find((k) => names.includes(k.trim().toLowerCase()))
+    return key ? row[key].trim() : ''
+  }
+  const latest = new Map<string, Prediction>()
+  for (const row of rows) {
+    const manager = resolveOwner(col(row, 'manager', 'team', 'owner'))?.name
+    const order = col(row, 'order')
+      .split(/[,|]/)
+      .map((n) => canonTeam(n))
+      .filter(Boolean)
+    if (!manager || order.length < 2) continue
+    const pred: Prediction = {
+      manager,
+      submittedAt: col(row, 'submitted', 'timestamp', 'submitted at'),
+      order,
+      champion: canonTeam(col(row, 'champion', 'champ')),
+      turd: canonTeam(col(row, 'turd')),
+      boldTake: col(row, 'bold take', 'take', 'bold') || undefined,
+    }
+    const prev = latest.get(manager)
+    // Rows are appended in time order; timestamps only matter if they disagree
+    if (!prev || !prev.submittedAt || !pred.submittedAt || pred.submittedAt >= prev.submittedAt) latest.set(manager, pred)
+  }
+  return Array.from(latest.values())
 }

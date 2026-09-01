@@ -38,3 +38,18 @@ export function isCommish(): boolean {
   const value = cookies().get(COMMISH_COOKIE)?.value
   return Boolean(value && value === sessionCookieValue())
 }
+
+/**
+ * League-wide passcode (env LEAGUE_PASSCODE) — shared with all twelve
+ * managers so they can submit things like preseason predictions under their
+ * own name. Deliberately separate from the commissioner passcode.
+ */
+export function leaguePasscodeConfigured(): boolean {
+  return (process.env.LEAGUE_PASSCODE ?? '').length > 0
+}
+
+export function verifyLeaguePasscode(input: string): boolean {
+  const expected = process.env.LEAGUE_PASSCODE ?? ''
+  if (!expected) return false
+  return tokenFor(input) === tokenFor(expected)
+}

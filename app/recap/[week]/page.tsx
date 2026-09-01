@@ -5,6 +5,9 @@ import { getDefaultSeason } from '@/lib/data'
 import { computeStandings } from '@/lib/data/standings'
 import { LEAGUE } from '@/lib/league'
 import { RecapShare, RecapData } from '@/components/league/RecapShare'
+import { weeklyAwards } from '@/lib/data/awards'
+import { recapText } from '@/lib/recap/text'
+import { pairsOf } from '@/lib/data/transform'
 
 export const revalidate = 60
 
@@ -55,20 +58,36 @@ export default async function RecapPage({ params }: { params: { week: string } }
     })),
   }
 
+  const isRegular = week <= LEAGUE.regularSeasonWeeks
+  const next = season.schedule.find((s) => s.week === week + 1 && week + 1 <= LEAGUE.regularSeasonWeeks)
+  const text = recapText({
+    season: season.season,
+    week,
+    weekLabel: data.weekLabel,
+    regularSeasonWeeks: LEAGUE.regularSeasonWeeks,
+    playoffTeams: LEAGUE.playoffTeams,
+    results: data.results,
+    awards: weeklyAwards(season, week),
+    mvp: data.mvp,
+    standings: isRegular ? data.standings : undefined,
+    nextWeek: next ? { week: next.week, label: next.label, pairs: pairsOf(next) } : undefined,
+    url: `${LEAGUE.siteUrl}/matchups?week=${week}&season=${season.season}`,
+  })
+
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">Week {week} recap card</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Rendered from the box scores — share it straight into the league chat.
+            Rendered from the box scores — share the image, or copy the text version straight into the league chat.
           </p>
         </div>
         <Link href={`/matchups?week=${week}`} className="text-sm font-medium text-primary hover:underline">
           Week {week} box scores →
         </Link>
       </div>
-      <RecapShare data={data} />
+      <RecapShare data={data} text={text} />
     </div>
   )
 }

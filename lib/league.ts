@@ -59,6 +59,8 @@ export function teamNameOf(name: string): string {
 
 export const LEAGUE = {
   name: 'Premier League Fantasy Football',
+  /** Absolute origin for links pasted into the chat; override for previews */
+  siteUrl: (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.premierleagueff.com').replace(/\/$/, ''),
   since: 2015,
   dues: 300,
   scoringChampPrize: 250,
@@ -92,6 +94,19 @@ export const CURRENT_SEASON = Number(process.env.CURRENT_SEASON ?? 2026)
 
 /** Seasons with archived CSV data under data/seasons/<year>/ */
 export const ARCHIVED_SEASONS = [2025, 2024]
+
+/**
+ * Preseason predictions lock at Week 1 kickoff (the Thursday night game).
+ * Set PREDICTIONS_LOCK_AT (ISO 8601) to move it; update the default each year.
+ */
+export const PREDICTIONS_LOCK_AT = new Date(process.env.PREDICTIONS_LOCK_AT ?? '2026-09-10T20:15:00-04:00')
+
+/** Character cap on a ballot's bold take, enforced by both the form and the API */
+export const BOLD_TAKE_MAX = 240
+
+export function predictionsLocked(now: Date = new Date()): boolean {
+  return Number.isNaN(PREDICTIONS_LOCK_AT.getTime()) || now >= PREDICTIONS_LOCK_AT
+}
 
 /**
  * The pot: 12 × dues plus every waiver fee paid during the season. The

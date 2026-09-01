@@ -114,6 +114,18 @@ export interface WaiverMove {
   cost: number
 }
 
+/** One manager's preseason ballot */
+export interface Prediction {
+  manager: string
+  /** ISO timestamp of the submission */
+  submittedAt: string
+  /** Predicted final regular-season order, best first */
+  order: string[]
+  champion: string
+  turd: string
+  boldTake?: string
+}
+
 export interface ScheduleWeek {
   week: number
   label?: string

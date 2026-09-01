@@ -3,9 +3,9 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
-import { Matchup, ScheduleWeek, SeasonData } from '@/lib/types'
+import { Matchup, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE, resolveOwner } from '@/lib/league'
-import { hasLiveSheet, readTab, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB } from './sheets'
+import { hasLiveSheet, readTab, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -14,6 +14,7 @@ import {
   matchupsToPlayerWeeks,
   matchupsToTeamWeeks,
   rowsToDraft,
+  rowsToPredictions,
   rowsToTrades,
   rowsToWaivers,
   wideRowToMatchup,
@@ -208,6 +209,29 @@ export async function getAllSeasons(): Promise<SeasonData[]> {
   return seasons.filter((s) => s.matchups.length > 0)
 }
 
+async function loadLivePredictions(): Promise<Prediction[]> {
+  return rowsToPredictions(toObjects(await readTab(PREDICTIONS_TAB)))
+}
+const cachedPredictions = unstable_cache(loadLivePredictions, ['predictions'], {
+  revalidate: 60,
+  tags: ['predictions'],
+})
+
+/**
+ * Preseason ballots. The current season reads the Predictions tab; archived
+ * seasons (and a sheet without that tab) read data/seasons/<year>/predictions.csv.
+ */
+export async function getPredictions(season: number = CURRENT_SEASON): Promise<Prediction[]> {
+  if (season === CURRENT_SEASON && hasLiveSheet()) {
+    try {
+      return await cachedPredictions()
+    } catch (err) {
+      console.warn('Predictions tab could not be read, falling back to archive:', err)
+    }
+  }
+  return rowsToPredictions(await readCsv(season, 'predictions.csv'))
+}
+
 /** Current rosters, for the commissioner parser: team -> players. */
 export async function getRosters(): Promise<Record<string, string[]>> {
   if (!hasLiveSheet()) return {}
@@ -297,7 +321,7 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
   const base = { configured: hasLiveSheet(), sheetId: maskId(SHEET_ID), currentSeason: CURRENT_SEASON }
   if (!base.configured) return { ...base, tabs: [] }
 
-  const [scores, rosters, draft, teams, waivers, trades, adjustments] = await Promise.all([
+  const [scores, rosters, draft, teams, waivers, trades, adjustments, predictions] = await Promise.all([
     probe(SCORES_TAB, 'Weekly box scores', 'matchups', (r) =>
       toObjects(r).map(wideRowToMatchup).filter(Boolean).length,
     ),
@@ -315,6 +339,7 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
     probe(WAIVERS_TAB, 'Waiver log', 'moves', (r) => rowsToWaivers(toObjects(r)).length),
     probe(TRADES_TAB, 'Trade ledger', 'trades', (r) => rowsToTrades(toObjects(r)).length),
     probe(ADJUSTMENTS_TAB, 'Penalty reasons', 'entries', (r) => toObjects(r).length),
+    probe(PREDICTIONS_TAB, 'Preseason ballots', 'ballots', (r) => rowsToPredictions(toObjects(r)).length),
   ])
 
   // Schedule: report whichever candidate tab actually parses as a week grid
@@ -323,5 +348,5 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
   )
   const schedule = candidates.find((c) => c.status === 'ok') ?? candidates[0]
 
-  return { ...base, tabs: [scores, schedule, teams, draft, rosters, waivers, trades, adjustments] }
+  return { ...base, tabs: [scores, schedule, teams, draft, rosters, waivers, trades, adjustments, predictions] }
 }
