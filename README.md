@@ -38,6 +38,8 @@ WhatsApp scores ──paste──▶ /commish ──review──▶ Google Sheet
 | `/records` | All-time record book computed from the box scores |
 | `/rules` | The constitution and full scoring tables |
 | `/recap/<week>` | Shareable 1080×1080 recap card (native share on mobile → straight into WhatsApp) |
+| `/awards` | Weekly awards (Top Gun, Cupcake, Bad Beat, Heist, Nailbiter, Hammer) and the season tally |
+| `/predictions` | Preseason ballots — hidden until kickoff, then scored against the standings every week |
 | `/commish` | Passcode-protected score entry: paste WhatsApp reports, review, save to the Sheet |
 | `/commish/draft` | Draft-night mode: enter picks live; the public board updates as you go |
 
@@ -80,6 +82,10 @@ Three tabs (names configurable via env):
 - **Trades** (optional) — `TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS`, one
   asset per row with blank team cells continuing a multi-player deal. Powers
   the trade ledger on `/waivers`.
+- **Predictions** (optional) — `Submitted | Manager | Order | Champion | Turd | Bold Take`,
+  one row per ballot, appended by `/predictions` (requires `LEAGUE_PASSCODE`).
+  `Order` is a comma-separated list, best first; a manager's latest row wins.
+  Ballots lock at `PREDICTIONS_LOCK_AT` (Week 1 kickoff).
 - **Adjustments** (optional) — `Week | Team | Points | Reason` rows explaining
   any gap between a row's official total and its players' sum (e.g. the §VII
   -5 confirmation penalty). The site detects the gap automatically either way
@@ -95,7 +101,8 @@ Everything runs from `/commish` — the Sheet is the database, not the interface
    schedule mismatches, the -5 non-confirm toggle), **Save to Sheet**.
 2. Log waiver adds and trades with their forms — both write their tabs AND
    keep the Rosters tab (the parser's name matching) current automatically.
-3. Optionally open `/recap/<week>` and share the card back into the chat.
+3. Open `/recap/<week>` and either share the image or hit **Copy for the group
+   chat** for a text recap (results, awards, standings, next week's slate).
 
 The site updates within a minute of any save.
 
@@ -110,10 +117,14 @@ The site updates within a minute of any save.
 3. Update team names / new members in `lib/league.ts` (`OWNERS` — aliases
    handle nickname spellings like Eloy/Elaf, Mono/Monaf).
 4. Record last season's champion in `HONORS` in `lib/league.ts`.
+5. Set `PREDICTIONS_LOCK_AT` to the new Week 1 kickoff and post the
+   `LEAGUE_PASSCODE` in the chat so ballots can come in before the draft.
 
 ## Tests
 
 ```
 npx tsx tests/parser.test.ts   # parser acceptance tests (real league samples)
+npx tsx tests/data.test.ts     # transforms, schedule rules, clinch math
+npx tsx tests/features.test.ts # awards, recap text, predictions, career
 npm run lint && npx tsc --noEmit
 ```

@@ -2,8 +2,9 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { getAllSeasons, getDefaultSeason } from '@/lib/data'
-import { careerHeadToHead } from '@/lib/data/records'
-import { resolveOwner, teamNameOf, ownerColor } from '@/lib/league'
+import { buildRecordBook, careerHeadToHead } from '@/lib/data/records'
+import { careerSummary, trophyCase } from '@/lib/data/career'
+import { LEAGUE, resolveOwner, teamNameOf, ownerColor } from '@/lib/league'
 import { ScoresChart, SeriesPoint } from '@/components/league/ScoresChart'
 import { playerSlug } from '@/lib/players'
 import { TeamMark } from '@/components/league/TeamMark'
@@ -49,6 +50,8 @@ export default async function TeamPage({ params }: { params: { team: string } })
     .slice(0, 12)
 
   const h2h = careerHeadToHead(allSeasons, team)
+  const career = careerSummary(allSeasons, team)
+  const trophies = trophyCase(team, buildRecordBook(allSeasons))
   const seasonHistory = allSeasons
     .map((s) => ({ season: s.season, standing: s.standings.find((x) => x.team === team) }))
     .filter((s) => s.standing)
@@ -91,6 +94,61 @@ export default async function TeamPage({ params }: { params: { team: string } })
           />
         </section>
       )}
+
+      {career && career.seasons > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-xl font-bold tracking-tight">Career</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Stat label="Seasons" value={String(career.seasons)} />
+            <Stat
+              label="Record"
+              value={`${career.overall.wins}-${career.overall.losses}`}
+              hint={`${(career.winPct * 100).toFixed(0)}% overall · ${career.h2h.wins}-${career.h2h.losses} head-to-head`}
+              tone={career.winPct > 0.5 ? 'win' : career.winPct < 0.5 ? 'loss' : undefined}
+            />
+            <Stat label="Points/week" value={career.avgPointsFor.toFixed(1)} hint="Career average" />
+            <Stat label="Playoffs" value={`${career.playoffAppearances}×`} hint={`Top-${LEAGUE.playoffTeams} finishes in completed seasons`} />
+            <Stat
+              label="Best finish"
+              value={career.bestFinish ? `#${career.bestFinish.rank}` : '—'}
+              hint={career.bestFinish ? `Regular season, ${career.bestFinish.season}` : undefined}
+            />
+            <Stat
+              label="Best week"
+              value={career.bestWeek ? String(career.bestWeek.score) : '—'}
+              hint={career.bestWeek ? `Week ${career.bestWeek.week}, ${career.bestWeek.season}` : undefined}
+            />
+          </div>
+        </section>
+      )}
+
+      <section className="space-y-3">
+        <h2 className="text-xl font-bold tracking-tight">Trophy case</h2>
+        {trophies.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {trophies.map((t, i) => (
+              <div
+                key={i}
+                className={`flex items-start gap-3 rounded-xl border p-4 shadow-sm ${
+                  t.tier === 'honor' ? 'bg-primary/5 border-primary/30' : 'bg-card'
+                }`}
+              >
+                <span aria-hidden className="text-2xl leading-none">
+                  {t.emoji}
+                </span>
+                <div className="min-w-0">
+                  <p className="font-semibold leading-tight">{t.title}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{t.detail}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+            Empty. Championships, scoring titles, Turds and any record-book entry land here.
+          </p>
+        )}
+      </section>
 
       {results.length > 0 && (
         <section className="space-y-3">

@@ -27,10 +27,11 @@ const FG = '#f1f5f9'
  * preview is exactly the PNG that gets shared. Native share sheet on mobile
  * (straight into the league chat), PNG download elsewhere.
  */
-export function RecapShare({ data }: { data: RecapData }) {
+export function RecapShare({ data, text }: { data: RecapData; text: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
+  const [showText, setShowText] = useState(false)
 
   const draw = useCallback(async () => {
     const canvas = canvasRef.current
@@ -203,14 +204,41 @@ export function RecapShare({ data }: { data: RecapData }) {
     }
   }
 
+  const copyText = async () => {
+    setNote('')
+    try {
+      await navigator.clipboard.writeText(text)
+      setNote('Copied — paste it into the group chat.')
+    } catch {
+      // Clipboard API needs a secure context and permission; fall back to showing the text
+      setShowText(true)
+      setNote('Select the text below and copy it.')
+    }
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button onClick={share} disabled={busy}>
           {busy ? 'Rendering…' : 'Share / download image'}
         </Button>
+        <Button variant="outline" onClick={copyText}>
+          Copy for the group chat
+        </Button>
+        <button
+          type="button"
+          onClick={() => setShowText((v) => !v)}
+          className="text-sm text-muted-foreground underline-offset-2 hover:underline"
+        >
+          {showText ? 'Hide text' : 'Preview text'}
+        </button>
         {note && <span className="text-sm text-muted-foreground">{note}</span>}
       </div>
+      {showText && (
+        <pre className="max-w-[540px] whitespace-pre-wrap rounded-xl border bg-card p-4 text-sm leading-relaxed shadow-sm">
+          {text}
+        </pre>
+      )}
       <canvas
         ref={canvasRef}
         width={W}

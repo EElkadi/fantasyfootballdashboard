@@ -34,6 +34,7 @@ export const WAIVERS_TAB = process.env.WAIVERS_TAB ?? 'Waiver Wire'
 export const TEAMS_TAB = process.env.TEAMS_TAB ?? 'Teams'
 export const ADJUSTMENTS_TAB = process.env.ADJUSTMENTS_TAB ?? 'Adjustments'
 export const TRADES_TAB = process.env.TRADES_TAB ?? 'Trades'
+export const PREDICTIONS_TAB = process.env.PREDICTIONS_TAB ?? 'Predictions'
 
 function credentials(): { email: string; key: string } | null {
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
@@ -97,10 +98,16 @@ export async function readTab(tab: string, range = 'A1:AZ2000'): Promise<string[
   return (data.values ?? []) as string[][]
 }
 
-/** Append a row to the bottom of a tab's data. */
-export async function appendRow(tab: string, row: (string | number)[]): Promise<void> {
+/**
+ * Append a row to the bottom of a tab's data. Commissioner-entered rows use
+ * USER_ENTERED so numbers land as numbers; anything carrying free text from
+ * the league at large must pass `raw: true`, or a cell starting with "="
+ * becomes a live formula.
+ */
+export async function appendRow(tab: string, row: (string | number)[], opts: { raw?: boolean } = {}): Promise<void> {
+  const mode = opts.raw ? 'RAW' : 'USER_ENTERED'
   await sheetsFetch(
-    `/values/${encodeURIComponent(`${tab}!A1`)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    `/values/${encodeURIComponent(`${tab}!A1`)}:append?valueInputOption=${mode}&insertDataOption=INSERT_ROWS`,
     { method: 'POST', body: JSON.stringify({ values: [row] }) },
   )
 }
