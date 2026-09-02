@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { TRADES_TAB, appendRow, hasLiveSheet } from '@/lib/data/sheets'
+import { TRADES_TAB, appendRow, describeSheetsError, hasLiveSheet } from '@/lib/data/sheets'
 import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
 import { parseDraftCell } from '@/lib/data/transform'
 import { resolveOwner } from '@/lib/league'
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error('Trade append failed:', err)
     return NextResponse.json(
-      { error: `Writing to the "${TRADES_TAB}" tab failed — add that tab (TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS) and try again` },
+      { error: `${describeSheetsError(err, TRADES_TAB)} (the tab needs TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS)` },
       { status: 502 },
     )
   }

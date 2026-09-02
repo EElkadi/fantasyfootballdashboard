@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { appendRows, hasLiveSheet, LINEUPS_TAB } from '@/lib/data/sheets'
+import { appendRows, describeSheetsError, hasLiveSheet, LINEUPS_TAB } from '@/lib/data/sheets'
 import { canonSlot } from '@/lib/data/transform'
 import { resolveOwner } from '@/lib/league'
 
@@ -47,10 +47,7 @@ export async function POST(req: Request) {
     await appendRows(LINEUPS_TAB, rows, { raw: true })
   } catch (err) {
     console.error('Lineup append failed:', err)
-    return NextResponse.json(
-      { error: `Writing to the "${LINEUPS_TAB}" tab failed — does it exist?` },
-      { status: 502 },
-    )
+    return NextResponse.json({ error: describeSheetsError(err, LINEUPS_TAB) }, { status: 502 })
   }
   revalidateTag('season-live')
   return NextResponse.json({ ok: true, week, saved })

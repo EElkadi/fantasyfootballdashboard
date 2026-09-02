@@ -76,6 +76,52 @@ async function accessToken(): Promise<string> {
   return token
 }
 
+/** A failed Sheets call, with the HTTP status so callers can explain it. */
+export class SheetsError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly body: string,
+  ) {
+    super(`Sheets API ${status}: ${body.slice(0, 500)}`)
+    this.name = 'SheetsError'
+  }
+}
+
+/** The service account the sheet must be shared with (Editor for writes). */
+export function serviceAccountEmail(): string | null {
+  return credentials()?.email ?? null
+}
+
+/**
+ * Turn a failed write into something the commissioner can act on. The two
+ * failures that actually happen: the sheet was shared read-only, or the tab
+ * isn't named what the env says.
+ */
+export function describeSheetsError(err: unknown, tab: string): string {
+  if (err instanceof SheetsError) {
+    if (err.status === 403) {
+      return `Google Sheets refused the write (403). Share the spreadsheet with ${serviceAccountEmail() ?? 'the service account'} as an Editor — it currently has read-only access.`
+    }
+    if (err.status === 400 && /Unable to parse range/i.test(err.body)) {
+      return `No tab named "${tab}" in the sheet — check the tab name matches exactly (spaces and capitals count).`
+    }
+    if (err.status === 404) return `Spreadsheet not found — check LEAGUE_SHEET_ID.`
+    if (err.status === 429) return `Google Sheets rate limit hit — wait a few seconds and try again.`
+    let detail = err.body
+    try {
+      detail = JSON.parse(err.body)?.error?.message ?? err.body
+    } catch {
+      // keep raw body
+    }
+    return `Google Sheets error ${err.status}: ${String(detail).slice(0, 200)}`
+  }
+  const message = err instanceof Error ? err.message : String(err)
+  if (/DECODER|PEM|private key|invalid_grant/i.test(message)) {
+    return `Service account credentials are malformed — re-paste GOOGLE_SERVICE_ACCOUNT_KEY (or GOOGLE_PRIVATE_KEY with real newlines).`
+  }
+  return `Google Sheets request failed: ${message.slice(0, 200)}`
+}
+
 async function sheetsFetch(path: string, init?: RequestInit): Promise<any> {
   const token = await accessToken()
   const res = await fetch(`${SHEETS_BASE}/${SHEET_ID}${path}`, {
@@ -87,10 +133,7 @@ async function sheetsFetch(path: string, init?: RequestInit): Promise<any> {
     },
     cache: 'no-store',
   })
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Sheets API ${res.status}: ${body.slice(0, 500)}`)
-  }
+  if (!res.ok) throw new SheetsError(res.status, await res.text())
   return res.json()
 }
 

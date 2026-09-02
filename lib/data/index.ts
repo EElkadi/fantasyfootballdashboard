@@ -5,7 +5,7 @@ import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
 import { LineupEntry, Matchup, PoolPlayer, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE, resolveOwner } from '@/lib/league'
-import { hasLiveSheet, readTab, readTabOrEmpty, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB, LINEUPS_TAB, PLAYER_POOL_TAB } from './sheets'
+import { hasLiveSheet, readTab, readTabOrEmpty, serviceAccountEmail, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB, LINEUPS_TAB, PLAYER_POOL_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -308,6 +308,8 @@ export interface TabStatus {
 export interface SheetDiagnostics {
   configured: boolean
   sheetId: string
+  /** The account the spreadsheet must be shared with, as Editor */
+  serviceAccount: string | null
   currentSeason: number
   tabs: TabStatus[]
 }
@@ -356,7 +358,12 @@ async function probe(
  * page. Makes one read per tab, so it runs on demand rather than on render.
  */
 export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
-  const base = { configured: hasLiveSheet(), sheetId: maskId(SHEET_ID), currentSeason: CURRENT_SEASON }
+  const base = {
+    configured: hasLiveSheet(),
+    sheetId: maskId(SHEET_ID),
+    serviceAccount: serviceAccountEmail(),
+    currentSeason: CURRENT_SEASON,
+  }
   if (!base.configured) return { ...base, tabs: [] }
 
   const [scores, rosters, draft, teams, waivers, trades, adjustments, predictions, lineups, pool] = await Promise.all([
