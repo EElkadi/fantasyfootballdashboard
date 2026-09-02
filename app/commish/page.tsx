@@ -6,7 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { parseSubmission, decideWinner, ParsedLineup } from '@/lib/parser/parse'
-import { ScheduleWeek, Slot, SLOTS, WaiverMove } from '@/lib/types'
+import { PoolPlayer, ScheduleWeek, Slot, SLOTS, WaiverMove } from '@/lib/types'
+import { PlayerSearch } from '@/components/league/PlayerSearch'
+import { parseDraftCell } from '@/lib/data/transform'
+import { ambiguousNames, cellRef, playerKey } from '@/lib/players'
 
 interface Context {
   authed: boolean
@@ -18,7 +21,11 @@ interface Context {
   rosters: Record<string, string[]>
   schedule: ScheduleWeek[]
   waivers: WaiverMove[]
+  pool: PoolPlayer[]
 }
+
+/** Pool names for the parser's spelling fallback */
+const poolNames = (ctx: Context) => ctx.pool?.map((p) => p.player) ?? []
 
 interface EditablePlayer {
   slot: Slot
@@ -103,7 +110,7 @@ export default function CommishPage() {
   }
 
   const doParse = () => {
-    const result = parseSubmission(raw, { rosters: ctx?.rosters, week })
+    const result = parseSubmission(raw, { rosters: ctx?.rosters, week, pool: ctx ? poolNames(ctx) : [] })
     if (result.week) setWeek(result.week)
     setParseIssues(result.issues)
     const ms: EditableMatchup[] = []
@@ -406,7 +413,7 @@ function LineupLogger({ ctx, defaultWeek }: { ctx: Context; defaultWeek: number 
 
   const doParse = () => {
     setNote('')
-    const result = parseSubmission(raw, { rosters: ctx.rosters, week, lineupOnly: true })
+    const result = parseSubmission(raw, { rosters: ctx.rosters, week, lineupOnly: true, pool: poolNames(ctx) })
     // The pasted text's week wins, so neither week warning is worth showing
     if (result.week && result.week !== week) setWeek(result.week)
     setIssues(result.issues.filter((i) => !i.startsWith('No week number') && !i.startsWith('Text says week')))
@@ -676,6 +683,17 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
   // Fees escalate per manager: $20 for their first add, $40 for the second…
   const suggestedCost = (t: string) => 20 * ((ctx.waivers?.filter((m) => m.team === t).length ?? 0) + 1)
 
+  // key -> owner, so adding someone already rostered is caught before it hits the sheet
+  const ambiguous = useMemo(() => ambiguousNames(ctx.pool ?? []), [ctx.pool])
+  const rostered = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const [owner, cells] of Object.entries(ctx.rosters ?? {})) {
+      for (const c of cells) map.set(playerKey(cellRef(c), ambiguous), owner)
+    }
+    return map
+  }, [ctx.rosters, ambiguous])
+  const alreadyOn = player.trim() ? rostered.get(playerKey(cellRef(player), ambiguous)) : undefined
+
   const submit = async () => {
     setBusy(true)
     setNote('')
@@ -729,7 +747,13 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
           </div>
           <div className="min-w-[200px] flex-1">
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Player</label>
-            <Input value={player} onChange={(e) => setPlayer(e.target.value)} placeholder="Puka Nacua LAR (WR)" />
+            <PlayerSearch
+              pool={ctx.pool ?? []}
+              value={player}
+              onChange={setPlayer}
+              taken={rostered}
+              placeholder={ctx.pool?.length ? 'Start typing a name…' : 'Puka Nacua LAR (WR)'}
+            />
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Week</label>
@@ -747,10 +771,16 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
               className="w-24"
             />
           </div>
-          <Button onClick={submit} disabled={!team || !player.trim() || busy || !ctx.sheetConfigured}>
+          <Button onClick={submit} disabled={!team || !player.trim() || busy || !ctx.sheetConfigured || Boolean(alreadyOn)}>
             {busy ? 'Saving…' : 'Log move'}
           </Button>
         </div>
+        {alreadyOn && (
+          <p className="text-sm font-medium text-loss">
+            {parseDraftCell(player).player} is already on {alreadyOn}&apos;s roster
+            {alreadyOn === team ? ' — nothing to log.' : ' — that\'s a trade, not a waiver add.'}
+          </p>
+        )}
         {note && <p className="text-sm text-muted-foreground">{note}</p>}
       </CardContent>
     </Card>

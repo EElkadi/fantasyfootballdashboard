@@ -36,6 +36,7 @@ export const ADJUSTMENTS_TAB = process.env.ADJUSTMENTS_TAB ?? 'Adjustments'
 export const TRADES_TAB = process.env.TRADES_TAB ?? 'Trades'
 export const PREDICTIONS_TAB = process.env.PREDICTIONS_TAB ?? 'Predictions'
 export const LINEUPS_TAB = process.env.LINEUPS_TAB ?? 'Lineups'
+export const PLAYER_POOL_TAB = process.env.PLAYER_POOL_TAB ?? 'Player Pool'
 
 function credentials(): { email: string; key: string } | null {
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
@@ -97,6 +98,16 @@ async function sheetsFetch(path: string, init?: RequestInit): Promise<any> {
 export async function readTab(tab: string, range = 'A1:AZ2000'): Promise<string[][]> {
   const data = await sheetsFetch(`/values/${encodeURIComponent(`${tab}!${range}`)}`)
   return (data.values ?? []) as string[][]
+}
+
+/** Read a tab, treating a missing/unreadable one as empty but saying so in the logs. */
+export async function readTabOrEmpty(tab: string): Promise<string[][]> {
+  try {
+    return await readTab(tab)
+  } catch (err) {
+    console.warn(`Sheet tab "${tab}" could not be read (treated as empty):`, err)
+    return []
+  }
 }
 
 /**

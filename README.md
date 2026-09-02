@@ -76,6 +76,13 @@ Three tabs (names configurable via env):
   tab empty: the draft-night tool writes the header and every pick, and the
   waiver and trade forms keep it current from then on. Without it, parsing
   still works but spellings aren't corrected.
+- **Player Pool** (optional, recommended) — `Player Name | Team | Position`,
+  one row per draftable player, kept in rough draft-value order. Powers the
+  typeahead in the draft-night tool and the waiver form (picks write the
+  canonical `Name TEAM POS` form), the **Best available** panel on `/draft`
+  during the draft, the **Free agents** list on `/rosters`, position and
+  NFL-team fill-in for anyone typed as a bare name, and a spelling fallback
+  in the score/lineup parsers for players not yet on a roster.
 - **Lineups** — `Week | Team | Slot | Player | Submitted`, one row per slot,
   appended by the **Log lineups** form on `/commish`. Rows are never edited:
   a Thursday partial and Sunday's full lineup both stay, and the site shows

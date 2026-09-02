@@ -1,6 +1,7 @@
-import { rowsToLineups, rowsToTeamNames, canonSlot, parseDraftCell } from '../lib/data/transform'
+import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell } from '../lib/data/transform'
+import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
-import { buildRosterView, describeAcquisition } from '../lib/data/rosterView'
+import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
 import { teamNameOf } from '../lib/league'
 import { SeasonData } from '../lib/types'
 
@@ -94,6 +95,7 @@ function check(label: string, cond: boolean, detail?: unknown) {
     ],
     waivers: [{ week: 2, team: 'Elaf', player: 'Kareem Hunt', cost: 5 }],
     trades: [{ team1: 'Elaf', team2: 'Chuy', team1Gets: ['Romeo Doubs GB (WR)'], team2Gets: ['Round 4, Pick 40'] }],
+    pool: [],
   } as unknown as SeasonData
   const rosters = {
     Elaf: ['Josh Allen BUF (QB)', 'Bijan Robinson ATL RB', 'Kareem Hunt (RB, KC)', 'Romeo Doubs GB (WR)', 'Mystery Man'],
@@ -109,6 +111,68 @@ function check(label: string, cond: boolean, detail?: unknown) {
   check('roster view: sorted QB, RB, WR', elaf.players.slice(0, 3).map((p) => p.position).join(',') === 'QB,RB,RB', elaf.players.map((p) => p.position))
   check('roster view: position counts', elaf.byPosition.RB === 2 && elaf.byPosition.QB === 1 && elaf.byPosition['?'] === 1, elaf.byPosition)
   check('roster view: parses every historical cell shape', parseDraftCell('Kareem Hunt (RB, KC)').player === 'Kareem Hunt')
+}
+
+// --- Player pool ---
+{
+  const pool = rowsToPool([
+    { 'Player Name': 'Jahmyr Gibbs', Team: 'DET', Position: 'RB' },
+    { 'Player Name': 'Bijan Robinson', Team: 'ATL', Position: 'RB' },
+    { 'Player Name': "Ja'Marr Chase", Team: 'CIN', Position: 'WR' },
+    { 'Player Name': 'Josh Allen', Team: 'BUF', Position: 'QB' },
+    { 'Player Name': 'Denver Broncos', Team: 'DEN', Position: 'D/ST' },
+    { 'Player Name': '', Team: '', Position: '' },
+    { 'Player Name': 'Josh Jacobs', Team: 'GB', Position: 'RB' },
+  ])
+  check('pool: rows parsed in order, blanks skipped, D/ST -> DEF', pool.length === 6 && pool[0].rank === 1 && pool[4].position === 'DEF' && pool[5].rank === 6, pool)
+  check('pool: format writes the draft-cell form', formatPoolPlayer(pool[0]) === 'Jahmyr Gibbs DET RB')
+
+  const hits = (q: string) => searchPool(pool, q).map((p) => p.player)
+  check('pool search: partial tokens', hits('j gib').join() === 'Jahmyr Gibbs', hits('j gib'))
+  check('pool search: last name', hits('gibbs').join() === 'Jahmyr Gibbs')
+  check('pool search: apostrophe-insensitive', hits('jamarr').join() === "Ja'Marr Chase", hits('jamarr'))
+  check('pool search: prefix beats pool order', hits('josh')[0] === 'Josh Allen' && hits('josh').length === 2, hits('josh'))
+  check('pool search: excludes taken', searchPool(pool, 'josh', 8, takenKeys(pool, [{ player: 'Josh Allen' }])).map((p) => p.player).join() === 'Josh Jacobs')
+  check('pool search: empty query -> nothing', searchPool(pool, '  ').length === 0)
+
+  const avail = bestAvailable(pool, takenKeys(pool, [{ player: 'Jahmyr Gibbs' }]), 1)
+  check('best available: skips taken, one per position', avail.RB?.[0].player === 'Bijan Robinson' && avail.QB?.[0].player === 'Josh Allen' && avail.RB.length === 1, avail)
+
+  const enriched = enrichFromPool({ player: 'Josh Allen' } as { player: string; position?: string; nflTeam?: string }, poolIndex(pool))
+  check('enrich: bare name gains position and team', enriched.position === 'QB' && enriched.nflTeam === 'BUF', enriched)
+  const kept = enrichFromPool({ player: 'Josh Allen', position: 'RB', nflTeam: 'XX' }, poolIndex(pool))
+  check('enrich: explicit values win over the pool', kept.position === 'RB' && kept.nflTeam === 'XX')
+
+  const fa = freeAgents(pool, { Elaf: ['Josh Allen BUF QB', 'Bijan Robinson'], Chuy: ["Ja'Marr Chase CIN (WR)"] })
+  check('free agents: rostered removed regardless of cell format', fa.RB?.map((p) => p.player).join() === 'Jahmyr Gibbs,Josh Jacobs' && !fa.QB && !fa.WR, fa)
+
+  // Two players, one name: the NFL team keeps them apart
+  const twins = rowsToPool([
+    { 'Player Name': 'Mike Williams', Team: 'NYJ', Position: 'WR' },
+    { 'Player Name': 'Mike Williams', Team: 'LAC', Position: 'WR' },
+    { 'Player Name': 'Jahmyr Gibbs', Team: 'Detroit Lions', Position: 'RB' },
+  ])
+  const oneTaken = bestAvailable(twins, takenKeys(twins, [{ player: 'Mike Williams', nflTeam: 'NYJ' }]))
+  check('twins: drafting one Mike Williams leaves the other available', oneTaken.WR?.length === 1 && oneTaken.WR[0].nflTeam === 'LAC', oneTaken)
+  check('twins: bare name still matches a unique player', bestAvailable(twins, takenKeys(twins, [{ player: 'Jahmyr Gibbs' }])).RB === undefined)
+  check('samePlayer: teams must agree only when both known', samePlayer({ player: 'Mike Williams' }, { player: 'Mike Williams', nflTeam: 'LAC' }) && !samePlayer({ player: 'Mike Williams', nflTeam: 'NYJ' }, { player: 'Mike Williams', nflTeam: 'LAC' }))
+  check('cellRef: reads team off a board cell', cellRef('Bijan Robinson ATL RB').nflTeam === 'ATL' && cellRef('Bijan Robinson').nflTeam === undefined)
+  check('format: a non-abbreviated team is left off so the cell round-trips', formatPoolPlayer(twins[2]) === 'Jahmyr Gibbs RB' && playerSlug(cellRef(formatPoolPlayer(twins[2])).player) === 'jahmyr-gibbs')
+  const odd = bestAvailable(rowsToPool([{ 'Player Name': 'Some Kicker', Team: 'DAL', Position: 'PK' }]), new Set())
+  check('best available: unknown position lands in "?" rather than vanishing', odd['?']?.[0].player === 'Some Kicker', odd)
+
+  // Ambiguous pool match is surfaced, not hidden
+  const amb = parseSubmission('Elaf\nQB: Josh', { rosters: { Elaf: ['Bijan Robinson ATL RB'] }, lineupOnly: true, pool: ['Josh Allen', 'Josh Jacobs'] })
+  check('parser: ambiguous pool match lists the alternatives', amb.lineups[0].players[0].issues.some((i) => i.startsWith('Could be:')), amb.lineups[0].players[0].issues)
+
+  // Parser fallback: unrostered but in the pool
+  const parsed = parseSubmission('Elaf\nQB: Jsh Allen', {
+    rosters: { Elaf: ['Bijan Robinson ATL RB'] },
+    lineupOnly: true,
+    pool: pool.map((p) => p.player),
+  })
+  const qb = parsed.lineups[0].players[0]
+  check('parser: pool fixes spelling but keeps the roster flag', qb.name === 'Josh Allen' && qb.issues.some((i) => /Not found on Elaf's roster.*player pool/.test(i)), qb)
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURES`)

@@ -114,6 +114,8 @@ export interface ParseContext {
    * expected (a Thursday flex, then the rest on Sunday), no totals.
    */
   lineupOnly?: boolean
+  /** Every draftable player (Player Pool tab) — fallback when a name isn't on the roster */
+  pool?: string[]
 }
 
 export function parseSubmission(input: string, ctx: ParseContext = {}): ParseResult {
@@ -200,8 +202,23 @@ export function parseSubmission(input: string, ctx: ParseContext = {}): ParseRes
           p.issues.push(`Could be: ${[match.player, ...match.ambiguous].join(' / ')}`)
         }
       } else {
-        p.confidence = 0
-        p.issues.push(lineup.team ? `Not found on ${lineup.team}'s roster` : 'Not found on any roster')
+        // Not rostered: the pool still fixes the spelling, but the roster
+        // miss stays flagged — it usually means a waiver add wasn't logged
+        const fromPool = ctx.pool?.length ? matchName(p.rawName, ctx.pool) : null
+        if (fromPool) {
+          p.name = fromPool.player
+          p.confidence = fromPool.confidence * 0.8
+          p.alternates = fromPool.ambiguous
+          if (fromPool.ambiguous.length > 0) {
+            p.issues.push(`Could be: ${[fromPool.player, ...fromPool.ambiguous].join(' / ')}`)
+          }
+        } else {
+          p.confidence = 0
+        }
+        p.issues.push(
+          (lineup.team ? `Not found on ${lineup.team}'s roster` : 'Not found on any roster') +
+            (fromPool ? ` — matched ${fromPool.player} in the player pool; log the pickup?` : ''),
+        )
       }
     }
   }
