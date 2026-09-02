@@ -38,6 +38,8 @@ WhatsApp scores ──paste──▶ /commish ──review──▶ Google Sheet
 | `/records` | All-time record book computed from the box scores |
 | `/rules` | The constitution and full scoring tables |
 | `/recap/<week>` | Shareable 1080×1080 recap card (native share on mobile → straight into WhatsApp) |
+| `/rosters` | Every team's current roster with how each player was acquired (draft pick, waiver, trade) |
+| `/lineups` | Submitted starting lineups per week — partials show what's in so far; flags starters that differ from the box score |
 | `/awards` | Weekly awards (Top Gun, Cupcake, Bad Beat, Heist, Nailbiter, Hammer) and the season tally |
 | `/predictions` | Preseason ballots — hidden until kickoff, then scored against the standings every week |
 | `/commish` | Passcode-protected score entry: paste WhatsApp reports, review, save to the Sheet |
@@ -69,13 +71,21 @@ Three tabs (names configurable via env):
   a free-form weekly scratch area; both names are tried in order, and
   `SCHEDULE_TAB` pins one explicitly.
 - **Rosters** — one column per team (owner name as the header), rostered
-  players below. This powers the parser's fuzzy name matching ("Romeo" →
-  Romeo Doubs, "Mathew Stafford" → Matthew Stafford). Fill it once after the
-  draft; the waiver and trade forms keep it current from then on. Without it,
-  parsing still works but spellings aren't corrected.
+  players below. Powers `/rosters` and the parser's fuzzy name matching
+  ("Romeo" → Romeo Doubs, "Mathew Stafford" → Matthew Stafford). Create the
+  tab empty: the draft-night tool writes the header and every pick, and the
+  waiver and trade forms keep it current from then on. Without it, parsing
+  still works but spellings aren't corrected.
+- **Lineups** — `Week | Team | Slot | Player | Submitted`, one row per slot,
+  appended by the **Log lineups** form on `/commish`. Rows are never edited:
+  a Thursday partial and Sunday's full lineup both stay, and the site shows
+  the latest row per slot — so the tab doubles as an audit trail for
+  deadline disputes. Powers `/lineups`.
 - **Final Draft Board** + **Teams** — the draft grid (one column per team in
   draft order, `Round NN` rows) and the Teams tab whose `DRAFT ORDER`/`TEAMS`
-  columns map board columns to owners. Powers `/draft`.
+  columns map board columns to owners. Powers `/draft`. A `Team Name` column
+  on the Teams tab supplies this season's franchise names site-wide
+  (falling back to `OWNERS` in `lib/league.ts`).
 - **Waiver Wire** — `WEEK | TEAM | PLAYER | COST` rows. Powers `/waivers` and
   the live pot math (fees join the pot; scoring champ stays $250 and the rest
   splits 60/30/10). `/commish` has a one-click form that appends rows here.
@@ -99,9 +109,11 @@ Everything runs from `/commish` — the Sheet is the database, not the interface
 1. Paste the score reports from the matchup chats, hit **Parse scores**, check
    anything flagged in amber (unknown names, totals that don't add up,
    schedule mismatches, the -5 non-confirm toggle), **Save to Sheet**.
-2. Log waiver adds and trades with their forms — both write their tabs AND
+2. Before kickoff, paste lineup posts into **Log lineups** as they arrive —
+   partials included. `/lineups` shows the league who's starting whom.
+3. Log waiver adds and trades with their forms — both write their tabs AND
    keep the Rosters tab (the parser's name matching) current automatically.
-3. Open `/recap/<week>` and either share the image or hit **Copy for the group
+4. Open `/recap/<week>` and either share the image or hit **Copy for the group
    chat** for a text recap (results, awards, standings, next week's slate).
 
 The site updates within a minute of any save.
@@ -126,5 +138,6 @@ The site updates within a minute of any save.
 npx tsx tests/parser.test.ts   # parser acceptance tests (real league samples)
 npx tsx tests/data.test.ts     # transforms, schedule rules, clinch math
 npx tsx tests/features.test.ts # awards, recap text, predictions, career
+npx tsx tests/rosters-lineups.test.ts # lineup merging, team names, roster provenance, lineup-mode parsing
 npm run lint && npx tsc --noEmit
 ```

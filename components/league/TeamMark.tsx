@@ -5,10 +5,13 @@ import { ownerColor, teamNameOf } from '@/lib/league'
 export function TeamMark({
   team,
   showTeamName = false,
+  teamNames,
   className = '',
 }: {
   team: string
   showTeamName?: boolean
+  /** Season's franchise names (SeasonData.teamNames); falls back to OWNERS */
+  teamNames?: Record<string, string>
   className?: string
 }) {
   return (
@@ -22,7 +25,9 @@ export function TeamMark({
         style={{ backgroundColor: ownerColor(team) }}
       />
       <span>{team}</span>
-      {showTeamName && <span className="truncate text-sm font-normal text-muted-foreground">{teamNameOf(team)}</span>}
+      {showTeamName && (
+        <span className="truncate text-sm font-normal text-muted-foreground">{teamNameOf(team, teamNames)}</span>
+      )}
     </Link>
   )
 }

@@ -62,9 +62,9 @@ export default function LiveDraftPage() {
       if (res.ok) {
         after?.()
         setNote(
-          data.undone
+          (data.undone
             ? `Undid: ${data.undone.player} (Rd ${data.undone.round})`
-            : `Pick ${data.overall}: ${data.team} takes ${data.player}`,
+            : `Pick ${data.overall}: ${data.team} takes ${data.player}`) + (data.warning ? ` · ⚠ ${data.warning}` : ''),
         )
         await load()
       } else {

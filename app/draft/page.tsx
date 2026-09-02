@@ -96,7 +96,7 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
                             {team}
                           </span>
                           <span className="block truncate text-[11px] font-normal text-muted-foreground">
-                            {teamNameOf(team)}
+                            {teamNameOf(team, season.teamNames)}
                           </span>
                         </Link>
                       </th>

@@ -1,4 +1,4 @@
-import { DraftPick, Matchup, PlayerScore, PlayerWeek, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
+import { DraftPick, LineupEntry, Matchup, PlayerScore, PlayerWeek, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
 import { resolveOwner } from '@/lib/league'
 
 /** Canonicalize a team spelling from any source (sheet, CSV, chat). */
@@ -326,10 +326,6 @@ export function pairsOf(week: ScheduleWeek): [string, string][] {
  * before the lock — the latest row wins.
  */
 export function rowsToPredictions(rows: Record<string, string>[]): Prediction[] {
-  const col = (row: Record<string, string>, ...names: string[]) => {
-    const key = Object.keys(row).find((k) => names.includes(k.trim().toLowerCase()))
-    return key ? row[key].trim() : ''
-  }
   const latest = new Map<string, Prediction>()
   for (const row of rows) {
     const manager = resolveOwner(col(row, 'manager', 'team', 'owner'))?.name
@@ -351,4 +347,49 @@ export function rowsToPredictions(rows: Record<string, string>[]): Prediction[] 
     if (!prev || !prev.submittedAt || !pred.submittedAt || pred.submittedAt >= prev.submittedAt) latest.set(manager, pred)
   }
   return Array.from(latest.values())
+}
+
+/** Case-insensitive column lookup by any of several header spellings. */
+function col(row: Record<string, string>, ...names: string[]): string {
+  const key = Object.keys(row).find((k) => names.includes(k.trim().toLowerCase()))
+  return key ? row[key].trim() : ''
+}
+
+/** "flex2" / "FLEX 2" / "def" -> canonical Slot, or null */
+export function canonSlot(raw: string): Slot | null {
+  const key = raw.replace(/\s+/g, '').toLowerCase().replace('d/st', 'def').replace('dst', 'def')
+  return SLOTS.find((s) => s.toLowerCase() === key) ?? null
+}
+
+/**
+ * Lineups tab: `Week | Team | Slot | Player | Submitted`, one row per slot per
+ * submission, appended in time order. A Thursday partial ("Flex: Jacobs")
+ * followed by Sunday's full lineup merges naturally: the latest row for each
+ * week/team/slot wins, and slots nobody resubmitted keep their earlier value.
+ */
+export function rowsToLineups(rows: Record<string, string>[]): LineupEntry[] {
+  const latest = new Map<string, LineupEntry>()
+  for (const r of rows) {
+    const week = parseInt(col(r, 'week'))
+    const team = resolveOwner(col(r, 'team', 'manager', 'owner'))?.name
+    const slot = canonSlot(col(r, 'slot', 'position', 'pos'))
+    const player = col(r, 'player', 'name')
+    if (!week || !team || !slot || !player) continue
+    const entry: LineupEntry = { week, team, slot, player, submittedAt: col(r, 'submitted', 'timestamp', 'submitted at') }
+    const key = `${week}|${team}|${slot}`
+    const prev = latest.get(key)
+    if (!prev || !prev.submittedAt || !entry.submittedAt || entry.submittedAt >= prev.submittedAt) latest.set(key, entry)
+  }
+  return Array.from(latest.values()).sort((a, b) => a.week - b.week || a.team.localeCompare(b.team))
+}
+
+/** Teams tab rows -> owner -> franchise name, from a "Team Name" column when present. */
+export function rowsToTeamNames(rows: Record<string, string>[]): Record<string, string> {
+  const names: Record<string, string> = {}
+  for (const r of rows) {
+    const owner = resolveOwner(col(r, 'teams', 'team', 'owner', 'manager'))?.name
+    const name = col(r, 'team name', 'teamname', 'franchise', 'franchise name')
+    if (owner && name) names[owner] = name
+  }
+  return names
 }

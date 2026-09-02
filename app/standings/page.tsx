@@ -50,7 +50,7 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
         </p>
       ) : (
         <>
-          <StandingsTable standings={season.standings} odds={sim?.odds ?? null} />
+          <StandingsTable standings={season.standings} odds={sim?.odds ?? null} teamNames={season.teamNames} />
 
           {sim && (
             <section className="space-y-3">

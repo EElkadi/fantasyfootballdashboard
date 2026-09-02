@@ -64,7 +64,8 @@ const SLOT_ORDER: Record<string, Slot[]> = {
   FLEX: ['Flex', 'Flex2'],
 }
 
-const POSITION_RE = /^\s*(QB|RB|WR|K|DEF|D\/?ST|FLEX|FLX)\s*(?:\d\s*)?[.:)\-–—]*\s*(.*)$/i
+/** "RB2: Name", "Flex 2 - Name", "QB. Name" — group 2 is an explicit slot number when given */
+const POSITION_RE = /^\s*(QB|RB|WR|K|DEF|D\/?ST|FLEX|FLX)\s*(\d)?\s*[.:)\-–—]*\s*(.*)$/i
 
 function canonPosition(p: string): keyof typeof SLOT_ORDER {
   const up = p.toUpperCase().replace(/[^A-Z]/g, '')
@@ -86,6 +87,15 @@ function extractScore(text: string): { name: string; score: number; ambiguousSig
   return { name, score, ambiguousSign }
 }
 
+/** Lineup mode: the rest of the line is the name; a stray trailing number is ignored. */
+function nameOnly(text: string): { name: string; score: number; ambiguousSign: boolean } | null {
+  const name = text
+    .replace(/(?:\s*[-–—:]\s*|\s+)-?\d+(?:\.\d+)?\s*(?:pts?\.?|points?)?\s*$/i, '')
+    .replace(/[-–—:,\s]+$/, '')
+    .trim()
+  return name ? { name, score: 0, ambiguousSign: false } : null
+}
+
 function normalizeText(input: string): string {
   return input
     .replace(/[‘’ʼ]/g, "'")
@@ -99,6 +109,11 @@ export interface ParseContext {
   rosters?: Record<string, string[]>
   /** Expected week, if known */
   week?: number
+  /**
+   * Pre-deadline lineup submissions: names without scores, partial lineups
+   * expected (a Thursday flex, then the rest on Sunday), no totals.
+   */
+  lineupOnly?: boolean
 }
 
 export function parseSubmission(input: string, ctx: ParseContext = {}): ParseResult {
@@ -113,14 +128,14 @@ export function parseSubmission(input: string, ctx: ParseContext = {}): ParseRes
   const pendingTeams: string[] = []
 
   const state: { current: ParsedLineup | null } = { current: null }
-  const slotCounts = new Map<string, number>()
+  const usedSlots = new Set<Slot>()
 
   const closeLineup = () => {
     if (!state.current) return
     finalizeLineup(state.current)
     result.lineups.push(state.current)
     state.current = null
-    slotCounts.clear()
+    usedSlots.clear()
   }
 
   const finalizeLineup = (lineup: ParsedLineup) => {
@@ -129,9 +144,10 @@ export function parseSubmission(input: string, ctx: ParseContext = {}): ParseRes
     const missing = (['QB', 'RB1', 'RB2', 'WR1', 'WR2', 'DEF', 'K', 'Flex', 'Flex2'] as Slot[]).filter(
       (s) => !slots.includes(s),
     )
-    if (missing.length > 0) lineup.issues.push(`Missing slots: ${missing.join(', ')}`)
+    // A partial lineup is the normal case before the deadline, not a problem
+    if (missing.length > 0 && !ctx.lineupOnly) lineup.issues.push(`Missing slots: ${missing.join(', ')}`)
 
-    if (lineup.statedTotal !== undefined && lineup.statedTotal !== lineup.computedTotal) {
+    if (!ctx.lineupOnly && lineup.statedTotal !== undefined && lineup.statedTotal !== lineup.computedTotal) {
       // A single ambiguous "Name -N" read as negative may explain the gap.
       // Apply it only when exactly one flip reconciles; anything murkier is
       // the commissioner's call.
@@ -192,8 +208,27 @@ export function parseSubmission(input: string, ctx: ParseContext = {}): ParseRes
 
   const lines = normalizeText(input).split('\n')
   for (const rawLine of lines) {
-    const line = rawLine.trim()
-    if (!line) continue
+    let line = rawLine.trim()
+    if (!line) {
+      // Lineup posts arrive as separate messages: a blank line ends one
+      // manager's partial and starts the next (score mode has totals for that)
+      if (ctx.lineupOnly) closeLineup()
+      continue
+    }
+
+    // WhatsApp export style, "Elaf: Flex Josh Jacobs" — the sender names the team
+    const prefixed = line.match(/^([^:]{2,24}?)\s*:\s*(.+)$/)
+    if (prefixed && POSITION_RE.test(prefixed[2]) && !POSITION_RE.test(prefixed[1])) {
+      const owner = resolveOwner(prefixed[1])
+      if (owner) {
+        if (state.current?.team !== owner.name) {
+          closeLineup()
+          pendingTeams.unshift(owner.name)
+          startLineupIfNeeded()
+        }
+        line = prefixed[2].trim()
+      }
+    }
 
     // Week header
     const weekMatch = line.match(/^week\s*#?\s*(\d+)\b/i)
@@ -230,7 +265,7 @@ export function parseSubmission(input: string, ctx: ParseContext = {}): ParseRes
 
     // Total line: "Total: 101pts" or a bare "101"
     const totalMatch = line.match(/^total\b[\s.:\-–—]*(-?\d+(?:\.\d+)?)\s*(?:pts?\.?)?$/i) ?? line.match(/^(-?\d+(?:\.\d+)?)\s*(?:pts?\.?)?$/)
-    if (totalMatch && state.current) {
+    if (totalMatch && state.current && !ctx.lineupOnly) {
       state.current.statedTotal = parseFloat(totalMatch[1])
       closeLineup()
       continue
@@ -240,24 +275,33 @@ export function parseSubmission(input: string, ctx: ParseContext = {}): ParseRes
     const posMatch = line.match(POSITION_RE)
     if (posMatch) {
       const pos = canonPosition(posMatch[1])
-      const extracted = extractScore(posMatch[2])
+      // Lineup submissions carry no scores — "Flex: Josh Jacobs" is the whole line
+      const extracted = ctx.lineupOnly
+        ? nameOnly(posMatch[3])
+        : extractScore(posMatch[3])
       if (!extracted) {
-        if (state.current) state.current.issues.push(`Couldn't read a score from: "${line}"`)
+        if (state.current) {
+          state.current.issues.push(
+            ctx.lineupOnly ? `No player name on: "${line}"` : `Couldn't read a score from: "${line}"`,
+          )
+        }
         continue
       }
       const order = SLOT_ORDER[pos]
       if (!order) continue
 
       startLineupIfNeeded()
-      const used = slotCounts.get(pos) ?? 0
-      if (used >= order.length) {
+      // "RB2:" / "Flex 2:" pins the slot — essential for partials, where a lone
+      // second back must not land in RB1. Otherwise take the first free slot.
+      const explicit = posMatch[2] ? order[parseInt(posMatch[2]) - 1] : undefined
+      let slot = explicit ?? order.find((s) => !usedSlots.has(s))
+      if (!slot || usedSlots.has(slot)) {
         // A repeated position signals the next lineup started without a total line
         closeLineup()
         startLineupIfNeeded()
+        slot = explicit ?? order[0]
       }
-      const usedNow = slotCounts.get(pos) ?? 0
-      const slot = SLOT_ORDER[pos][usedNow]
-      slotCounts.set(pos, usedNow + 1)
+      usedSlots.add(slot)
       state.current!.players.push({
         slot,
         rawName: extracted.name,
@@ -272,6 +316,11 @@ export function parseSubmission(input: string, ctx: ParseContext = {}): ParseRes
     }
   }
   closeLineup()
+  if (ctx.lineupOnly && pendingTeams.length > 0) {
+    result.issues.push(
+      `${pendingTeams.join(' and ')} named but no players found — put each manager's lines under their own name`,
+    )
+  }
 
   function startLineupIfNeeded() {
     if (state.current) return
@@ -284,11 +333,15 @@ export function parseSubmission(input: string, ctx: ParseContext = {}): ParseRes
       issues: [],
     }
     if (state.current.team) state.current.teamSource = 'header'
-    slotCounts.clear()
+    usedSlots.clear()
   }
 
   if (result.lineups.length === 0) {
-    result.issues.push('No lineups found — expected lines like "QB. Josh Allen: 30pts"')
+    result.issues.push(
+      ctx.lineupOnly
+        ? 'No lineups found — expected lines like "QB: Josh Allen"'
+        : 'No lineups found — expected lines like "QB. Josh Allen: 30pts"',
+    )
   }
   if (result.week === undefined) {
     result.issues.push('No week number found — add a "Week N" line or set it manually')

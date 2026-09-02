@@ -35,6 +35,7 @@ export const TEAMS_TAB = process.env.TEAMS_TAB ?? 'Teams'
 export const ADJUSTMENTS_TAB = process.env.ADJUSTMENTS_TAB ?? 'Adjustments'
 export const TRADES_TAB = process.env.TRADES_TAB ?? 'Trades'
 export const PREDICTIONS_TAB = process.env.PREDICTIONS_TAB ?? 'Predictions'
+export const LINEUPS_TAB = process.env.LINEUPS_TAB ?? 'Lineups'
 
 function credentials(): { email: string; key: string } | null {
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
@@ -105,11 +106,25 @@ export async function readTab(tab: string, range = 'A1:AZ2000'): Promise<string[
  * becomes a live formula.
  */
 export async function appendRow(tab: string, row: (string | number)[], opts: { raw?: boolean } = {}): Promise<void> {
+  await appendRows(tab, [row], opts)
+}
+
+/** Append several rows in one request. */
+export async function appendRows(tab: string, rows: (string | number)[][], opts: { raw?: boolean } = {}): Promise<void> {
+  if (rows.length === 0) return
   const mode = opts.raw ? 'RAW' : 'USER_ENTERED'
   await sheetsFetch(
     `/values/${encodeURIComponent(`${tab}!A1`)}:append?valueInputOption=${mode}&insertDataOption=INSERT_ROWS`,
-    { method: 'POST', body: JSON.stringify({ values: [row] }) },
+    { method: 'POST', body: JSON.stringify({ values: rows }) },
   )
+}
+
+/** Overwrite one row from column A, e.g. a header row. */
+export async function updateRow(tab: string, row: number, values: (string | number)[]): Promise<void> {
+  await sheetsFetch(`/values/${encodeURIComponent(`${tab}!A${row}`)}?valueInputOption=USER_ENTERED`, {
+    method: 'PUT',
+    body: JSON.stringify({ values: [values] }),
+  })
 }
 
 /** 1-based column index -> letter(s): 1 -> A, 27 -> AA. */

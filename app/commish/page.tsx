@@ -263,6 +263,7 @@ export default function CommishPage() {
         />
       ))}
 
+      <LineupLogger ctx={ctx} defaultWeek={week} />
       <WaiverLogger ctx={ctx} defaultWeek={week} onLogged={loadContext} />
       <TradeLogger ctx={ctx} onLogged={loadContext} />
       {ctx.sheetConfigured && <SheetStatus />}
@@ -374,6 +375,183 @@ function SheetStatus() {
               An empty Scores, Waiver Wire or Trades tab is normal before the season starts. An empty Team by Team
               Schedule or Final Draft Board means the site is falling back to the committed {diag.currentSeason} files.
             </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+interface LineupDraft {
+  id: number
+  team: string
+  players: { slot: Slot; name: string; issues: string[] }[]
+  issues: string[]
+}
+
+/**
+ * Pre-deadline lineup entry. Managers post starters in the chat — often a
+ * single Thursday player first, the rest Sunday morning — so this accepts any
+ * subset of slots and only ever appends: the site shows the latest per slot.
+ */
+function LineupLogger({ ctx, defaultWeek }: { ctx: Context; defaultWeek: number }) {
+  const [week, setWeek] = useState(defaultWeek)
+  const [raw, setRaw] = useState('')
+  const [drafts, setDrafts] = useState<LineupDraft[]>([])
+  const [issues, setIssues] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+
+  useEffect(() => setWeek(defaultWeek), [defaultWeek])
+
+  const doParse = () => {
+    setNote('')
+    const result = parseSubmission(raw, { rosters: ctx.rosters, week, lineupOnly: true })
+    // The pasted text's week wins, so neither week warning is worth showing
+    if (result.week && result.week !== week) setWeek(result.week)
+    setIssues(result.issues.filter((i) => !i.startsWith('No week number') && !i.startsWith('Text says week')))
+    setDrafts(
+      result.lineups.map((l, i) => ({
+        id: i,
+        team: l.team ?? '',
+        players: l.players.map((p) => ({ slot: p.slot, name: p.name, issues: p.issues })),
+        issues: l.issues,
+      })),
+    )
+  }
+
+  const update = (id: number, patch: Partial<LineupDraft>) =>
+    setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)))
+
+  const ready =
+    drafts.length > 0 && drafts.every((d) => d.team && d.players.length > 0 && d.players.every((p) => p.name.trim()))
+
+  const save = async () => {
+    setBusy(true)
+    setNote('')
+    try {
+      const res = await fetch('/api/commish/lineups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week, lineups: drafts.map((d) => ({ team: d.team, players: d.players })) }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        const summary = Object.entries(data.saved ?? {})
+          .map(([team, n]) => `${team} (${n})`)
+          .join(', ')
+        setNote(`Saved week ${data.week} lineups: ${summary}`)
+        setDrafts([])
+        setRaw('')
+      } else {
+        setNote(data.error ?? 'Failed to save lineups')
+      }
+    } catch {
+      setNote('Network error — lineups were NOT saved. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Log lineups</CardTitle>
+        <CardDescription>
+          Paste starting-lineup posts (&quot;Elaf&quot; then &quot;QB: Josh Allen&quot;, one slot per line). Partial
+          lineups are fine — a Thursday flex now, the rest Sunday — the site shows the latest per slot. Powers{' '}
+          <a href="/lineups" className="underline">
+            /lineups
+          </a>
+          .
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm font-medium">Week</label>
+          <Input
+            type="number"
+            min={1}
+            max={18}
+            value={week}
+            onChange={(e) => setWeek(parseInt(e.target.value) || 1)}
+            className="w-24"
+          />
+        </div>
+        <textarea
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          placeholder={'Elaf\nFlex: Josh Jacobs\n\nChuy\nQB: Jordan Love\nRB: Bijan Robinson\n…'}
+          className="h-40 w-full rounded-md border border-input bg-background p-3 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" onClick={doParse} disabled={!raw.trim()}>
+            Parse lineups
+          </Button>
+          {drafts.length > 0 && (
+            <Button onClick={save} disabled={!ready || busy || !ctx.sheetConfigured}>
+              {busy ? 'Saving…' : `Save ${drafts.reduce((n, d) => n + d.players.length, 0)} slots`}
+            </Button>
+          )}
+          {note && <span className="text-sm text-muted-foreground">{note}</span>}
+        </div>
+        {issues.map((i, k) => (
+          <p key={k} className="text-sm text-amber-600 dark:text-amber-400">
+            ⚠ {i}
+          </p>
+        ))}
+        {drafts.length > 0 && (
+          <div className="grid gap-3 md:grid-cols-2">
+            {drafts.map((d) => (
+              <div key={d.id} className="space-y-2 rounded-lg border p-3">
+                <div className="flex items-center gap-2">
+                  <select
+                    value={d.team}
+                    onChange={(e) => update(d.id, { team: e.target.value })}
+                    className={`rounded-md border bg-background px-2 py-1 text-sm font-semibold ${
+                      d.team ? 'border-input' : 'border-amber-500'
+                    }`}
+                  >
+                    <option value="">Whose lineup?</option>
+                    {ctx.teams.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-xs text-muted-foreground">
+                    {d.players.length} of {SLOTS.length} slots
+                  </span>
+                </div>
+                {d.players.map((p, i) => (
+                  <div key={p.slot} className="flex items-center gap-2">
+                    <span className="w-10 text-xs font-medium text-muted-foreground">{p.slot}</span>
+                    <Input
+                      value={p.name}
+                      onChange={(e) =>
+                        update(d.id, {
+                          players: d.players.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)),
+                        })
+                      }
+                      className={`h-8 flex-1 ${p.issues.length ? 'border-amber-500' : ''}`}
+                    />
+                    <button
+                      type="button"
+                      aria-label={`Remove ${p.slot}`}
+                      onClick={() => update(d.id, { players: d.players.filter((_, j) => j !== i) })}
+                      className="text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {d.players.flatMap((p) => p.issues.map((i) => `${p.slot}: ${i}`)).map((i, k) => (
+                  <p key={k} className="text-xs text-amber-600 dark:text-amber-400">
+                    ⚠ {i}
+                  </p>
+                ))}
+              </div>
+            ))}
           </div>
         )}
       </CardContent>

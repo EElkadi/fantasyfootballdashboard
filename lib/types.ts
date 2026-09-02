@@ -114,6 +114,16 @@ export interface WaiverMove {
   cost: number
 }
 
+/** One starting-lineup slot as submitted before the deadline (latest submission wins) */
+export interface LineupEntry {
+  week: number
+  team: string
+  slot: Slot
+  player: string
+  /** ISO timestamp of the submission that set this slot */
+  submittedAt: string
+}
+
 /** One manager's preseason ballot */
 export interface Prediction {
   manager: string
@@ -148,4 +158,8 @@ export interface SeasonData {
   draft: DraftPick[]
   waivers: WaiverMove[]
   trades: Trade[]
+  /** owner -> franchise name for this season, when the sheet supplies one */
+  teamNames: Record<string, string>
+  /** Submitted starting lineups, latest per week/team/slot */
+  lineups: LineupEntry[]
 }

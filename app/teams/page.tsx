@@ -32,7 +32,7 @@ export default async function TeamsPage() {
                   {o.name[0]}
                 </span>
                 <div className="min-w-0">
-                  <p className="font-bold group-hover:underline">{teamNameOf(o.name)}</p>
+                  <p className="font-bold group-hover:underline">{teamNameOf(o.name, season.teamNames)}</p>
                   <p className="truncate text-sm text-muted-foreground">{o.name}</p>
                 </div>
               </div>
