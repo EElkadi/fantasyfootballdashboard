@@ -66,7 +66,7 @@ export default async function TeamPage({ params }: { params: { team: string } })
           {team[0]}
         </span>
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">{teamNameOf(team)}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">{teamNameOf(team, season.teamNames)}</h1>
           <p className="text-muted-foreground">
             {team}
             {standing &&

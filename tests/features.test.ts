@@ -39,6 +39,8 @@ function loadSeason(year: number): SeasonData {
     draft: [],
     waivers: [],
     trades: [],
+    teamNames: {},
+    lineups: [],
   }
 }
 

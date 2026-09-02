@@ -3,9 +3,9 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
-import { Matchup, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
+import { LineupEntry, Matchup, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE, resolveOwner } from '@/lib/league'
-import { hasLiveSheet, readTab, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB } from './sheets'
+import { hasLiveSheet, readTab, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB, LINEUPS_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -14,7 +14,9 @@ import {
   matchupsToPlayerWeeks,
   matchupsToTeamWeeks,
   rowsToDraft,
+  rowsToLineups,
   rowsToPredictions,
+  rowsToTeamNames,
   rowsToTrades,
   rowsToWaivers,
   wideRowToMatchup,
@@ -59,6 +61,8 @@ function assemble(
   draft: SeasonData['draft'] = [],
   waivers: SeasonData['waivers'] = [],
   trades: SeasonData['trades'] = [],
+  teamNames: Record<string, string> = {},
+  lineups: LineupEntry[] = [],
 ): SeasonData {
   const teamWeeks = matchupsToTeamWeeks(matchups)
   const playerWeeks = matchupsToPlayerWeeks(matchups)
@@ -90,19 +94,23 @@ function assemble(
     draft,
     waivers,
     trades,
+    teamNames,
+    lineups,
   }
 }
 
 async function loadArchiveSeason(season: number): Promise<SeasonData> {
-  const [teamRows, playerRows, scheduleRows, draftRows, waiverRows, adjustmentRows, tradeRows] = await Promise.all([
-    readCsv(season, 'teams.csv'),
-    readCsv(season, 'players.csv'),
-    readCsv(season, 'schedule.csv'),
-    readCsv(season, 'draft.csv'),
-    readCsv(season, 'waivers.csv'),
-    readCsv(season, 'adjustments.csv'),
-    readCsv(season, 'trades.csv'),
-  ])
+  const [teamRows, playerRows, scheduleRows, draftRows, waiverRows, adjustmentRows, tradeRows, lineupRows] =
+    await Promise.all([
+      readCsv(season, 'teams.csv'),
+      readCsv(season, 'players.csv'),
+      readCsv(season, 'schedule.csv'),
+      readCsv(season, 'draft.csv'),
+      readCsv(season, 'waivers.csv'),
+      readCsv(season, 'adjustments.csv'),
+      readCsv(season, 'trades.csv'),
+      readCsv(season, 'lineups.csv'),
+    ])
   const matchups = longToMatchups(teamRows as any, playerRows as any)
   annotateAdjustments(matchups, adjustmentRows)
   return assemble(
@@ -113,6 +121,8 @@ async function loadArchiveSeason(season: number): Promise<SeasonData> {
     rowsToDraft(draftRows as any),
     rowsToWaivers(waiverRows),
     rowsToTrades(tradeRows),
+    {},
+    rowsToLineups(lineupRows),
   )
 }
 
@@ -127,7 +137,7 @@ async function readTabOrEmpty(tab: string): Promise<string[][]> {
 }
 
 async function loadLiveSeason(season: number): Promise<SeasonData> {
-  const [scoreRows, scheduleCandidates, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows] =
+  const [scoreRows, scheduleCandidates, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows, lineupRows] =
     await Promise.all([
       readTabOrEmpty(SCORES_TAB),
       Promise.all(SCHEDULE_TABS.map(readTabOrEmpty)),
@@ -136,6 +146,7 @@ async function loadLiveSeason(season: number): Promise<SeasonData> {
       readTabOrEmpty(WAIVERS_TAB),
       readTabOrEmpty(ADJUSTMENTS_TAB),
       readTabOrEmpty(TRADES_TAB),
+      readTabOrEmpty(LINEUPS_TAB),
     ])
   const matchups = toObjects(scoreRows)
     .map(wideRowToMatchup)
@@ -144,7 +155,8 @@ async function loadLiveSeason(season: number): Promise<SeasonData> {
   // First candidate tab that actually parses as a week grid wins
   let schedule =
     scheduleCandidates.map((rows) => gridToSchedule(toObjects(rows))).find((s) => s.length > 0) ?? []
-  let draft = draftRows.length > 0 && teamsRows.length > 1 ? gridToDraft(draftRows, toObjects(teamsRows)) : []
+  const teamObjects = toObjects(teamsRows)
+  let draft = draftRows.length > 0 && teamObjects.length > 0 ? gridToDraft(draftRows, teamObjects) : []
 
   // The committed data/seasons/<year>/ files are a seed for the live season:
   // reference data the Sheet doesn't actually supply — a tab that is empty,
@@ -161,7 +173,17 @@ async function loadLiveSeason(season: number): Promise<SeasonData> {
 
   const waivers = rowsToWaivers(toObjects(waiverRows))
   const trades = rowsToTrades(toObjects(tradeRows))
-  return assemble(season, 'sheet', matchups, schedule, draft, waivers, trades)
+  return assemble(
+    season,
+    'sheet',
+    matchups,
+    schedule,
+    draft,
+    waivers,
+    trades,
+    rowsToTeamNames(teamObjects),
+    rowsToLineups(toObjects(lineupRows)),
+  )
 }
 
 const cachedLive = unstable_cache(loadLiveSeason, ['live-season'], { revalidate: 60, tags: ['season-live'] })
@@ -232,23 +254,36 @@ export async function getPredictions(season: number = CURRENT_SEASON): Promise<P
   return rowsToPredictions(await readCsv(season, 'predictions.csv'))
 }
 
-/** Current rosters, for the commissioner parser: team -> players. */
+/** Rosters tab (one column per team) -> team -> raw player cells. */
+export function gridToRosters(rows: string[][]): Record<string, string[]> {
+  if (rows.length < 2) return {}
+  const header = rows[0]
+  const rosters: Record<string, string[]> = {}
+  header.forEach((team, col) => {
+    // Only owner columns count — a "Notes" column must not become a team
+    const owner = resolveOwner(team)?.name
+    if (!owner) return
+    rosters[owner] = rows
+      .slice(1)
+      .map((r) => (r[col] ?? '').trim())
+      .filter(Boolean)
+  })
+  return rosters
+}
+
+const cachedRosters = unstable_cache(async () => gridToRosters(await readTab(ROSTERS_TAB)), ['rosters'], {
+  revalidate: 60,
+  tags: ['season-live'],
+})
+
+/**
+ * Current rosters: team -> players. Cached with the season (waiver, trade and
+ * draft writes all revalidate it). Empty without a sheet or a Rosters tab.
+ */
 export async function getRosters(): Promise<Record<string, string[]>> {
   if (!hasLiveSheet()) return {}
   try {
-    const rows = await readTab(ROSTERS_TAB)
-    if (rows.length < 2) return {}
-    const header = rows[0]
-    const rosters: Record<string, string[]> = {}
-    header.forEach((team, col) => {
-      const owner = canonTeam(team)
-      if (!owner) return
-      rosters[owner] = rows
-        .slice(1)
-        .map((r) => (r[col] ?? '').trim())
-        .filter(Boolean)
-    })
-    return rosters
+    return await cachedRosters()
   } catch {
     return {}
   }
@@ -321,7 +356,7 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
   const base = { configured: hasLiveSheet(), sheetId: maskId(SHEET_ID), currentSeason: CURRENT_SEASON }
   if (!base.configured) return { ...base, tabs: [] }
 
-  const [scores, rosters, draft, teams, waivers, trades, adjustments, predictions] = await Promise.all([
+  const [scores, rosters, draft, teams, waivers, trades, adjustments, predictions, lineups] = await Promise.all([
     probe(SCORES_TAB, 'Weekly box scores', 'matchups', (r) =>
       toObjects(r).map(wideRowToMatchup).filter(Boolean).length,
     ),
@@ -340,6 +375,7 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
     probe(TRADES_TAB, 'Trade ledger', 'trades', (r) => rowsToTrades(toObjects(r)).length),
     probe(ADJUSTMENTS_TAB, 'Penalty reasons', 'entries', (r) => toObjects(r).length),
     probe(PREDICTIONS_TAB, 'Preseason ballots', 'ballots', (r) => rowsToPredictions(toObjects(r)).length),
+    probe(LINEUPS_TAB, 'Submitted lineups', 'slots', (r) => rowsToLineups(toObjects(r)).length),
   ])
 
   // Schedule: report whichever candidate tab actually parses as a week grid
@@ -348,5 +384,5 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
   )
   const schedule = candidates.find((c) => c.status === 'ok') ?? candidates[0]
 
-  return { ...base, tabs: [scores, schedule, teams, draft, rosters, waivers, trades, adjustments, predictions] }
+  return { ...base, tabs: [scores, schedule, teams, draft, rosters, waivers, trades, adjustments, predictions, lineups] }
 }

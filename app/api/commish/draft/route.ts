@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
 import { DRAFT_TAB, TEAMS_TAB, columnLetter, hasLiveSheet, readTab, toObjects, updateCell } from '@/lib/data/sheets'
 import { gridToDraft, snakePosition } from '@/lib/data/transform'
+import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
 import { LEAGUE } from '@/lib/league'
 import { DraftState } from '@/lib/types'
 
@@ -99,8 +100,9 @@ export async function POST(req: Request) {
       console.error('Draft undo failed:', err)
       return NextResponse.json({ error: 'Clearing the cell failed — try again' }, { status: 502 })
     }
+    const warning = await removeFromRoster(last.team, last.player)
     revalidateTag('season-live')
-    return NextResponse.json({ ok: true, undone: last })
+    return NextResponse.json({ ok: true, undone: last, warning })
   }
 
   const player = String(body?.player ?? '').trim().replace(/\s+/g, ' ')
@@ -117,6 +119,9 @@ export async function POST(req: Request) {
     console.error('Draft pick write failed:', err)
     return NextResponse.json({ error: 'Writing the pick failed — try again' }, { status: 502 })
   }
+  // The Rosters tab (public /rosters, parser name matching) builds itself
+  // from the picks. Best effort: a roster hiccup never fails the pick.
+  const warning = await addToRoster(team, player)
   revalidateTag('season-live')
-  return NextResponse.json({ ok: true, round, slot, overall, team, player })
+  return NextResponse.json({ ok: true, round, slot, overall, team, player, warning })
 }

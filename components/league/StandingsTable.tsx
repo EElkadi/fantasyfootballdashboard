@@ -13,10 +13,12 @@ export function StandingsTable({
   standings,
   odds,
   compact = false,
+  teamNames,
 }: {
   standings: TeamStanding[]
   odds?: TeamOdds[] | null
   compact?: boolean
+  teamNames?: Record<string, string>
 }) {
   const oddsFor = (team: string) => odds?.find((o) => o.team === team)
   const turdLine = standings.length - LEAGUE.turdBowlTeams
@@ -54,7 +56,7 @@ export function StandingsTable({
               >
                 <td className="tabular px-3 py-2.5 text-muted-foreground">{s.rank}</td>
                 <td className="px-3 py-2.5">
-                  <TeamMark team={s.team} showTeamName={!compact} />
+                  <TeamMark team={s.team} showTeamName={!compact} teamNames={teamNames} />
                 </td>
                 <td className="tabular px-3 py-2.5 text-right font-semibold">{rec(s.overall)}</td>
                 <td className="tabular px-3 py-2.5 text-right text-muted-foreground">{rec(s.h2h)}</td>

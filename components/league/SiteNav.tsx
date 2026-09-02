@@ -6,12 +6,19 @@ import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 import { Moon, Sun, Trophy } from 'lucide-react'
 
+/** Always visible: the pages people open every week. */
 const LINKS = [
   { href: '/', label: 'Home' },
   { href: '/matchups', label: 'Matchups' },
   { href: '/standings', label: 'Standings' },
+  { href: '/lineups', label: 'Lineups' },
+  { href: '/rosters', label: 'Rosters' },
   { href: '/teams', label: 'Teams' },
   { href: '/draft', label: 'Draft' },
+]
+
+/** Under "More": the reference and season-long pages. */
+const MORE = [
   { href: '/waivers', label: 'Transactions' },
   { href: '/awards', label: 'Awards' },
   { href: '/predictions', label: 'Predictions' },
@@ -34,6 +41,12 @@ function ThemeToggle() {
   )
 }
 
+function linkClass(isActive: boolean): string {
+  return `whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+    isActive ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
+  }`
+}
+
 export function SiteNav() {
   const pathname = usePathname()
   const active = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href))
@@ -50,19 +63,27 @@ export function SiteNav() {
         </Link>
         <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto">
           {LINKS.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                active(l.href)
-                  ? 'bg-secondary text-foreground'
-                  : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
-              }`}
-            >
+            <Link key={l.href} href={l.href} className={linkClass(active(l.href))}>
               {l.label}
             </Link>
           ))}
         </nav>
+        {/* Outside the scrolling <nav> so the menu can overlay the page; remounts
+            closed on every navigation, so picking an item shuts it */}
+        <details key={pathname} className="relative shrink-0">
+          <summary
+            className={`${linkClass(MORE.some((l) => active(l.href)))} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}
+          >
+            More ▾
+          </summary>
+          <div className="absolute right-0 z-50 mt-1 min-w-[10rem] rounded-lg border bg-background p-1 shadow-lg">
+            {MORE.map((l) => (
+              <Link key={l.href} href={l.href} className={`block ${linkClass(active(l.href))}`}>
+                {l.label}
+              </Link>
+            ))}
+          </div>
+        </details>
         <Link
           href="/commish"
           className={`hidden whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium sm:block ${

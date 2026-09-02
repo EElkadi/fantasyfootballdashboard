@@ -53,8 +53,14 @@ export function ownerColor(name: string): string {
   return resolveOwner(name)?.color ?? '#6b7280'
 }
 
-export function teamNameOf(name: string): string {
-  return resolveOwner(name)?.teamName ?? name
+/**
+ * Franchise name for an owner. Pass a season's `teamNames` (read from the
+ * sheet's Teams tab) to prefer this year's name over the OWNERS default.
+ */
+export function teamNameOf(name: string, names?: Record<string, string>): string {
+  const owner = resolveOwner(name)
+  if (!owner) return name
+  return names?.[owner.name] ?? owner.teamName
 }
 
 export const LEAGUE = {
