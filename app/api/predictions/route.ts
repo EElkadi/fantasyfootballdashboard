@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { leaguePasscodeConfigured, verifyLeaguePasscode } from '@/lib/commish/auth'
-import { appendRow, hasLiveSheet, PREDICTIONS_TAB } from '@/lib/data/sheets'
+import { appendRow, describeSheetsError, hasLiveSheet, PREDICTIONS_TAB } from '@/lib/data/sheets'
 import { ACTIVE_OWNERS, BOLD_TAKE_MAX, predictionsLocked, resolveOwner } from '@/lib/league'
 
 export const dynamic = 'force-dynamic'
@@ -52,10 +52,7 @@ export async function POST(req: Request) {
     })
   } catch (err) {
     console.error('Prediction append failed:', err)
-    return NextResponse.json(
-      { error: `Saving failed — does the "${PREDICTIONS_TAB}" tab exist? Tell the commish.` },
-      { status: 502 },
-    )
+    return NextResponse.json({ error: `Saving failed — tell the commish: ${describeSheetsError(err, PREDICTIONS_TAB)}` }, { status: 502 })
   }
   revalidateTag('predictions')
   return NextResponse.json({ ok: true, manager })

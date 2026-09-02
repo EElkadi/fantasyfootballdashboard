@@ -1,7 +1,18 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { DRAFT_TAB, PLAYER_POOL_TAB, TEAMS_TAB, columnLetter, hasLiveSheet, readTab, readTabOrEmpty, toObjects, updateCell } from '@/lib/data/sheets'
+import {
+  DRAFT_TAB,
+  PLAYER_POOL_TAB,
+  TEAMS_TAB,
+  columnLetter,
+  describeSheetsError,
+  hasLiveSheet,
+  readTab,
+  readTabOrEmpty,
+  toObjects,
+  updateCell,
+} from '@/lib/data/sheets'
 import { gridToDraft, parseDraftCell, rowsToPool, snakePosition } from '@/lib/data/transform'
 import { samePlayer } from '@/lib/players'
 import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
@@ -39,10 +50,13 @@ function roundRow(board: string[][], round: number): number {
  */
 async function readState(): Promise<{ state: DraftState; board: string[][] } | { error: string }> {
   const [board, teamsRows] = await Promise.all([
-    readTab(DRAFT_TAB).catch(() => null),
-    readTab(TEAMS_TAB).catch(() => null),
+    readTab(DRAFT_TAB).catch((err: unknown) => err),
+    readTab(TEAMS_TAB).catch((err: unknown) => err),
   ])
-  if (!teamsRows) return { error: `Couldn't read the "${TEAMS_TAB}" tab` }
+  if (!Array.isArray(teamsRows)) return { error: describeSheetsError(teamsRows, TEAMS_TAB) }
+  // A board that can't be read must not be mistaken for a blank one — the
+  // first pick would then fail at write time with a much less useful message
+  if (!Array.isArray(board)) return { error: describeSheetsError(board, DRAFT_TAB) }
   const teamObjects = toObjects(teamsRows)
 
   const order: DraftState['order'] = []
@@ -62,7 +76,7 @@ async function readState(): Promise<{ state: DraftState; board: string[][] } | {
     }
   }
 
-  const picks = gridToDraft(board ?? [], teamObjects)
+  const picks = gridToDraft(board, teamObjects)
   const taken = new Set(picks.map((p) => `${p.round}|${p.slot}`))
   let next: DraftState['next'] = null
   for (let overall = 1; overall <= LEAGUE.draftRounds * teams; overall++) {
@@ -72,7 +86,7 @@ async function readState(): Promise<{ state: DraftState; board: string[][] } | {
       break
     }
   }
-  return { state: { order, picks, next, rounds: LEAGUE.draftRounds }, board: board ?? [] }
+  return { state: { order, picks, next, rounds: LEAGUE.draftRounds }, board }
 }
 
 export async function GET() {
@@ -100,7 +114,7 @@ export async function POST(req: Request) {
       await updateCell(DRAFT_TAB, `${slotColumn(last.slot)}${roundRow(board, last.round)}`, '')
     } catch (err) {
       console.error('Draft undo failed:', err)
-      return NextResponse.json({ error: 'Clearing the cell failed — try again' }, { status: 502 })
+      return NextResponse.json({ error: describeSheetsError(err, DRAFT_TAB) }, { status: 502 })
     }
     const warning = await removeFromRoster(last.team, last.player)
     revalidateTag('season-live')
@@ -127,7 +141,7 @@ export async function POST(req: Request) {
     await updateCell(DRAFT_TAB, `${slotColumn(slot)}${row}`, player)
   } catch (err) {
     console.error('Draft pick write failed:', err)
-    return NextResponse.json({ error: 'Writing the pick failed — try again' }, { status: 502 })
+    return NextResponse.json({ error: describeSheetsError(err, DRAFT_TAB) }, { status: 502 })
   }
   // The Rosters tab (public /rosters, parser name matching) builds itself
   // from the picks. Best effort: a roster hiccup never fails the pick.

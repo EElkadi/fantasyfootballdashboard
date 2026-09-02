@@ -291,6 +291,7 @@ interface TabStatus {
 interface Diagnostics {
   configured: boolean
   sheetId: string
+  serviceAccount: string | null
   currentSeason: number
   tabs: TabStatus[]
 }
@@ -382,6 +383,13 @@ function SheetStatus() {
               An empty Scores, Waiver Wire or Trades tab is normal before the season starts. An empty Team by Team
               Schedule or Final Draft Board means the site is falling back to the committed {diag.currentSeason} files.
             </p>
+            {diag.serviceAccount && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Reads work through <code className="rounded bg-secondary px-1">{diag.serviceAccount}</code>. Writes
+                (draft picks, scores, waivers) need that account shared on the spreadsheet as an <b>Editor</b>, not a
+                Viewer — this check can&apos;t tell the difference, but a failed save will now say so.
+              </p>
+            )}
           </div>
         )}
       </CardContent>

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { ADJUSTMENTS_TAB, appendRow, hasLiveSheet, SCORES_TAB } from '@/lib/data/sheets'
+import { ADJUSTMENTS_TAB, appendRow, describeSheetsError, hasLiveSheet, SCORES_TAB } from '@/lib/data/sheets'
 import { decideWinner } from '@/lib/parser/parse'
 import { resolveOwner } from '@/lib/league'
 import { Slot, SLOTS } from '@/lib/types'
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     await appendRow(SCORES_TAB, row)
   } catch (err) {
     console.error('Sheet append failed:', err)
-    return NextResponse.json({ error: 'Writing to the Google Sheet failed — try again' }, { status: 502 })
+    return NextResponse.json({ error: describeSheetsError(err, SCORES_TAB) }, { status: 502 })
   }
 
   // Log penalties to the Adjustments tab so the site can show the reason.
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
       await appendRow(ADJUSTMENTS_TAB, [week, teamName, penalty, reason])
     } catch (err) {
       console.error('Adjustments append failed:', err)
-      adjustmentWarning = `Saved the matchup, but couldn't log the ${teamName} adjustment — add an "${ADJUSTMENTS_TAB}" tab (Week | Team | Points | Reason) to the sheet.`
+      adjustmentWarning = `Saved the matchup, but couldn't log the ${teamName} adjustment: ${describeSheetsError(err, ADJUSTMENTS_TAB)}`
     }
   }
   revalidateTag('season-live')
