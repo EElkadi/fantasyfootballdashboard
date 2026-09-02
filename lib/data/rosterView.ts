@@ -1,5 +1,5 @@
-import { SeasonData } from '@/lib/types'
-import { playerSlug } from '@/lib/players'
+import { PoolPlayer, SeasonData } from '@/lib/types'
+import { bestAvailable, cellRef, enrichFromPool, playerSlug, poolIndex, POSITION_ORDER, takenKeys } from '@/lib/players'
 import { parseDraftCell } from './transform'
 
 /** How a player got onto the roster, as far as the ledgers know. */
@@ -25,13 +25,12 @@ export interface TeamRoster {
   byPosition: Record<string, number>
 }
 
-const POSITION_ORDER = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
-
 /**
  * Rosters tab + the season's draft/waiver/trade ledgers -> one view per team,
  * with each player tagged by how they were acquired. Pure; see tests.
  */
 export function buildRosterView(rosters: Record<string, string[]>, season: SeasonData): TeamRoster[] {
+  const pool = poolIndex(season.pool ?? [])
   const drafted = new Map<string, { round: number; overall: number }>()
   for (const p of season.draft) drafted.set(`${p.team}|${playerSlug(p.player)}`, { round: p.round, overall: p.overall })
 
@@ -48,7 +47,7 @@ export function buildRosterView(rosters: Record<string, string[]>, season: Seaso
   const teams = season.teams.filter((t) => rosters[t]).concat(Object.keys(rosters).filter((t) => !season.teams.includes(t)))
   return teams.map((team) => {
     const players: RosterPlayer[] = rosters[team].map((raw) => {
-      const parsed = parseDraftCell(raw)
+      const parsed = enrichFromPool(parseDraftCell(raw), pool)
       const slug = playerSlug(parsed.player)
       const key = `${team}|${slug}`
       // Most recent kind of move wins: a trade or waiver add postdates the draft
@@ -83,4 +82,10 @@ export function describeAcquisition(a?: Acquisition): string {
   if (a.via === 'draft') return `Rd ${a.round} · #${a.overall}`
   if (a.via === 'waiver') return `Waiver wk ${a.week}${a.cost ? ` · $${a.cost}` : ''}`
   return `Trade ← ${a.from}`
+}
+
+/** Pool players nobody has rostered, grouped by position in pool order. */
+export function freeAgents(pool: PoolPlayer[], rosters: Record<string, string[]>): Record<string, PoolPlayer[]> {
+  const rostered = Object.values(rosters).flat().map(cellRef)
+  return bestAvailable(pool, takenKeys(pool, rostered))
 }

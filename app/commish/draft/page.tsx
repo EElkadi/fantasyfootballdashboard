@@ -4,11 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { parseDraftCell } from '@/lib/data/transform'
 import { ownerColor } from '@/lib/league'
-import { positionColor } from '@/lib/players'
-import { DraftState } from '@/lib/types'
+import { ambiguousNames, bestAvailable, cellRef, playerKey, positionColor } from '@/lib/players'
+import { PositionLists } from '@/components/league/PositionLists'
+import { DraftState, PoolPlayer } from '@/lib/types'
+import { PlayerSearch } from '@/components/league/PlayerSearch'
 
 /**
  * Draft-night control room. State lives in the sheet — every action rereads
@@ -16,7 +17,7 @@ import { DraftState } from '@/lib/types'
  * anything. Viewers follow along on /draft.
  */
 export default function LiveDraftPage() {
-  const [state, setState] = useState<DraftState | null>(null)
+  const [state, setState] = useState<(DraftState & { pool: PoolPlayer[] }) | null>(null)
   const [error, setError] = useState('')
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [player, setPlayer] = useState('')
@@ -48,6 +49,17 @@ export default function LiveDraftPage() {
   }, [load])
 
   const preview = useMemo(() => (player.trim() ? parseDraftCell(player.trim()) : null), [player])
+  // key -> team, so the typeahead greys out anyone already on a board column
+  const ambiguous = useMemo(() => ambiguousNames(state?.pool ?? []), [state])
+  const taken = useMemo(
+    () => new Map((state?.picks ?? []).map((p) => [playerKey(p, ambiguous), p.team])),
+    [state, ambiguous],
+  )
+  const takenBy = player.trim() ? taken.get(playerKey(cellRef(player), ambiguous)) : undefined
+  const available = useMemo(
+    () => (state?.pool.length ? bestAvailable(state.pool, new Set(taken.keys()), 4) : null),
+    [state, taken],
+  )
 
   const act = async (body: object, after?: () => void) => {
     setBusy(true)
@@ -143,18 +155,26 @@ export default function LiveDraftPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex gap-2">
-              <Input
+              <PlayerSearch
+                pool={state.pool}
                 value={player}
-                onChange={(e) => setPlayer(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && player.trim() && !busy && act({ player }, () => setPlayer(''))}
-                placeholder="Bijan Robinson ATL RB"
-                className="text-base"
+                onChange={setPlayer}
+                onEnter={() => player.trim() && !busy && !takenBy && act({ player }, () => setPlayer(''))}
+                taken={taken}
+                placeholder={state.pool.length ? 'Start typing a name…' : 'Bijan Robinson ATL RB'}
+                className="flex-1"
                 autoFocus
               />
-              <Button onClick={() => act({ player }, () => setPlayer(''))} disabled={!player.trim() || busy}>
+              <Button onClick={() => act({ player }, () => setPlayer(''))} disabled={!player.trim() || busy || Boolean(takenBy)}>
                 {busy ? 'Saving…' : 'Draft'}
               </Button>
             </div>
+            {preview && takenBy && (
+              <p className="text-sm font-medium text-loss">
+                {preview.player} is already on {takenBy}&apos;s board. Two different players with that name? Add the
+                NFL team (e.g. “{preview.player} LAC WR”).
+              </p>
+            )}
             {preview && (
               <p className="flex items-center gap-2 text-sm text-muted-foreground">
                 Will record:
@@ -181,6 +201,26 @@ export default function LiveDraftPage() {
             {note && <p className="mt-2 text-sm text-muted-foreground">{note}</p>}
           </CardContent>
         </Card>
+      )}
+
+      {available && state.next && (
+        <div className="rounded-xl border bg-card shadow-sm">
+          <div className="border-b px-4 py-2 text-sm font-semibold">Best available</div>
+          <PositionLists
+            groups={available}
+            limit={4}
+            className="grid gap-x-4 gap-y-3 p-4 sm:grid-cols-3"
+            item={(p) => (
+              <button
+                type="button"
+                onClick={() => setPlayer([p.player, p.nflTeam, p.position].filter(Boolean).join(' '))}
+                className="truncate text-left hover:underline"
+              >
+                {p.player}
+              </button>
+            )}
+          />
+        </div>
       )}
 
       {recent.length > 0 && (

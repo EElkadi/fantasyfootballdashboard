@@ -3,7 +3,8 @@ import { Metadata } from 'next'
 import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
 import { draftValue, PickValue } from '@/lib/data/draftValue'
 import { CURRENT_SEASON, LEAGUE, ownerColor, teamNameOf } from '@/lib/league'
-import { playerSlug, POSITION_COLORS, positionColor } from '@/lib/players'
+import { bestAvailable, playerSlug, POSITION_COLORS, positionColor, takenKeys } from '@/lib/players'
+import { PositionLists } from '@/components/league/PositionLists'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 import { TeamMark } from '@/components/league/TeamMark'
 
@@ -24,6 +25,9 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
     season.lastCompletedWeek === 0 &&
     draft.length > 0 &&
     draft.length < LEAGUE.draftRounds * season.teams.length
+
+  // Draft night only: the pool minus everyone already picked, in pool order
+  const available = liveDraft && season.pool.length > 0 ? bestAvailable(season.pool, takenKeys(season.pool, draft), 6) : null
 
   const rounds = Array.from(new Set(draft.map((p) => p.round))).sort((a, b) => a - b)
   const slots = Array.from(new Set(draft.map((p) => p.slot))).sort((a, b) => a - b)
@@ -79,7 +83,19 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
             ))}
           </div>
 
-          <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+          {available && (
+        <section className="rounded-xl border bg-card p-4 shadow-sm">
+          <h2 className="text-sm font-semibold">Best available</h2>
+          <PositionLists
+            groups={available}
+            limit={6}
+            className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-6"
+            item={(p) => <span className="truncate">{p.player}</span>}
+          />
+        </section>
+      )}
+
+      <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr>

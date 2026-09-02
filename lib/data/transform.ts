@@ -1,4 +1,4 @@
-import { DraftPick, LineupEntry, Matchup, PlayerScore, PlayerWeek, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
+import { DraftPick, LineupEntry, Matchup, PlayerScore, PlayerWeek, PoolPlayer, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
 import { resolveOwner } from '@/lib/league'
 
 /** Canonicalize a team spelling from any source (sheet, CSV, chat). */
@@ -392,4 +392,17 @@ export function rowsToTeamNames(rows: Record<string, string>[]): Record<string, 
     if (owner && name) names[owner] = name
   }
   return names
+}
+
+/** Player Pool tab (`Player Name | Team | Position`) -> PoolPlayer[], row order = rank. */
+export function rowsToPool(rows: Record<string, string>[]): PoolPlayer[] {
+  const pool: PoolPlayer[] = []
+  for (const r of rows) {
+    const player = col(r, 'player name', 'player', 'name').replace(/\s+/g, ' ')
+    if (!player) continue
+    const nflTeam = col(r, 'team', 'nfl team', 'nfl').toUpperCase() || undefined
+    const rawPos = col(r, 'position', 'pos').toUpperCase().replace('D/ST', 'DEF').replace('DST', 'DEF')
+    pool.push({ player, nflTeam, position: rawPos || undefined, rank: pool.length + 1 })
+  }
+  return pool
 }

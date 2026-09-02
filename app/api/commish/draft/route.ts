@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { DRAFT_TAB, TEAMS_TAB, columnLetter, hasLiveSheet, readTab, toObjects, updateCell } from '@/lib/data/sheets'
-import { gridToDraft, snakePosition } from '@/lib/data/transform'
+import { DRAFT_TAB, PLAYER_POOL_TAB, TEAMS_TAB, columnLetter, hasLiveSheet, readTab, readTabOrEmpty, toObjects, updateCell } from '@/lib/data/sheets'
+import { gridToDraft, parseDraftCell, rowsToPool, snakePosition } from '@/lib/data/transform'
+import { samePlayer } from '@/lib/players'
 import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
 import { LEAGUE } from '@/lib/league'
 import { DraftState } from '@/lib/types'
@@ -77,9 +78,10 @@ async function readState(): Promise<{ state: DraftState; board: string[][] } | {
 export async function GET() {
   if (!isCommish()) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   if (!hasLiveSheet()) return NextResponse.json({ error: 'Google Sheet is not configured' }, { status: 501 })
-  const result = await readState()
+  const [result, poolRows] = await Promise.all([readState(), readTabOrEmpty(PLAYER_POOL_TAB)])
   if ('error' in result) return NextResponse.json(result, { status: 400 })
-  return NextResponse.json(result.state)
+  // The pool rides along so the typeahead has no second round trip
+  return NextResponse.json({ ...result.state, pool: rowsToPool(toObjects(poolRows)) })
 }
 
 export async function POST(req: Request) {
@@ -108,6 +110,14 @@ export async function POST(req: Request) {
   const player = String(body?.player ?? '').trim().replace(/\s+/g, ' ')
   if (!player) return NextResponse.json({ error: 'Player is required' }, { status: 400 })
   if (!state.next) return NextResponse.json({ error: 'The draft board is full' }, { status: 400 })
+  const ref = parseDraftCell(player)
+  const dupe = state.picks.find((p) => samePlayer(p, ref))
+  if (dupe) {
+    return NextResponse.json(
+      { error: `${dupe.player} is already on ${dupe.team}'s board (round ${dupe.round}). Different player with that name? Include the NFL team.` },
+      { status: 409 },
+    )
+  }
 
   const { round, slot, overall, team } = state.next
   const row = roundRow(board, round)

@@ -1,7 +1,7 @@
 import 'server-only'
 import { ROSTERS_TAB, readTab, updateCell, updateRow, columnLetter } from './sheets'
-import { canonTeam, parseDraftCell } from './transform'
-import { playerSlug } from '@/lib/players'
+import { canonTeam } from './transform'
+import { cellRef, samePlayer } from '@/lib/players'
 import { ACTIVE_OWNERS } from '@/lib/league'
 
 /**
@@ -44,14 +44,6 @@ async function readGrid(): Promise<RosterGrid | string> {
   return { rows, columns }
 }
 
-/**
- * Identity of a roster entry regardless of decoration: "Bijan Robinson ATL RB",
- * "Bijan Robinson (RB, ATL)" and "Bijan Robinson" are the same player.
- */
-function identity(entry: string): string {
-  return playerSlug(parseDraftCell(entry).player)
-}
-
 /** Add a player to a team's roster column (first empty cell). */
 export async function addToRoster(team: string, player: string): Promise<string | null> {
   const grid = await readGrid()
@@ -60,12 +52,13 @@ export async function addToRoster(team: string, player: string): Promise<string 
   const col = grid.columns.get(owner)
   if (col === undefined) return `No "${owner}" column on the ${ROSTERS_TAB} tab — add ${player} by hand`
 
-  const slug = identity(player)
+  const ref = cellRef(player)
   let row = 1 // 0-based; row 0 is the header
   for (; row < grid.rows.length; row++) {
     const cell = (grid.rows[row][col] ?? '').trim()
     if (!cell) break
-    if (identity(cell) === slug) return null // already rostered
+    // "Bijan Robinson ATL RB", "Bijan Robinson (RB, ATL)" and "Bijan Robinson" are one player
+    if (samePlayer(cellRef(cell), ref)) return null // already rostered
   }
   try {
     await updateCell(ROSTERS_TAB, `${columnLetter(col + 1)}${row + 1}`, player)
@@ -83,10 +76,10 @@ export async function removeFromRoster(team: string, player: string): Promise<st
   const col = grid.columns.get(owner)
   if (col === undefined) return `No "${owner}" column on the ${ROSTERS_TAB} tab`
 
-  const slug = identity(player)
+  const ref = cellRef(player)
   for (let row = 1; row < grid.rows.length; row++) {
     const cell = (grid.rows[row][col] ?? '').trim()
-    if (cell && identity(cell) === slug) {
+    if (cell && samePlayer(cellRef(cell), ref)) {
       try {
         await updateCell(ROSTERS_TAB, `${columnLetter(col + 1)}${row + 1}`, '')
         return null

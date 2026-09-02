@@ -22,5 +22,6 @@ export async function GET() {
     rosters,
     schedule: season.schedule,
     waivers: season.waivers,
+    pool: season.pool,
   })
 }

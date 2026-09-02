@@ -114,6 +114,15 @@ export interface WaiverMove {
   cost: number
 }
 
+/** One row of the Player Pool tab — the draftable universe, in the sheet's (ranked) order */
+export interface PoolPlayer {
+  player: string
+  nflTeam?: string
+  position?: string
+  /** 1-based row order on the tab; the pool is kept in rough draft-value order */
+  rank: number
+}
+
 /** One starting-lineup slot as submitted before the deadline (latest submission wins) */
 export interface LineupEntry {
   week: number
@@ -162,4 +171,6 @@ export interface SeasonData {
   teamNames: Record<string, string>
   /** Submitted starting lineups, latest per week/team/slot */
   lineups: LineupEntry[]
+  /** Player Pool tab, when the sheet has one */
+  pool: PoolPlayer[]
 }

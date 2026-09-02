@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { Metadata } from 'next'
 import { getRosters, getSeason } from '@/lib/data'
-import { buildRosterView, describeAcquisition } from '@/lib/data/rosterView'
+import { buildRosterView, describeAcquisition, freeAgents } from '@/lib/data/rosterView'
 import { CURRENT_SEASON, LEAGUE, ownerColor, teamNameOf } from '@/lib/league'
 import { positionColor } from '@/lib/players'
+import { PositionLists } from '@/components/league/PositionLists'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 
 export const revalidate = 60
@@ -13,6 +14,8 @@ export default async function RostersPage() {
   const [season, rosters] = await Promise.all([getSeason(CURRENT_SEASON), getRosters()])
   const view = buildRosterView(rosters, season)
   const total = view.reduce((s, t) => s + t.players.length, 0)
+  const agents = total > 0 && season.pool.length > 0 ? freeAgents(season.pool, rosters) : null
+  const agentCount = agents ? Object.values(agents).reduce((s, list) => s + list.length, 0) : 0
   // Draft night: rosters fill in pick by pick
   const liveDraft =
     season.lastCompletedWeek === 0 &&
@@ -88,6 +91,28 @@ export default async function RostersPage() {
             </section>
           ))}
         </div>
+      )}
+
+      {agents && agentCount > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Free agents</h2>
+            <p className="text-sm text-muted-foreground">
+              {agentCount} players from the pool nobody has rostered, best first. Waiver fees go to the pot.
+            </p>
+          </div>
+          <PositionLists
+            groups={agents}
+            limit={12}
+            className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 [&>div]:rounded-xl [&>div]:border [&>div]:bg-card [&>div]:p-4 [&>div]:shadow-sm"
+            item={(p) => (
+              <>
+                <span className="truncate font-medium">{p.player}</span>
+                {p.nflTeam && <span className="shrink-0 text-xs text-muted-foreground">{p.nflTeam}</span>}
+              </>
+            )}
+          />
+        </section>
       )}
     </div>
   )
