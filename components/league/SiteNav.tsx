@@ -19,6 +19,7 @@ const LINKS = [
 
 /** Under "More": the reference and season-long pages. */
 const MORE = [
+  { href: '/my-board', label: 'My Draft Board' },
   { href: '/waivers', label: 'Transactions' },
   { href: '/awards', label: 'Awards' },
   { href: '/predictions', label: 'Predictions' },

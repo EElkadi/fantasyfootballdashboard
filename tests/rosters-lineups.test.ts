@@ -2,6 +2,8 @@ import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell }
 import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
+import { parseRankings, draftedBy, seedFromPool } from '../lib/draftBoard'
+import { DraftPick } from '../lib/types'
 import { teamNameOf } from '../lib/league'
 import { SeasonData } from '../lib/types'
 
@@ -173,6 +175,35 @@ function check(label: string, cond: boolean, detail?: unknown) {
   })
   const qb = parsed.lineups[0].players[0]
   check('parser: pool fixes spelling but keeps the roster flag', qb.name === 'Josh Allen' && qb.issues.some((i) => /Not found on Elaf's roster.*player pool/.test(i)), qb)
+}
+
+// --- Personal draft board ---
+{
+  const pool = rowsToPool([
+    { 'Player Name': 'Jahmyr Gibbs', Team: 'DET', Position: 'RB' },
+    { 'Player Name': 'Bijan Robinson', Team: 'ATL', Position: 'RB' },
+    { 'Player Name': "Ja'Marr Chase", Team: 'CIN', Position: 'WR' },
+    { 'Player Name': 'Matthew Stafford', Team: 'LAR', Position: 'QB' },
+    { 'Player Name': 'Mike Williams', Team: 'NYJ', Position: 'WR' },
+    { 'Player Name': 'Mike Williams', Team: 'LAC', Position: 'WR' },
+  ])
+  const text = ['1. Bijan Robinson', '2) Jamarr Chase', '', '## Tier 2', 'Mathew Stafford', 'Mike Williams LAC', 'Some Rookie', '---', '12 - Jahmyr Gibbs'].join('\n')
+  const board = parseRankings(text, pool)
+  check('board: numbering stripped, blanks skipped, ranks sequential', board.map((e) => e.rank).join() === '1,2,3,4,5,6' && board.length === 6, board.map((e) => e.raw))
+  check('board: exact and fuzzy matches resolve to pool names', board[1].name === "Ja'Marr Chase" && board[2].name === 'Matthew Stafford' && board[2].match !== undefined, board.slice(1, 3))
+  check('board: tier header applies to following entries', board[2].tier === 'Tier 2' && board[0].tier === undefined && board[5].tier !== 'Tier 2', board.map((e) => e.tier))
+  check('board: typed team picks the right twin', board[3].match?.nflTeam === 'LAC', board[3])
+  check('board: unknown name kept but unmatched', board[4].name === 'Some Rookie' && board[4].match === undefined)
+  check('board: position filled from the pool', board[0].position === 'RB' && board[1].position === 'WR')
+
+  const picks = [
+    { round: 1, slot: 1, overall: 1, team: 'Paco', player: 'Bijan Robinson', nflTeam: 'ATL', position: 'RB' },
+    { round: 1, slot: 2, overall: 2, team: 'Chuy', player: 'Mike Williams', nflTeam: 'NYJ', position: 'WR' },
+  ] as DraftPick[]
+  check('board: drafted entry crossed out with the owner', draftedBy(board[0], picks)?.team === 'Paco')
+  check('board: the other Mike Williams stays available', draftedBy(board[3], picks) === undefined)
+  check('board: fuzzy-matched entry still crosses out', draftedBy(board[2], [{ ...picks[0], player: 'Matthew Stafford', nflTeam: 'LAR' }] as DraftPick[]) !== undefined)
+  check('board: seed text round-trips through the parser', parseRankings(seedFromPool(pool), pool).every((e) => e.match) && parseRankings(seedFromPool(pool), pool).length === pool.length)
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURES`)

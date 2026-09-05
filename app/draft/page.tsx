@@ -3,8 +3,7 @@ import { Metadata } from 'next'
 import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
 import { draftValue, PickValue } from '@/lib/data/draftValue'
 import { CURRENT_SEASON, LEAGUE, ownerColor, teamNameOf } from '@/lib/league'
-import { bestAvailable, playerSlug, POSITION_COLORS, positionColor, takenKeys } from '@/lib/players'
-import { PositionLists } from '@/components/league/PositionLists'
+import { playerSlug, POSITION_COLORS, positionColor } from '@/lib/players'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 import { TeamMark } from '@/components/league/TeamMark'
 
@@ -26,9 +25,6 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
     draft.length > 0 &&
     draft.length < LEAGUE.draftRounds * season.teams.length
 
-  // Draft night only: the pool minus everyone already picked, in pool order
-  const available = liveDraft && season.pool.length > 0 ? bestAvailable(season.pool, takenKeys(season.pool, draft), 6) : null
-
   const rounds = Array.from(new Set(draft.map((p) => p.round))).sort((a, b) => a - b)
   const slots = Array.from(new Set(draft.map((p) => p.slot))).sort((a, b) => a - b)
   const teamOf = new Map<number, string>()
@@ -49,7 +45,10 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
             )}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {season.season} · {draft.length} picks · click any player for their season
+            {season.season} · {draft.length} picks · click any player for their season ·{' '}
+            <Link href="/my-board" className="font-medium text-primary hover:underline">
+              my draft board →
+            </Link>
           </p>
         </div>
         <div className="flex gap-1.5 text-sm">
@@ -83,19 +82,7 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
             ))}
           </div>
 
-          {available && (
-        <section className="rounded-xl border bg-card p-4 shadow-sm">
-          <h2 className="text-sm font-semibold">Best available</h2>
-          <PositionLists
-            groups={available}
-            limit={6}
-            className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-6"
-            item={(p) => <span className="truncate">{p.player}</span>}
-          />
-        </section>
-      )}
-
-      <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
+          <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr>
