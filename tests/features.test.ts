@@ -37,6 +37,7 @@ function loadSeason(year: number): SeasonData {
     standings,
     schedule: gridToSchedule(csv(`data/seasons/${year}/schedule.csv`)),
     draft: [],
+    draftOrder: [],
     waivers: [],
     trades: [],
     teamNames: {},

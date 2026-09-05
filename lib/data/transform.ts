@@ -1,4 +1,4 @@
-import { DraftPick, LineupEntry, Matchup, PlayerScore, PlayerWeek, PoolPlayer, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
+import { DraftPick, DraftSlot, LineupEntry, Matchup, NextPick, PlayerScore, PlayerWeek, PoolPlayer, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
 import { resolveOwner } from '@/lib/league'
 
 /** Canonicalize a team spelling from any source (sheet, CSV, chat). */
@@ -162,6 +162,53 @@ export function snakePosition(overall: number, teams: number): { round: number; 
   const round = Math.ceil(overall / teams)
   const pos = overall - (round - 1) * teams
   return { round, slot: round % 2 === 1 ? pos : teams - pos + 1 }
+}
+
+/** Teams tab rows (DRAFT ORDER / TEAMS) -> draft order, ascending by slot. */
+export function rowsToDraftOrder(rows: Record<string, string>[]): DraftSlot[] {
+  const order: DraftSlot[] = []
+  for (const r of rows) {
+    const slot = parseInt(col(r, 'draft order', 'order', 'slot'))
+    const team = canonTeam(col(r, 'teams', 'team', 'owner'))
+    if (slot > 0 && team) order.push({ slot, team })
+  }
+  return order.sort((a, b) => a.slot - b.slot)
+}
+
+/** Draft order recovered from the picks themselves (archived seasons have no Teams tab). */
+export function orderFromPicks(picks: DraftPick[]): DraftSlot[] {
+  const bySlot = new Map<number, string>()
+  for (const p of picks) if (!bySlot.has(p.slot)) bySlot.set(p.slot, p.team)
+  return Array.from(bySlot.entries())
+    .map(([slot, team]) => ({ slot, team }))
+    .sort((a, b) => a.slot - b.slot)
+}
+
+/**
+ * The first empty snake position, or null once the board is full. Needs a
+ * complete order (slots 1..n with no gaps) — a partial one returns null
+ * rather than guessing.
+ */
+export function nextDraftPick(picks: DraftPick[], order: DraftSlot[], rounds: number): NextPick | null {
+  const teams = order.length
+  if (teams === 0 || order.some((o, i) => o.slot !== i + 1)) return null
+  const taken = new Set(picks.map((p) => `${p.round}|${p.slot}`))
+  for (let overall = 1; overall <= rounds * teams; overall++) {
+    const { round, slot } = snakePosition(overall, teams)
+    if (!taken.has(`${round}|${slot}`)) return { round, slot, overall, team: order[slot - 1].team }
+  }
+  return null
+}
+
+/** How many picks before `team` is up (0 = on the clock), or null if they have none left. */
+export function picksUntil(next: NextPick | null, order: DraftSlot[], rounds: number, team: string): number | null {
+  if (!next) return null
+  const teams = order.length
+  for (let overall = next.overall; overall <= rounds * teams; overall++) {
+    const { slot } = snakePosition(overall, teams)
+    if (order[slot - 1]?.team === team) return overall - next.overall
+  }
+  return null
 }
 
 function numberPicks<T extends { round: number; slot: number }>(picks: T[]): (T & { overall: number })[] {

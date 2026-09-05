@@ -13,7 +13,7 @@ import {
   toObjects,
   updateCell,
 } from '@/lib/data/sheets'
-import { gridToDraft, parseDraftCell, rowsToPool, snakePosition } from '@/lib/data/transform'
+import { gridToDraft, nextDraftPick, parseDraftCell, rowsToDraftOrder, rowsToPool } from '@/lib/data/transform'
 import { samePlayer } from '@/lib/players'
 import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
 import { LEAGUE } from '@/lib/league'
@@ -59,13 +59,7 @@ async function readState(): Promise<{ state: DraftState; board: string[][] } | {
   if (!Array.isArray(board)) return { error: describeSheetsError(board, DRAFT_TAB) }
   const teamObjects = toObjects(teamsRows)
 
-  const order: DraftState['order'] = []
-  for (const r of teamObjects) {
-    const slot = parseInt(r['DRAFT ORDER'] ?? '')
-    const team = (r['TEAMS'] ?? '').trim()
-    if (slot && team) order.push({ slot, team })
-  }
-  order.sort((a, b) => a.slot - b.slot)
+  const order = rowsToDraftOrder(teamObjects)
   const teams = order.length
   if (teams === 0) {
     return { error: `The "${TEAMS_TAB}" tab needs DRAFT ORDER and TEAMS columns filled in before the draft` }
@@ -77,15 +71,7 @@ async function readState(): Promise<{ state: DraftState; board: string[][] } | {
   }
 
   const picks = gridToDraft(board, teamObjects)
-  const taken = new Set(picks.map((p) => `${p.round}|${p.slot}`))
-  let next: DraftState['next'] = null
-  for (let overall = 1; overall <= LEAGUE.draftRounds * teams; overall++) {
-    const { round, slot } = snakePosition(overall, teams)
-    if (!taken.has(`${round}|${slot}`)) {
-      next = { round, slot, overall, team: order[slot - 1].team }
-      break
-    }
-  }
+  const next = nextDraftPick(picks, order, LEAGUE.draftRounds)
   return { state: { order, picks, next, rounds: LEAGUE.draftRounds }, board }
 }
 

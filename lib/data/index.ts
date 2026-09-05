@@ -3,7 +3,7 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
-import { LineupEntry, Matchup, PoolPlayer, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
+import { DraftSlot, LineupEntry, Matchup, PoolPlayer, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE, resolveOwner } from '@/lib/league'
 import { hasLiveSheet, readTab, readTabOrEmpty, serviceAccountEmail, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB, LINEUPS_TAB, PLAYER_POOL_TAB } from './sheets'
 import {
@@ -13,7 +13,9 @@ import {
   longToMatchups,
   matchupsToPlayerWeeks,
   matchupsToTeamWeeks,
+  orderFromPicks,
   rowsToDraft,
+  rowsToDraftOrder,
   rowsToLineups,
   rowsToPool,
   rowsToPredictions,
@@ -66,7 +68,11 @@ function assemble(
   teamNames: Record<string, string> = {},
   lineups: LineupEntry[] = [],
   pool: PoolPlayer[] = [],
+  draftOrder: DraftSlot[] = [],
 ): SeasonData {
+  // Before the first pick the order can only come from the Teams tab; after
+  // it, the picks themselves are just as good — so an archive works too
+  if (draftOrder.length === 0) draftOrder = orderFromPicks(draft)
   // The pool knows every player's position and NFL team, so a bare "Josh
   // Allen" typed anywhere still colors and ranks correctly
   if (pool.length > 0) {
@@ -102,6 +108,7 @@ function assemble(
     standings,
     schedule,
     draft,
+    draftOrder,
     waivers,
     trades,
     teamNames,
@@ -186,6 +193,7 @@ async function loadLiveSeason(season: number): Promise<SeasonData> {
     rowsToTeamNames(teamObjects),
     rowsToLineups(toObjects(lineupRows)),
     rowsToPool(toObjects(poolRows)),
+    rowsToDraftOrder(teamObjects),
   )
 }
 

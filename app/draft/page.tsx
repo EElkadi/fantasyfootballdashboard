@@ -4,6 +4,7 @@ import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
 import { draftValue, PickValue } from '@/lib/data/draftValue'
 import { CURRENT_SEASON, LEAGUE, ownerColor, teamNameOf } from '@/lib/league'
 import { playerSlug, POSITION_COLORS, positionColor } from '@/lib/players'
+import { nextDraftPick, snakePosition } from '@/lib/data/transform'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 import { TeamMark } from '@/components/league/TeamMark'
 
@@ -24,6 +25,13 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
     season.lastCompletedWeek === 0 &&
     draft.length > 0 &&
     draft.length < LEAGUE.draftRounds * season.teams.length
+
+  // Who's up, and who's after them — the remote managers' cue
+  const next = liveDraft ? nextDraftPick(draft, season.draftOrder, LEAGUE.draftRounds) : null
+  const after =
+    next && next.overall < LEAGUE.draftRounds * season.draftOrder.length
+      ? season.draftOrder[snakePosition(next.overall + 1, season.draftOrder.length).slot - 1]?.team
+      : undefined
 
   const rounds = Array.from(new Set(draft.map((p) => p.round))).sort((a, b) => a - b)
   const slots = Array.from(new Set(draft.map((p) => p.slot))).sort((a, b) => a - b)
@@ -73,7 +81,31 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
         </p>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2 text-xs">
+          {next && (
+        <div
+          className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border-2 px-4 py-3 shadow-sm"
+          style={{ borderColor: ownerColor(next.team), backgroundColor: `${ownerColor(next.team)}14` }}
+        >
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">On the clock</span>
+          <span
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-base font-extrabold text-white"
+            style={{ backgroundColor: ownerColor(next.team) }}
+          >
+            {next.team[0]}
+          </span>
+          <span className="text-2xl font-extrabold tracking-tight">{next.team}</span>
+          <span className="text-sm text-muted-foreground">
+            Round {next.round} · pick {next.overall} overall
+          </span>
+          {after && (
+            <span className="ml-auto text-sm text-muted-foreground">
+              Next: <TeamMark team={after} className="text-sm" />
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2 text-xs">
             {Object.entries(POSITION_COLORS).map(([pos, color]) => (
               <span key={pos} className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1">
                 <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: color }} />
