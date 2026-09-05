@@ -4,7 +4,7 @@ import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
 import { draftValue, PickValue } from '@/lib/data/draftValue'
 import { CURRENT_SEASON, LEAGUE, ownerColor, teamNameOf } from '@/lib/league'
 import { playerSlug, POSITION_COLORS, positionColor } from '@/lib/players'
-import { nextDraftPick, snakePosition } from '@/lib/data/transform'
+import { nextDraftPick, ownerOfPick, pickTradeOwners } from '@/lib/data/transform'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 import { TeamMark } from '@/components/league/TeamMark'
 
@@ -27,10 +27,11 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
     draft.length < LEAGUE.draftRounds * season.teams.length
 
   // Who's up, and who's after them — the remote managers' cue
-  const next = liveDraft ? nextDraftPick(draft, season.draftOrder, LEAGUE.draftRounds) : null
+  const owners = pickTradeOwners(season.trades)
+  const next = liveDraft ? nextDraftPick(draft, season.draftOrder, LEAGUE.draftRounds, owners) : null
   const after =
     next && next.overall < LEAGUE.draftRounds * season.draftOrder.length
-      ? season.draftOrder[snakePosition(next.overall + 1, season.draftOrder.length).slot - 1]?.team
+      ? ownerOfPick(next.overall + 1, season.draftOrder, owners)
       : undefined
 
   const rounds = Array.from(new Set(draft.map((p) => p.round))).sort((a, b) => a - b)

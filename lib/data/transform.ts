@@ -185,28 +185,68 @@ export function orderFromPicks(picks: DraftPick[]): DraftSlot[] {
 }
 
 /**
- * The first empty snake position, or null once the board is full. Needs a
- * complete order (slots 1..n with no gaps) — a partial one returns null
- * rather than guessing.
+ * Traded draft picks from the Trades ledger: assets written as
+ * "Round 1, Pick 5" (pick = overall number) hand that pick to the receiving
+ * team. Returns overall -> new owner.
  */
-export function nextDraftPick(picks: DraftPick[], order: DraftSlot[], rounds: number): NextPick | null {
+export function pickTradeOwners(trades: Trade[]): Map<number, string> {
+  const owners = new Map<number, string>()
+  const grab = (team: string, assets: string[]) => {
+    for (const a of assets) {
+      const m = a.match(/round\s*\d+\s*[,·-]?\s*pick\s*#?\s*(\d+)/i) ?? a.match(/^\s*pick\s*#?\s*(\d+)\s*$/i)
+      if (m) owners.set(parseInt(m[1]), team)
+    }
+  }
+  for (const t of trades) {
+    grab(t.team1, t.team1Gets)
+    grab(t.team2, t.team2Gets)
+  }
+  return owners
+}
+
+/** Who drafts at an overall pick: the trade ledger's owner, else the snake. */
+export function ownerOfPick(overall: number, order: DraftSlot[], owners?: Map<number, string>): string | undefined {
+  const traded = owners?.get(overall)
+  if (traded) return traded
+  const { slot } = snakePosition(overall, order.length)
+  return order[slot - 1]?.team
+}
+
+/**
+ * The pick on the clock, or null once the board is full. Counts players on
+ * the board rather than scanning for the first empty snake cell, so a
+ * traded pick placed in its new owner's column doesn't stall the clock on
+ * the hole it leaves. `slot` is the column the player should be written to —
+ * the owner's column, not the snake's. Needs a complete order (1..n).
+ */
+export function nextDraftPick(
+  picks: DraftPick[],
+  order: DraftSlot[],
+  rounds: number,
+  owners?: Map<number, string>,
+): NextPick | null {
   const teams = order.length
   if (teams === 0 || order.some((o, i) => o.slot !== i + 1)) return null
-  const taken = new Set(picks.map((p) => `${p.round}|${p.slot}`))
-  for (let overall = 1; overall <= rounds * teams; overall++) {
-    const { round, slot } = snakePosition(overall, teams)
-    if (!taken.has(`${round}|${slot}`)) return { round, slot, overall, team: order[slot - 1].team }
-  }
-  return null
+  const overall = picks.length + 1
+  if (overall > rounds * teams) return null
+  const { round, slot } = snakePosition(overall, teams)
+  const team = ownerOfPick(overall, order, owners) ?? order[slot - 1].team
+  const ownerSlot = order.find((o) => o.team === team)?.slot ?? slot
+  return { round, slot: ownerSlot, overall, team }
 }
 
 /** How many picks before `team` is up (0 = on the clock), or null if they have none left. */
-export function picksUntil(next: NextPick | null, order: DraftSlot[], rounds: number, team: string): number | null {
+export function picksUntil(
+  next: NextPick | null,
+  order: DraftSlot[],
+  rounds: number,
+  team: string,
+  owners?: Map<number, string>,
+): number | null {
   if (!next) return null
   const teams = order.length
   for (let overall = next.overall; overall <= rounds * teams; overall++) {
-    const { slot } = snakePosition(overall, teams)
-    if (order[slot - 1]?.team === team) return overall - next.overall
+    if (ownerOfPick(overall, order, owners) === team) return overall - next.overall
   }
   return null
 }

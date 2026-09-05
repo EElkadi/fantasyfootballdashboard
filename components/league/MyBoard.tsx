@@ -30,6 +30,7 @@ interface DraftFeed {
   order: DraftSlot[]
   rounds: number
   next: NextPick | null
+  traded?: [number, string][]
 }
 
 interface Saved {
@@ -129,7 +130,10 @@ export function MyBoard() {
   const [showRoster, setShowRoster] = useState(false)
 
   // Where this manager sits in the snake: 0 = on the clock
-  const until = feed?.live && manager ? picksUntil(feed.next, feed.order ?? [], feed.rounds ?? 0, manager) : null
+  const until =
+    feed?.live && manager
+      ? picksUntil(feed.next, feed.order ?? [], feed.rounds ?? 0, manager, new Map(feed.traded ?? []))
+      : null
   useEffect(() => {
     // A background tab still shows the cue
     const base = 'My Draft Board'

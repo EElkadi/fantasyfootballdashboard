@@ -5,6 +5,7 @@ import {
   DRAFT_TAB,
   PLAYER_POOL_TAB,
   TEAMS_TAB,
+  TRADES_TAB,
   columnLetter,
   describeSheetsError,
   hasLiveSheet,
@@ -13,7 +14,7 @@ import {
   toObjects,
   updateCell,
 } from '@/lib/data/sheets'
-import { gridToDraft, nextDraftPick, parseDraftCell, rowsToDraftOrder, rowsToPool } from '@/lib/data/transform'
+import { gridToDraft, nextDraftPick, parseDraftCell, pickTradeOwners, rowsToDraftOrder, rowsToPool, rowsToTrades } from '@/lib/data/transform'
 import { samePlayer } from '@/lib/players'
 import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
 import { LEAGUE } from '@/lib/league'
@@ -49,9 +50,10 @@ function roundRow(board: string[][], round: number): number {
  * across devices. The next pick is the first empty snake position.
  */
 async function readState(): Promise<{ state: DraftState; board: string[][] } | { error: string }> {
-  const [board, teamsRows] = await Promise.all([
+  const [board, teamsRows, tradeRows] = await Promise.all([
     readTab(DRAFT_TAB).catch((err: unknown) => err),
     readTab(TEAMS_TAB).catch((err: unknown) => err),
+    readTabOrEmpty(TRADES_TAB),
   ])
   if (!Array.isArray(teamsRows)) return { error: describeSheetsError(teamsRows, TEAMS_TAB) }
   // A board that can't be read must not be mistaken for a blank one — the
@@ -71,8 +73,10 @@ async function readState(): Promise<{ state: DraftState; board: string[][] } | {
   }
 
   const picks = gridToDraft(board, teamObjects)
-  const next = nextDraftPick(picks, order, LEAGUE.draftRounds)
-  return { state: { order, picks, next, rounds: LEAGUE.draftRounds }, board }
+  // Pick swaps logged in the Trades tab ("Round 1, Pick 5") move the clock
+  const owners = pickTradeOwners(rowsToTrades(toObjects(tradeRows)))
+  const next = nextDraftPick(picks, order, LEAGUE.draftRounds, owners)
+  return { state: { order, picks, next, rounds: LEAGUE.draftRounds, traded: Array.from(owners.entries()) }, board }
 }
 
 export async function GET() {
@@ -94,8 +98,13 @@ export async function POST(req: Request) {
   const { state, board } = result
 
   if (body?.undo === true) {
-    const last = state.picks[state.picks.length - 1]
-    if (!last) return NextResponse.json({ error: 'Nothing to undo' }, { status: 400 })
+    // A specific cell (round + slot) when given — after a traded pick the
+    // "last" cell by board order isn't necessarily the last one entered
+    const last =
+      body.round && body.slot
+        ? state.picks.find((p) => p.round === Number(body.round) && p.slot === Number(body.slot))
+        : state.picks[state.picks.length - 1]
+    if (!last) return NextResponse.json({ error: 'Nothing to undo there' }, { status: 400 })
     try {
       await updateCell(DRAFT_TAB, `${slotColumn(last.slot)}${roundRow(board, last.round)}`, '')
     } catch (err) {
@@ -119,7 +128,26 @@ export async function POST(req: Request) {
     )
   }
 
-  const { round, slot, overall, team } = state.next
+  // Default: the clock's cell. Override: a named team's column and a round,
+  // for a swap the trade ledger doesn't know about yet.
+  let { round, slot, team } = state.next
+  const { overall } = state.next
+  if (body?.team || body?.round) {
+    const wantTeam = body.team ? String(body.team).trim() : team
+    const wantRound = body.round ? Number(body.round) : round
+    const col = state.order.find((o) => o.team.toLowerCase() === wantTeam.toLowerCase())
+    if (!col) return NextResponse.json({ error: `No draft column for "${wantTeam}"` }, { status: 400 })
+    if (!(wantRound >= 1 && wantRound <= state.rounds)) return NextResponse.json({ error: 'Round out of range' }, { status: 400 })
+    team = col.team
+    slot = col.slot
+    round = wantRound
+  }
+  if (state.picks.some((p) => p.round === round && p.slot === slot)) {
+    return NextResponse.json(
+      { error: `${team}'s round ${round} cell already has a player — pick a different round or undo it first` },
+      { status: 409 },
+    )
+  }
   const row = roundRow(board, round)
   try {
     // Round label first (idempotent), then the pick itself

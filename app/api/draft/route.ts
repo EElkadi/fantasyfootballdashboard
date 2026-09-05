@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSeason } from '@/lib/data'
 import { CURRENT_SEASON, LEAGUE } from '@/lib/league'
-import { nextDraftPick } from '@/lib/data/transform'
+import { nextDraftPick, pickTradeOwners } from '@/lib/data/transform'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,7 +15,8 @@ export async function GET() {
   const live =
     season.lastCompletedWeek === 0 &&
     season.draft.length < LEAGUE.draftRounds * Math.max(1, season.teams.length)
-  const next = live ? nextDraftPick(season.draft, season.draftOrder, LEAGUE.draftRounds) : null
+  const owners = pickTradeOwners(season.trades)
+  const next = live ? nextDraftPick(season.draft, season.draftOrder, LEAGUE.draftRounds, owners) : null
   return NextResponse.json(
     {
       season: season.season,
@@ -25,6 +26,7 @@ export async function GET() {
       order: season.draftOrder,
       rounds: LEAGUE.draftRounds,
       next,
+      traded: Array.from(owners.entries()),
     },
     { headers: { 'Cache-Control': 'no-store' } },
   )
