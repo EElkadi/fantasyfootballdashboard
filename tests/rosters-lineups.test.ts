@@ -1,4 +1,4 @@
-import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell } from '../lib/data/transform'
+import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, rowsToDraftOrder, orderFromPicks, nextDraftPick, picksUntil } from '../lib/data/transform'
 import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
@@ -220,6 +220,27 @@ function check(label: string, cond: boolean, detail?: unknown) {
   check('order: import puts pasted players on top, rest keep order, unmatched reported', imp.order.slice(0, 2).join() === [keys[3], keys[2]].join() && imp.order.length === 6 && imp.unmatched.join() === 'Nobody Real', imp)
   const exported = orderToText(moved, pool)
   check('order: export/import round-trips exactly', applyTextImport(fresh, exported, pool).order.join() === moved.join(), exported)
+}
+
+// --- On the clock ---
+{
+  const order = rowsToDraftOrder([
+    { 'DRAFT ORDER': '3', TEAMS: 'Elaf', 'Team Name': 'El Facho' },
+    { 'DRAFT ORDER': '1', TEAMS: 'Paco' },
+    { 'DRAFT ORDER': '2', TEAMS: 'Zeus' },
+    { 'DRAFT ORDER': '', TEAMS: 'Nobody' },
+  ])
+  check('order: sorted by slot, aliases canonicalized', order.map((o) => `${o.slot}${o.team}`).join() === '1Paco,2Chuy,3Elaf', order)
+  const pick = (round: number, slot: number, team: string) => ({ round, slot, overall: 0, team, player: `P${round}${slot}` })
+  const picks = [pick(1, 1, 'Paco'), pick(1, 2, 'Chuy'), pick(1, 3, 'Elaf'), pick(2, 3, 'Elaf')]
+  const next = nextDraftPick(picks, order, 3)
+  check('next: snake reverses in round 2', next?.round === 2 && next?.slot === 2 && next?.team === 'Chuy' && next?.overall === 5, next)
+  check('next: partial order refuses to guess', nextDraftPick(picks, order.slice(1), 3) === null)
+  check('next: full board -> null', nextDraftPick([...picks, pick(2, 2, 'Chuy'), pick(2, 1, 'Paco'), pick(3, 1, 'Paco'), pick(3, 2, 'Chuy'), pick(3, 3, 'Elaf')], order, 3) === null)
+  check('until: on the clock is 0', picksUntil(next, order, 3, 'Chuy') === 0)
+  check('until: Paco is one away, then round 3 flips back', picksUntil(next, order, 3, 'Paco') === 1 && picksUntil(next, order, 3, 'Elaf') === 4, [picksUntil(next, order, 3, 'Paco'), picksUntil(next, order, 3, 'Elaf')])
+  check('until: unknown team -> null', picksUntil(next, order, 3, 'Ghost') === null)
+  check('orderFromPicks: recovers the order from a board', orderFromPicks(picks as any).map((o) => o.team).join() === 'Paco,Chuy,Elaf')
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURES`)

@@ -89,11 +89,25 @@ export interface DraftPick {
   position?: string
 }
 
+/** One draft slot: column position -> owner */
+export interface DraftSlot {
+  slot: number
+  team: string
+}
+
+/** The pick currently on the clock */
+export interface NextPick {
+  round: number
+  slot: number
+  overall: number
+  team: string
+}
+
 /** Live draft state served by /api/commish/draft */
 export interface DraftState {
-  order: { slot: number; team: string }[]
+  order: DraftSlot[]
   picks: DraftPick[]
-  next: { round: number; slot: number; overall: number; team: string } | null
+  next: NextPick | null
   rounds: number
 }
 
@@ -165,6 +179,8 @@ export interface SeasonData {
   standings: TeamStanding[]
   schedule: ScheduleWeek[]
   draft: DraftPick[]
+  /** Draft order (Teams tab), or derived from the picks for archived seasons */
+  draftOrder: DraftSlot[]
   waivers: WaiverMove[]
   trades: Trade[]
   /** owner -> franchise name for this season, when the sheet supplies one */

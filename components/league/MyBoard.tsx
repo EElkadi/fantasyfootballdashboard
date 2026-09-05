@@ -18,13 +18,17 @@ import { Input } from '@/components/ui/input'
 import { ACTIVE_OWNERS, ownerColor } from '@/lib/league'
 import { positionColor, POSITION_ORDER, samePlayer } from '@/lib/players'
 import { applyTextImport, moveKey, orderToText, poolKey, reconcileOrder } from '@/lib/draftBoard'
-import { DraftPick, PoolPlayer } from '@/lib/types'
+import { picksUntil } from '@/lib/data/transform'
+import { DraftPick, DraftSlot, NextPick, PoolPlayer } from '@/lib/types'
 
 interface DraftFeed {
   season: number
   live: boolean
   picks: DraftPick[]
   pool: PoolPlayer[]
+  order: DraftSlot[]
+  rounds: number
+  next: NextPick | null
 }
 
 interface Saved {
@@ -114,6 +118,17 @@ export function MyBoard() {
   )
   const remaining = rows.filter((r) => !r.pick)
   const q = find.trim().toLowerCase()
+
+  // Where this manager sits in the snake: 0 = on the clock
+  const until = feed?.live && manager ? picksUntil(feed.next, feed.order ?? [], feed.rounds ?? 0, manager) : null
+  useEffect(() => {
+    // A background tab still shows the cue
+    const base = 'My Draft Board'
+    document.title = until === 0 ? `⏰ YOU'RE UP · ${base}` : until !== null && until <= 2 ? `${until} away · ${base}` : base
+    return () => {
+      document.title = base
+    }
+  }, [until])
   const visible = rows.filter(
     (r) =>
       (!hideDrafted || !r.pick) &&
@@ -217,6 +232,34 @@ export function MyBoard() {
               Cancel
             </Button>
           </div>
+        </div>
+      )}
+
+      {feed?.live && feed.next && (
+        <div
+          className={`flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border-2 px-4 py-3 text-sm shadow-sm ${
+            until === 0 ? 'animate-pulse border-[hsl(var(--win))] bg-[hsl(var(--win))]/10' : 'border-border bg-card'
+          }`}
+        >
+          {until === 0 ? (
+            <span className="text-lg font-extrabold text-win">You&apos;re on the clock — pick {feed.next.overall}</span>
+          ) : (
+            <>
+              <span className="flex items-center gap-2 font-medium">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ownerColor(feed.next.team) }} />
+                {feed.next.team} is on the clock
+              </span>
+              <span className="text-muted-foreground">
+                Round {feed.next.round} · pick {feed.next.overall}
+              </span>
+              {until !== null && (
+                <span className="ml-auto font-semibold">
+                  You&apos;re up in {until} pick{until === 1 ? '' : 's'} (#{feed.next.overall + until})
+                </span>
+              )}
+              {!manager && <span className="ml-auto text-muted-foreground">Pick your name to see when you&apos;re up</span>}
+            </>
+          )}
         </div>
       )}
 
