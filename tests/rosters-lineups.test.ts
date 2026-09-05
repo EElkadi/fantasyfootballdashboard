@@ -2,7 +2,7 @@ import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell }
 import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
-import { parseRankings, draftedBy, seedFromPool } from '../lib/draftBoard'
+import { parseRankings, draftedBy, seedFromPool, poolKey, reconcileOrder, moveKey, applyTextImport, orderToText } from '../lib/draftBoard'
 import { DraftPick } from '../lib/types'
 import { teamNameOf } from '../lib/league'
 import { SeasonData } from '../lib/types'
@@ -204,6 +204,22 @@ function check(label: string, cond: boolean, detail?: unknown) {
   check('board: the other Mike Williams stays available', draftedBy(board[3], picks) === undefined)
   check('board: fuzzy-matched entry still crosses out', draftedBy(board[2], [{ ...picks[0], player: 'Matthew Stafford', nflTeam: 'LAR' }] as DraftPick[]) !== undefined)
   check('board: seed text round-trips through the parser', parseRankings(seedFromPool(pool), pool).every((e) => e.match) && parseRankings(seedFromPool(pool), pool).length === pool.length)
+
+  // Draggable order: a permutation of the pool that survives pool changes
+  const keys = pool.map(poolKey)
+  check('order: twins get distinct keys', keys[4] !== keys[5] && keys[4].endsWith('|NYJ'))
+  const fresh = reconcileOrder([], pool)
+  check('order: empty save -> pool order', fresh.join() === keys.join())
+  const saved = [keys[2], 'ghost|XX', keys[0], keys[0]]
+  const rec = reconcileOrder(saved, pool)
+  check('order: reconcile drops unknowns and dupes, appends newcomers in pool order', rec.join() === [keys[2], keys[0], keys[1], keys[3], keys[4], keys[5]].join(), rec)
+  const moved = moveKey(fresh, keys[5], keys[1])
+  check('order: move puts the dragged key where the target was', moved.indexOf(keys[5]) === 1 && moved.length === 6 && new Set(moved).size === 6, moved)
+  check('order: move onto self is a no-op', moveKey(fresh, keys[0], keys[0]) === fresh)
+  const imp = applyTextImport(fresh, 'Mathew Stafford\nJamarr Chase\nNobody Real', pool)
+  check('order: import puts pasted players on top, rest keep order, unmatched reported', imp.order.slice(0, 2).join() === [keys[3], keys[2]].join() && imp.order.length === 6 && imp.unmatched.join() === 'Nobody Real', imp)
+  const exported = orderToText(moved, pool)
+  check('order: export/import round-trips exactly', applyTextImport(fresh, exported, pool).order.join() === moved.join(), exported)
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURES`)
