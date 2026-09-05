@@ -38,6 +38,7 @@ WhatsApp scores ──paste──▶ /commish ──review──▶ Google Sheet
 | `/records` | All-time record book computed from the box scores |
 | `/rules` | The constitution and full scoring tables |
 | `/recap/<week>` | Shareable 1080×1080 recap card (native share on mobile → straight into WhatsApp) |
+| `/my-board` | A manager's private draft rankings (kept in their browser, nothing server-side) with live cross-outs as picks land |
 | `/rosters` | Every team's current roster with how each player was acquired (draft pick, waiver, trade) |
 | `/lineups` | Submitted starting lineups per week — partials show what's in so far; flags starters that differ from the box score |
 | `/awards` | Weekly awards (Top Gun, Cupcake, Bad Beat, Heist, Nailbiter, Hammer) and the season tally |
@@ -79,8 +80,8 @@ Three tabs (names configurable via env):
 - **Player Pool** (optional, recommended) — `Player Name | Team | Position`,
   one row per draftable player, kept in rough draft-value order. Powers the
   typeahead in the draft-night tool and the waiver form (picks write the
-  canonical `Name TEAM POS` form), the **Best available** panel on `/draft`
-  during the draft, the **Free agents** list on `/rosters`, position and
+  canonical `Name TEAM POS` form), the commissioner's **Best available**
+  panel, name matching on `/my-board`, the **Free agents** list on `/rosters`, position and
   NFL-team fill-in for anyone typed as a bare name, and a spelling fallback
   in the score/lineup parsers for players not yet on a roster.
 - **Lineups** — `Week | Team | Slot | Player | Submitted`, one row per slot,
