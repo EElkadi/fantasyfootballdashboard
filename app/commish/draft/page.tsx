@@ -25,6 +25,10 @@ export default function LiveDraftPage() {
   const [player, setPlayer] = useState('')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
+  // Traded pick the ledger doesn't know about: send the player to another column/round
+  const [override, setOverride] = useState(false)
+  const [toTeam, setToTeam] = useState('')
+  const [toRound, setToRound] = useState<number | ''>('')
 
   const load = useCallback(async () => {
     try {
@@ -66,6 +70,18 @@ export default function LiveDraftPage() {
     () => (state?.next ? rosterProgress(state.picks.filter((p) => p.team === state.next!.team), state.rounds) : null),
     [state],
   )
+
+  const draftNow = () => {
+    const body: Record<string, unknown> = { player }
+    if (override && toTeam) body.team = toTeam
+    if (override && toRound) body.round = toRound
+    act(body, () => {
+      setPlayer('')
+      setOverride(false)
+      setToTeam('')
+      setToRound('')
+    })
+  }
 
   const act = async (body: object, after?: () => void) => {
     setBusy(true)
@@ -143,6 +159,16 @@ export default function LiveDraftPage() {
         </Button>
       </div>
 
+      {state.traded && state.traded.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Traded picks in the ledger:{' '}
+          {state.traded
+            .sort((a, b) => a[0] - b[0])
+            .map(([overall, team]) => `#${overall} → ${team}`)
+            .join(' · ')}
+        </p>
+      )}
+
       {state.next ? (
         <Card>
           <CardHeader className="pb-3">
@@ -165,16 +191,57 @@ export default function LiveDraftPage() {
                 pool={state.pool}
                 value={player}
                 onChange={setPlayer}
-                onEnter={() => player.trim() && !busy && !takenBy && act({ player }, () => setPlayer(''))}
+                onEnter={() => player.trim() && !busy && !takenBy && draftNow()}
                 taken={taken}
                 placeholder={state.pool.length ? 'Start typing a name…' : 'Bijan Robinson ATL RB'}
                 className="flex-1"
                 autoFocus
               />
-              <Button onClick={() => act({ player }, () => setPlayer(''))} disabled={!player.trim() || busy || Boolean(takenBy)}>
+              <Button onClick={draftNow} disabled={!player.trim() || busy || Boolean(takenBy)}>
                 {busy ? 'Saving…' : 'Draft'}
               </Button>
             </div>
+            <div className="text-xs text-muted-foreground">
+              Goes to <b className="text-foreground">{state.next.team}</b>&apos;s column, round {state.next.round}.{' '}
+              <button type="button" onClick={() => setOverride((v) => !v)} className="underline underline-offset-2 hover:text-foreground">
+                {override ? 'Use the default' : 'Traded pick? Send it elsewhere'}
+              </button>
+            </div>
+            {override && (
+              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                <label className="space-y-1">
+                  <span className="block text-xs font-medium text-muted-foreground">Team (column)</span>
+                  <select
+                    value={toTeam}
+                    onChange={(e) => setToTeam(e.target.value)}
+                    className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  >
+                    <option value="">{state.next.team} (default)</option>
+                    {state.order.map((o) => (
+                      <option key={o.slot} value={o.team}>
+                        {o.team}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-xs font-medium text-muted-foreground">Round</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={state.rounds}
+                    value={toRound}
+                    placeholder={String(state.next.round)}
+                    onChange={(e) => setToRound(e.target.value === '' ? '' : parseInt(e.target.value))}
+                    className="h-9 w-20 rounded-md border border-input bg-background px-2 text-sm"
+                  />
+                </label>
+                <p className="flex-1 text-xs text-muted-foreground">
+                  Better: log the swap in the trade form on /commish as &quot;Round 1, Pick 5&quot; ↔ &quot;Round 1, Pick
+                  9&quot; — then the clock and the default column follow it on their own.
+                </p>
+              </div>
+            )}
             {preview && takenBy && (
               <p className="text-sm font-medium text-loss">
                 {preview.player} is already on {takenBy}&apos;s board. Two different players with that name? Add the
@@ -236,10 +303,23 @@ export default function LiveDraftPage() {
 
       {recent.length > 0 && (
         <div className="rounded-xl border bg-card shadow-sm">
-          <div className="border-b px-4 py-2 text-sm font-semibold">Last picks</div>
+          <div className="flex items-center justify-between border-b px-4 py-2 text-sm font-semibold">
+            <span>Last picks</span>
+            <span className="text-xs font-normal text-muted-foreground">✕ removes that exact pick</span>
+          </div>
           <ul className="divide-y divide-border/40 text-sm">
             {recent.map((p) => (
               <li key={`${p.round}-${p.slot}`} className="flex items-center gap-3 px-4 py-2">
+                <button
+                  type="button"
+                  aria-label={`Undo ${p.player}`}
+                  title="Remove this pick"
+                  disabled={busy}
+                  onClick={() => window.confirm(`Remove ${p.player} from ${p.team}'s round ${p.round}?`) && act({ undo: true, round: p.round, slot: p.slot })}
+                  className="text-xs text-muted-foreground hover:text-loss disabled:opacity-40"
+                >
+                  ✕
+                </button>
                 <span className="tabular w-8 text-xs text-muted-foreground">{p.overall}</span>
                 <span
                   className="h-2.5 w-2.5 rounded-full"

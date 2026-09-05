@@ -1,4 +1,4 @@
-import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, rowsToDraftOrder, orderFromPicks, nextDraftPick, picksUntil } from '../lib/data/transform'
+import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, rowsToDraftOrder, orderFromPicks, nextDraftPick, picksUntil, pickTradeOwners, ownerOfPick } from '../lib/data/transform'
 import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
@@ -241,6 +241,17 @@ function check(label: string, cond: boolean, detail?: unknown) {
   check('until: Paco is one away, then round 3 flips back', picksUntil(next, order, 3, 'Paco') === 1 && picksUntil(next, order, 3, 'Elaf') === 4, [picksUntil(next, order, 3, 'Paco'), picksUntil(next, order, 3, 'Elaf')])
   check('until: unknown team -> null', picksUntil(next, order, 3, 'Ghost') === null)
   check('orderFromPicks: recovers the order from a board', orderFromPicks(picks as any).map((o) => o.team).join() === 'Paco,Chuy,Elaf')
+
+  // Pick swap: #2 (Chuy) <-> #3 (Elaf), logged in the trade ledger
+  const owners = pickTradeOwners([{ team1: 'Chuy', team2: 'Elaf', team1Gets: ['Round 1, Pick 3'], team2Gets: ['Round 1, Pick 2'] }])
+  check('trades: pick assets parsed to overall -> owner', owners.get(2) === 'Elaf' && owners.get(3) === 'Chuy' && owners.size === 2, owners)
+  check('ownerOfPick: ledger beats the snake', ownerOfPick(2, order, owners) === 'Elaf' && ownerOfPick(1, order, owners) === 'Paco')
+  const afterOne = nextDraftPick([pick(1, 1, 'Paco')], order, 3, owners)
+  check('next: traded pick #2 is Elaf, written to Elaf\'s column', afterOne?.overall === 2 && afterOne?.team === 'Elaf' && afterOne?.slot === 3, afterOne)
+  // Elaf's player sits in column 3 round 1 while column 2 is still empty — the clock must move on to #3 anyway
+  const afterTwo = nextDraftPick([pick(1, 1, 'Paco'), pick(1, 3, 'Elaf')], order, 3, owners)
+  check('next: clock advances past the hole left by the swap', afterTwo?.overall === 3 && afterTwo?.team === 'Chuy' && afterTwo?.slot === 2, afterTwo)
+  check('until: respects traded owners', picksUntil(afterOne, order, 3, 'Chuy', owners) === 1 && picksUntil(afterOne, order, 3, 'Elaf', owners) === 0)
 }
 
 // --- Roster minimums ---

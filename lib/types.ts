@@ -109,6 +109,8 @@ export interface DraftState {
   picks: DraftPick[]
   next: NextPick | null
   rounds: number
+  /** Overall pick -> new owner, from pick swaps in the Trades ledger */
+  traded?: [number, string][]
 }
 
 export interface Trade {
