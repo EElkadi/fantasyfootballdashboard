@@ -78,6 +78,11 @@ export const LEAGUE = {
   ],
   regularSeasonWeeks: 14,
   draftRounds: 20,
+  /**
+   * Draft roster minimums (constitution). TE counts toward WR. Whatever is
+   * left of the 20 rounds after these are met is the manager's to spend.
+   */
+  rosterMinimums: { QB: 2, RB: 5, WR: 5, K: 1, DEF: 1 } as Record<string, number>,
   playoffWeeks: [15, 16, 17],
   // Constitution §XVI says six teams with two byes, but the league actually
   // runs seven with a single bye for the #1 seed. Both archived seasons agree:

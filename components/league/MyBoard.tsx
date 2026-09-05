@@ -17,7 +17,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ACTIVE_OWNERS, ownerColor } from '@/lib/league'
 import { positionColor, POSITION_ORDER, samePlayer } from '@/lib/players'
-import { applyTextImport, moveKey, orderToText, poolKey, reconcileOrder } from '@/lib/draftBoard'
+import { applyTextImport, moveKey, orderToText, poolKey, reconcileOrder, rosterProgress } from '@/lib/draftBoard'
+import { RosterProgressStrip } from './RosterProgressStrip'
 import { picksUntil } from '@/lib/data/transform'
 import { DraftPick, DraftSlot, NextPick, PoolPlayer } from '@/lib/types'
 
@@ -118,6 +119,14 @@ export function MyBoard() {
   )
   const remaining = rows.filter((r) => !r.pick)
   const q = find.trim().toLowerCase()
+
+  // This manager's roster so far, against the draft minimums
+  const myPicks = useMemo(
+    () => (feed && manager ? feed.picks.filter((p) => p.team === manager).sort((a, b) => a.overall - b.overall) : []),
+    [feed, manager],
+  )
+  const progress = useMemo(() => (feed && manager ? rosterProgress(myPicks, feed.rounds || undefined) : null), [feed, manager, myPicks])
+  const [showRoster, setShowRoster] = useState(false)
 
   // Where this manager sits in the snake: 0 = on the clock
   const until = feed?.live && manager ? picksUntil(feed.next, feed.order ?? [], feed.rounds ?? 0, manager) : null
@@ -259,6 +268,41 @@ export function MyBoard() {
               )}
               {!manager && <span className="ml-auto text-muted-foreground">Pick your name to see when you&apos;re up</span>}
             </>
+          )}
+        </div>
+      )}
+
+      {progress && (
+        <div className="space-y-2 rounded-xl border bg-card p-3 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Your roster · {progress.picked} of {feed?.rounds ?? 20}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowRoster((v) => !v)}
+              className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+            >
+              {showRoster ? 'Hide picks' : 'Show picks'}
+            </button>
+          </div>
+          <RosterProgressStrip progress={progress} />
+          {showRoster && (
+            <ul className="grid gap-x-4 gap-y-0.5 pt-1 text-sm sm:grid-cols-2">
+              {myPicks.length === 0 && <li className="text-muted-foreground">No picks yet.</li>}
+              {myPicks.map((p) => (
+                <li key={p.overall} className="flex items-center gap-2">
+                  <span className="tabular w-8 text-xs text-muted-foreground">R{p.round}</span>
+                  <span
+                    className="w-9 shrink-0 rounded px-1 py-0.5 text-center text-[10px] font-bold text-white"
+                    style={{ backgroundColor: positionColor(p.position) }}
+                  >
+                    {p.position ?? '—'}
+                  </span>
+                  <span className="truncate">{p.player}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}
