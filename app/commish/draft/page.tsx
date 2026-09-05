@@ -8,6 +8,8 @@ import { parseDraftCell } from '@/lib/data/transform'
 import { ownerColor } from '@/lib/league'
 import { ambiguousNames, bestAvailable, cellRef, playerKey, positionColor } from '@/lib/players'
 import { PositionLists } from '@/components/league/PositionLists'
+import { RosterProgressStrip } from '@/components/league/RosterProgressStrip'
+import { rosterProgress } from '@/lib/draftBoard'
 import { DraftState, PoolPlayer } from '@/lib/types'
 import { PlayerSearch } from '@/components/league/PlayerSearch'
 
@@ -59,6 +61,10 @@ export default function LiveDraftPage() {
   const available = useMemo(
     () => (state?.pool.length ? bestAvailable(state.pool, new Set(taken.keys()), 4) : null),
     [state, taken],
+  )
+  const onClockProgress = useMemo(
+    () => (state?.next ? rosterProgress(state.picks.filter((p) => p.team === state.next!.team), state.rounds) : null),
+    [state],
   )
 
   const act = async (body: object, after?: () => void) => {
@@ -192,6 +198,11 @@ export default function LiveDraftPage() {
               </p>
             )}
             {note && <p className="text-sm font-medium text-win">{note}</p>}
+            {onClockProgress && (
+              <div className="border-t pt-3">
+                <RosterProgressStrip progress={onClockProgress} compact />
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (

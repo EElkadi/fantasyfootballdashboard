@@ -2,7 +2,7 @@ import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, 
 import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
-import { parseRankings, draftedBy, seedFromPool, poolKey, reconcileOrder, moveKey, applyTextImport, orderToText } from '../lib/draftBoard'
+import { parseRankings, draftedBy, seedFromPool, poolKey, reconcileOrder, moveKey, applyTextImport, orderToText, rosterProgress } from '../lib/draftBoard'
 import { DraftPick } from '../lib/types'
 import { teamNameOf } from '../lib/league'
 import { SeasonData } from '../lib/types'
@@ -241,6 +241,24 @@ function check(label: string, cond: boolean, detail?: unknown) {
   check('until: Paco is one away, then round 3 flips back', picksUntil(next, order, 3, 'Paco') === 1 && picksUntil(next, order, 3, 'Elaf') === 4, [picksUntil(next, order, 3, 'Paco'), picksUntil(next, order, 3, 'Elaf')])
   check('until: unknown team -> null', picksUntil(next, order, 3, 'Ghost') === null)
   check('orderFromPicks: recovers the order from a board', orderFromPicks(picks as any).map((o) => o.team).join() === 'Paco,Chuy,Elaf')
+}
+
+// --- Roster minimums ---
+{
+  const mk = (positions: (string | undefined)[]) =>
+    positions.map((position, i) => ({ round: i + 1, slot: 1, overall: i + 1, team: 'Elaf', player: `P${i}`, position })) as DraftPick[]
+  const empty = rosterProgress([])
+  check('minimums: empty roster needs 14 of 20, 6 free', empty.stillNeeded === 14 && empty.free === 6 && empty.remaining === 20, empty)
+  const mid = rosterProgress(mk(['RB', 'RB', 'WR', 'TE', 'QB', 'RB', 'WR', 'RB', 'RB', 'K']))
+  const row = (pos: string) => mid.rows.find((r) => r.position === pos)!
+  check('minimums: TE counts toward WR', row('WR').have === 3, mid.rows)
+  check('minimums: RB met, QB/WR/DEF outstanding', row('RB').have === 5 && mid.stillNeeded === 1 + 2 + 1 && mid.remaining === 10 && mid.free === 6, mid)
+  const doomed = rosterProgress(mk(Array(17).fill('RB')))
+  check('minimums: 17 RBs with 3 picks left is short', doomed.free < 0 && doomed.stillNeeded === 9 && doomed.free === 3 - 9, doomed)
+  const unknown = rosterProgress(mk(['QB', undefined, 'DST']))
+  check('minimums: unknown position counted as picked only; DST is DEF', unknown.unknown === 1 && unknown.picked === 3 && unknown.rows.find((r) => r.position === 'DEF')!.have === 1, unknown)
+  const done = rosterProgress(mk(['QB', 'QB', 'RB', 'RB', 'RB', 'RB', 'RB', 'WR', 'WR', 'WR', 'WR', 'WR', 'K', 'DEF', 'RB', 'WR', 'QB', 'TE', 'RB', 'WR']))
+  check('minimums: full legal roster has nothing outstanding', done.stillNeeded === 0 && done.remaining === 0 && done.free === 0 && done.rows.every((r) => r.have >= r.need))
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURES`)

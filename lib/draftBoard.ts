@@ -4,6 +4,7 @@
  */
 
 import { DraftPick, PoolPlayer } from '@/lib/types'
+import { LEAGUE } from '@/lib/league'
 import { parseDraftCell } from '@/lib/data/transform'
 import { matchName } from '@/lib/parser/match'
 import { PlayerRef, formatPoolPlayer, poolIndex, playerSlug, samePlayer } from '@/lib/players'
@@ -158,4 +159,51 @@ export function orderToText(order: string[], pool: PoolPlayer[]): string {
     })
     .filter(Boolean)
     .join('\n')
+}
+
+export interface RequirementRow {
+  position: string
+  have: number
+  need: number
+}
+
+export interface RosterProgress {
+  rows: RequirementRow[]
+  /** Picks made so far */
+  picked: number
+  /** Picks still to come */
+  remaining: number
+  /** Minimum slots still unfilled across all positions */
+  stillNeeded: number
+  /** Picks the manager can spend however they like (negative = can't meet the minimums) */
+  free: number
+  /** Picks whose position the site couldn't tell — counted as picked, not toward any minimum */
+  unknown: number
+}
+
+/** TE fills a WR requirement; D/ST spellings collapse to DEF. */
+function requirementBucket(position?: string): string | undefined {
+  if (!position) return undefined
+  const pos = position.toUpperCase().replace('D/ST', 'DEF').replace('DST', 'DEF')
+  if (pos === 'TE') return 'WR'
+  return pos in LEAGUE.rosterMinimums ? pos : undefined
+}
+
+/** Where one team stands against the roster minimums, given their picks so far. */
+export function rosterProgress(picks: DraftPick[], rounds: number = LEAGUE.draftRounds): RosterProgress {
+  const counts: Record<string, number> = {}
+  let unknown = 0
+  for (const p of picks) {
+    const bucket = requirementBucket(p.position)
+    if (bucket) counts[bucket] = (counts[bucket] ?? 0) + 1
+    else unknown++
+  }
+  const rows = Object.entries(LEAGUE.rosterMinimums).map(([position, need]) => ({
+    position,
+    have: counts[position] ?? 0,
+    need,
+  }))
+  const stillNeeded = rows.reduce((s, r) => s + Math.max(0, r.need - r.have), 0)
+  const remaining = Math.max(0, rounds - picks.length)
+  return { rows, picked: picks.length, remaining, stillNeeded, free: remaining - stillNeeded, unknown }
 }
