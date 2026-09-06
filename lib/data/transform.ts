@@ -1,4 +1,4 @@
-import { DraftPick, DraftSlot, LineupEntry, Matchup, NextPick, PlayerScore, PlayerWeek, PoolPlayer, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
+import { DraftGrade, DraftPick, DraftSlot, LineupEntry, Matchup, NextPick, PlayerScore, PlayerWeek, PoolPlayer, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
 import { resolveOwner } from '@/lib/league'
 
 /** Canonicalize a team spelling from any source (sheet, CSV, chat). */
@@ -227,12 +227,33 @@ export function nextDraftPick(
 ): NextPick | null {
   const teams = order.length
   if (teams === 0 || order.some((o, i) => o.slot !== i + 1)) return null
+  const taken = new Set(picks.map((p) => `${p.round}|${p.slot}`))
   const overall = picks.length + 1
-  if (overall > rounds * teams) return null
-  const { round, slot } = snakePosition(overall, teams)
-  const team = ownerOfPick(overall, order, owners) ?? order[slot - 1].team
-  const ownerSlot = order.find((o) => o.team === team)?.slot ?? slot
-  return { round, slot: ownerSlot, overall, team }
+  if (overall <= rounds * teams) {
+    const { round, slot } = snakePosition(overall, teams)
+    const team = ownerOfPick(overall, order, owners) ?? order[slot - 1].team
+    const ownerSlot = order.find((o) => o.team === team)?.slot ?? slot
+    if (!taken.has(`${round}|${ownerSlot}`)) return { round, slot: ownerSlot, overall, team }
+  }
+  // The count points at a filled cell (picks were skipped and the draft moved
+  // on) or past the end: fall back to the first empty cell in snake order so
+  // the board can still be completed.
+  return skippedCells(picks, order, rounds)[0] ?? null
+}
+
+/** Empty cells the snake has already passed (skipped picks), in snake order. */
+export function skippedCells(picks: DraftPick[], order: DraftSlot[], rounds: number): NextPick[] {
+  const teams = order.length
+  if (teams === 0) return []
+  const taken = new Set(picks.map((p) => `${p.round}|${p.slot}`))
+  const out: NextPick[] = []
+  for (let overall = 1; overall <= rounds * teams; overall++) {
+    const { round, slot } = snakePosition(overall, teams)
+    if (!taken.has(`${round}|${slot}`)) out.push({ round, slot, overall, team: order[slot - 1].team })
+  }
+  // Only cells behind the count are "skipped"; the rest are simply the future
+  const behind = out.filter((c) => c.overall <= picks.length)
+  return behind.length > 0 ? behind : out.slice(0, 1)
 }
 
 /** How many picks before `team` is up (0 = on the clock), or null if they have none left. */
@@ -492,4 +513,22 @@ export function rowsToPool(rows: Record<string, string>[]): PoolPlayer[] {
     pool.push({ player, nflTeam, position: rawPos || undefined, rank: pool.length + 1 })
   }
   return pool
+}
+
+/** Draft Grades tab: `Team | Grade | Best Pick | Worst Pick | Notes` -> DraftGrade[] */
+export function rowsToGrades(rows: Record<string, string>[]): DraftGrade[] {
+  const grades: DraftGrade[] = []
+  for (const r of rows) {
+    const team = resolveOwner(col(r, 'team', 'manager', 'owner'))?.name
+    const grade = parseFloat(col(r, 'grade', 'rating', 'score'))
+    if (!team || !Number.isFinite(grade)) continue
+    grades.push({
+      team,
+      grade: Math.min(10, Math.max(0, grade)),
+      bestPick: col(r, 'best pick', 'best'),
+      worstPick: col(r, 'worst pick', 'worst'),
+      notes: col(r, 'notes', 'comment', 'comments') || undefined,
+    })
+  }
+  return grades.sort((a, b) => b.grade - a.grade || a.team.localeCompare(b.team))
 }

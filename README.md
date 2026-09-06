@@ -44,7 +44,7 @@ WhatsApp scores ──paste──▶ /commish ──review──▶ Google Sheet
 | `/awards` | Weekly awards (Top Gun, Cupcake, Bad Beat, Heist, Nailbiter, Hammer) and the season tally |
 | `/predictions` | Preseason ballots — hidden until kickoff, then scored against the standings every week |
 | `/commish` | Passcode-protected score entry: paste WhatsApp reports, review, save to the Sheet |
-| `/commish/draft` | Draft-night mode: enter picks live; the public board updates as you go |
+| `/commish/draft` | Draft-night mode: typeahead picks, best available, traded-pick overrides, skipped-pick fill-in, post-draft grades |
 
 ## Setup
 
@@ -84,6 +84,9 @@ Three tabs (names configurable via env):
   panel, name matching on `/my-board`, the **Free agents** list on `/rosters`, position and
   NFL-team fill-in for anyone typed as a bare name, and a spelling fallback
   in the score/lineup parsers for players not yet on a roster.
+- **Draft Grades** (optional) — `Team | Grade | Best Pick | Worst Pick | Notes`,
+  one row per team, written by the **Draft grades** form on `/commish/draft`
+  after the draft. Shows on `/draft`.
 - **Lineups** — `Week | Team | Slot | Player | Submitted`, one row per slot,
   appended by the **Log lineups** form on `/commish`. Rows are never edited:
   a Thursday partial and Sunday's full lineup both stay, and the site shows

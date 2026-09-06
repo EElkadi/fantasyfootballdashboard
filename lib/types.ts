@@ -111,6 +111,8 @@ export interface DraftState {
   rounds: number
   /** Overall pick -> new owner, from pick swaps in the Trades ledger */
   traded?: [number, string][]
+  /** Empty cells the snake already passed — picks that were skipped */
+  skipped?: NextPick[]
 }
 
 export interface Trade {
@@ -128,6 +130,16 @@ export interface WaiverMove {
   nflTeam?: string
   position?: string
   cost: number
+}
+
+/** The league's consensus verdict on one team's draft */
+export interface DraftGrade {
+  team: string
+  /** 0–10 */
+  grade: number
+  bestPick: string
+  worstPick: string
+  notes?: string
 }
 
 /** One row of the Player Pool tab — the draftable universe, in the sheet's (ranked) order */
@@ -191,4 +203,6 @@ export interface SeasonData {
   lineups: LineupEntry[]
   /** Player Pool tab, when the sheet has one */
   pool: PoolPlayer[]
+  /** Post-draft grades, when entered */
+  draftGrades: DraftGrade[]
 }

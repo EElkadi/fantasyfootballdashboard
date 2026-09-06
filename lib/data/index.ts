@@ -3,9 +3,9 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
-import { DraftSlot, LineupEntry, Matchup, PoolPlayer, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
+import { DraftGrade, DraftSlot, LineupEntry, Matchup, PoolPlayer, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE, resolveOwner } from '@/lib/league'
-import { hasLiveSheet, readTab, readTabOrEmpty, serviceAccountEmail, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB, LINEUPS_TAB, PLAYER_POOL_TAB } from './sheets'
+import { hasLiveSheet, readTab, readTabOrEmpty, serviceAccountEmail, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB, LINEUPS_TAB, PLAYER_POOL_TAB, GRADES_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -16,6 +16,7 @@ import {
   orderFromPicks,
   rowsToDraft,
   rowsToDraftOrder,
+  rowsToGrades,
   rowsToLineups,
   rowsToPool,
   rowsToPredictions,
@@ -69,6 +70,7 @@ function assemble(
   lineups: LineupEntry[] = [],
   pool: PoolPlayer[] = [],
   draftOrder: DraftSlot[] = [],
+  draftGrades: DraftGrade[] = [],
 ): SeasonData {
   // Before the first pick the order can only come from the Teams tab; after
   // it, the picks themselves are just as good — so an archive works too
@@ -114,11 +116,12 @@ function assemble(
     teamNames,
     lineups,
     pool,
+    draftGrades,
   }
 }
 
 async function loadArchiveSeason(season: number): Promise<SeasonData> {
-  const [teamRows, playerRows, scheduleRows, draftRows, waiverRows, adjustmentRows, tradeRows, lineupRows] =
+  const [teamRows, playerRows, scheduleRows, draftRows, waiverRows, adjustmentRows, tradeRows, lineupRows, gradeRows] =
     await Promise.all([
       readCsv(season, 'teams.csv'),
       readCsv(season, 'players.csv'),
@@ -128,6 +131,7 @@ async function loadArchiveSeason(season: number): Promise<SeasonData> {
       readCsv(season, 'adjustments.csv'),
       readCsv(season, 'trades.csv'),
       readCsv(season, 'lineups.csv'),
+      readCsv(season, 'grades.csv'),
     ])
   const matchups = longToMatchups(teamRows as any, playerRows as any)
   annotateAdjustments(matchups, adjustmentRows)
@@ -141,11 +145,14 @@ async function loadArchiveSeason(season: number): Promise<SeasonData> {
     rowsToTrades(tradeRows),
     {},
     rowsToLineups(lineupRows),
+    [],
+    [],
+    rowsToGrades(gradeRows),
   )
 }
 
 async function loadLiveSeason(season: number): Promise<SeasonData> {
-  const [scoreRows, scheduleCandidates, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows, lineupRows, poolRows] =
+  const [scoreRows, scheduleCandidates, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows, lineupRows, poolRows, gradeRows] =
     await Promise.all([
       readTabOrEmpty(SCORES_TAB),
       Promise.all(SCHEDULE_TABS.map(readTabOrEmpty)),
@@ -156,6 +163,7 @@ async function loadLiveSeason(season: number): Promise<SeasonData> {
       readTabOrEmpty(TRADES_TAB),
       readTabOrEmpty(LINEUPS_TAB),
       readTabOrEmpty(PLAYER_POOL_TAB),
+      readTabOrEmpty(GRADES_TAB),
     ])
   const matchups = toObjects(scoreRows)
     .map(wideRowToMatchup)
@@ -194,6 +202,7 @@ async function loadLiveSeason(season: number): Promise<SeasonData> {
     rowsToLineups(toObjects(lineupRows)),
     rowsToPool(toObjects(poolRows)),
     rowsToDraftOrder(teamObjects),
+    rowsToGrades(toObjects(gradeRows)),
   )
 }
 
@@ -374,7 +383,7 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
   }
   if (!base.configured) return { ...base, tabs: [] }
 
-  const [scores, rosters, draft, teams, waivers, trades, adjustments, predictions, lineups, pool] = await Promise.all([
+  const [scores, rosters, draft, teams, waivers, trades, adjustments, predictions, lineups, pool, grades] = await Promise.all([
     probe(SCORES_TAB, 'Weekly box scores', 'matchups', (r) =>
       toObjects(r).map(wideRowToMatchup).filter(Boolean).length,
     ),
@@ -395,6 +404,7 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
     probe(PREDICTIONS_TAB, 'Preseason ballots', 'ballots', (r) => rowsToPredictions(toObjects(r)).length),
     probe(LINEUPS_TAB, 'Submitted lineups', 'slots', (r) => rowsToLineups(toObjects(r)).length),
     probe(PLAYER_POOL_TAB, 'Draft typeahead, free agents, positions', 'players', (r) => rowsToPool(toObjects(r)).length),
+    probe(GRADES_TAB, 'Post-draft grades', 'teams', (r) => rowsToGrades(toObjects(r)).length),
   ])
 
   // Schedule: report whichever candidate tab actually parses as a week grid
@@ -403,5 +413,5 @@ export async function sheetDiagnostics(): Promise<SheetDiagnostics> {
   )
   const schedule = candidates.find((c) => c.status === 'ok') ?? candidates[0]
 
-  return { ...base, tabs: [scores, schedule, teams, draft, rosters, waivers, trades, adjustments, predictions, lineups, pool] }
+  return { ...base, tabs: [scores, schedule, teams, draft, rosters, waivers, trades, adjustments, predictions, lineups, pool, grades] }
 }
