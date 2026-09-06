@@ -1,4 +1,5 @@
 import { Award, AWARD_META } from '@/lib/data/awards'
+import { DraftGrade, DraftPick } from '@/lib/types'
 
 /**
  * Plain-text weekly recap for the league chat. WhatsApp renders *bold* and
@@ -65,4 +66,33 @@ export function recapText(input: RecapTextInput): string {
 
   if (input.url) lines.push(input.url)
   return lines.join('\n').trimEnd()
+}
+
+/** Draft grades for the group chat: sorted best to worst, one block per team. */
+export function draftGradesText(season: number, grades: DraftGrade[], picks: DraftPick[], teamNames: Record<string, string> = {}): string {
+  const roundOf = (team: string, player: string) => picks.find((p) => p.team === team && p.player === player)?.round
+  const withRound = (team: string, player: string) => {
+    const r = roundOf(team, player)
+    return r ? `${player} (R${r})` : player
+  }
+  const sorted = [...grades].sort((a, b) => b.grade - a.grade || a.team.localeCompare(b.team))
+  const lines = [`🏈 *PLFF ${season} Draft Grades*`, '']
+  sorted.forEach((g, i) => {
+    const medal = i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : i === sorted.length - 1 && sorted.length > 3 ? '💩 ' : ''
+    const name = teamNames[g.team] ? ` (${teamNames[g.team]})` : ''
+    lines.push(`${medal}*${g.team}*${name} — ${formatGrade(g.grade)}/10`)
+    if (g.bestPick) lines.push(`  ✅ Best: ${withRound(g.team, g.bestPick)}`)
+    if (g.worstPick) lines.push(`  ❌ Worst: ${withRound(g.team, g.worstPick)}`)
+    if (g.notes) lines.push(`  _${g.notes}_`)
+    lines.push('')
+  })
+  const avg = sorted.length ? sorted.reduce((s, g) => s + g.grade, 0) / sorted.length : 0
+  if (sorted.length) lines.push(`League average: ${formatGrade(avg)}/10`)
+  return lines.join('\n').trimEnd()
+}
+
+/** 7 -> "7", 7.4 -> "7.4", 7.25 -> "7.3" */
+export function formatGrade(g: number): string {
+  const rounded = Math.round(g * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
 }

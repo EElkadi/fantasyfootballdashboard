@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ownerColor } from '@/lib/league'
 import { DraftGrade, DraftPick, DraftSlot } from '@/lib/types'
+import { draftGradesText } from '@/lib/recap/text'
+import { CopyButton } from './CopyButton'
 
 interface Row {
   team: string
@@ -20,7 +22,7 @@ interface Row {
  * consensus best and worst pick (chosen from that team's actual picks).
  * Saving rewrites the Draft Grades tab.
  */
-export function DraftGradesForm({ order, picks, initial }: { order: DraftSlot[]; picks: DraftPick[]; initial: DraftGrade[] }) {
+export function DraftGradesForm({ order, picks, initial, season }: { order: DraftSlot[]; picks: DraftPick[]; initial: DraftGrade[]; season: number }) {
   const [rows, setRows] = useState<Row[]>([])
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
@@ -54,6 +56,18 @@ export function DraftGradesForm({ order, picks, initial }: { order: DraftSlot[];
     const g = Number(r.grade)
     return Number.isFinite(g) && g >= 0 && g <= 10
   })
+  // The message reflects what's in the form right now, saved or not
+  const shareText = useMemo(
+    () =>
+      valid && filled.length
+        ? draftGradesText(
+            season,
+            filled.map((r) => ({ team: r.team, grade: Number(r.grade), bestPick: r.bestPick, worstPick: r.worstPick, notes: r.notes || undefined })),
+            picks,
+          )
+        : '',
+    [filled, valid, season, picks],
+  )
 
   const save = async () => {
     setBusy(true)
@@ -131,7 +145,7 @@ export function DraftGradesForm({ order, picks, initial }: { order: DraftSlot[];
                           type="number"
                           min={0}
                           max={10}
-                          step={0.5}
+                          step={0.1}
                           value={r.grade}
                           onChange={(e) => update(r.team, { grade: e.target.value })}
                           className="h-8 w-20 text-sm"
@@ -160,6 +174,7 @@ export function DraftGradesForm({ order, picks, initial }: { order: DraftSlot[];
             {!valid && <span className="text-sm text-loss">Grades must be between 0 and 10.</span>}
             {note && <span className="text-sm text-muted-foreground">{note}</span>}
           </div>
+          {shareText && <CopyButton text={shareText} />}
         </CardContent>
       )}
     </Card>

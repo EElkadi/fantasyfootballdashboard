@@ -5,6 +5,8 @@ import { draftValue, PickValue } from '@/lib/data/draftValue'
 import { CURRENT_SEASON, LEAGUE, ownerColor, teamNameOf } from '@/lib/league'
 import { playerSlug, POSITION_COLORS, positionColor } from '@/lib/players'
 import { nextDraftPick, ownerOfPick, pickTradeOwners } from '@/lib/data/transform'
+import { draftGradesText, formatGrade } from '@/lib/recap/text'
+import { CopyButton } from '@/components/league/CopyButton'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 import { TeamMark } from '@/components/league/TeamMark'
 
@@ -108,9 +110,12 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
 
       {season.draftGrades.length > 0 && (
         <section className="space-y-3">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight">Draft grades</h2>
-            <p className="text-sm text-muted-foreground">The league&apos;s consensus verdict, handed down at the end of draft night.</p>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight">Draft grades</h2>
+              <p className="text-sm text-muted-foreground">The league&apos;s consensus verdict, handed down at the end of draft night.</p>
+            </div>
+            <CopyButton text={draftGradesText(season.season, season.draftGrades, draft, season.teamNames)} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {season.draftGrades.map((g) => {
@@ -125,7 +130,7 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
                       <p className="truncate text-xs text-muted-foreground">{teamNameOf(g.team, season.teamNames)}</p>
                     </div>
                     <p className={`tabular text-3xl font-extrabold leading-none ${tone}`}>
-                      {g.grade}
+                      {formatGrade(g.grade)}
                       <span className="text-sm font-medium text-muted-foreground">/10</span>
                     </p>
                   </div>
