@@ -88,7 +88,7 @@ export default function LiveDraftPage() {
   )
 
   const draftNow = () => {
-    const body: Record<string, unknown> = { player }
+    const body: Record<string, unknown> = { player, skip: absent }
     if (override && toTeam) body.team = toTeam
     if (override && toRound) body.round = toRound
     act(body, () => {
