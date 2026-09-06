@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { parseDraftCell } from '@/lib/data/transform'
-import { ownerColor } from '@/lib/league'
+import { CURRENT_SEASON, ownerColor } from '@/lib/league'
 import { ambiguousNames, bestAvailable, cellRef, playerKey, positionColor } from '@/lib/players'
 import { PositionLists } from '@/components/league/PositionLists'
 import { RosterProgressStrip } from '@/components/league/RosterProgressStrip'
@@ -414,7 +414,7 @@ export default function LiveDraftPage() {
         </div>
       )}
 
-      <DraftGradesForm order={state.order} picks={state.picks} initial={state.grades ?? []} />
+      <DraftGradesForm order={state.order} picks={state.picks} initial={state.grades ?? []} season={CURRENT_SEASON} />
     </div>
   )
 }

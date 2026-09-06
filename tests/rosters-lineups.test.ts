@@ -4,6 +4,7 @@ import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
 import { parseRankings, draftedBy, seedFromPool, poolKey, reconcileOrder, moveKey, applyTextImport, orderToText, rosterProgress } from '../lib/draftBoard'
 import { DraftPick } from '../lib/types'
+import { draftGradesText, formatGrade } from '../lib/recap/text'
 import { teamNameOf } from '../lib/league'
 import { SeasonData } from '../lib/types'
 
@@ -274,6 +275,25 @@ function check(label: string, cond: boolean, detail?: unknown) {
     { Team: 'Paco', Grade: 'abc', 'Best Pick': '', 'Worst Pick': '', Notes: '' },
   ])
   check('grades: parsed, clamped, sorted, unknowns dropped', grades.length === 2 && grades[0].team === 'Elaf' && grades[0].grade === 10 && grades[1].team === 'Chuy' && grades[1].notes === 'solid', grades)
+}
+
+// --- Draft grades message ---
+{
+  const picks = [
+    { round: 1, slot: 1, overall: 1, team: 'Paco', player: 'Bijan Robinson' },
+    { round: 12, slot: 1, overall: 144, team: 'Paco', player: 'Some Kicker' },
+  ] as DraftPick[]
+  const text = draftGradesText(2026, [
+    { team: 'Chuy', grade: 6, bestPick: 'Josh Allen', worstPick: '', notes: undefined },
+    { team: 'Paco', grade: 8.4, bestPick: 'Bijan Robinson', worstPick: 'Some Kicker', notes: 'Chalk, but correct' },
+    { team: 'Elaf', grade: 7.25, bestPick: '', worstPick: '', notes: undefined },
+    { team: 'Greg', grade: 3.1, bestPick: '', worstPick: '', notes: undefined },
+  ], picks, { Paco: 'We Dem Boyz' })
+  const lines = text.split('\n')
+  check('grades text: sorted with medals and the turd', lines[2].startsWith('🥇 *Paco* (We Dem Boyz) — 8.4/10') && lines.some((l) => l.startsWith('🥈 *Elaf* — 7.3/10')) && lines.some((l) => l.startsWith('💩 *Greg* — 3.1/10')), lines)
+  check('grades text: picks carry their round', text.includes('✅ Best: Bijan Robinson (R1)') && text.includes('❌ Worst: Some Kicker (R12)') && text.includes('✅ Best: Josh Allen\n'), text)
+  check('grades text: note in italics, league average at the end', text.includes('_Chalk, but correct_') && text.endsWith('League average: 6.2/10'), text.slice(-40))
+  check('formatGrade: integers stay whole, decimals to one place', formatGrade(7) === '7' && formatGrade(7.4) === '7.4' && formatGrade(7.25) === '7.3' && formatGrade(10) === '10')
 }
 
 // --- Roster minimums ---
