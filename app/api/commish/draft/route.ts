@@ -92,17 +92,17 @@ async function readState(absent?: Set<string>): Promise<{ state: DraftState; boa
   return { state: { order, picks, next, rounds: LEAGUE.draftRounds, traded: Array.from(owners.entries()), skipped }, board }
 }
 
+/** "Kenny,Bala" or ["Kenny","Bala"] -> canonical owner names */
+function parseAbsent(raw: unknown): Set<string> {
+  const list = Array.isArray(raw) ? raw.map(String) : String(raw ?? '').split(',')
+  return new Set(list.map((t) => resolveOwner(t.trim())?.name).filter((t): t is string => Boolean(t)))
+}
+
 export async function GET(req: Request) {
   if (!isCommish()) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   if (!hasLiveSheet()) return NextResponse.json({ error: 'Google Sheet is not configured' }, { status: 501 })
   // ?skip=Kenny,Bala — teams whose remaining picks the clock should jump over
-  const skip = new URL(req.url).searchParams.get('skip') ?? ''
-  const absent = new Set(
-    skip
-      .split(',')
-      .map((t) => resolveOwner(t)?.name)
-      .filter((t): t is string => Boolean(t)),
-  )
+  const absent = parseAbsent(new URL(req.url).searchParams.get('skip'))
   const [result, poolRows, gradeRows] = await Promise.all([
     readState(absent),
     readTabOrEmpty(PLAYER_POOL_TAB),
@@ -122,7 +122,10 @@ export async function POST(req: Request) {
   if (!hasLiveSheet()) return NextResponse.json({ error: 'Google Sheet is not configured' }, { status: 501 })
 
   const body = await req.json().catch(() => ({}))
-  const result = await readState()
+  // The clock must be computed with the same absent list the page showed,
+  // or a pick meant for the next manager lands in the skipped one's cell
+  const absent = parseAbsent(body?.skip)
+  const result = await readState(absent)
   if ('error' in result) return NextResponse.json(result, { status: 400 })
   const { state, board } = result
 
@@ -170,6 +173,9 @@ export async function POST(req: Request) {
     team = col.team
     slot = col.slot
     round = wantRound
+  }
+  if (absent.has(team) && !(body?.team || body?.round)) {
+    return NextResponse.json({ error: `${team} is marked absent — use "send it elsewhere" to fill their cell on purpose` }, { status: 409 })
   }
   if (state.picks.some((p) => p.round === round && p.slot === slot)) {
     return NextResponse.json(
