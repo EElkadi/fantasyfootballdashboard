@@ -10,7 +10,8 @@ import { ambiguousNames, bestAvailable, cellRef, playerKey, positionColor } from
 import { PositionLists } from '@/components/league/PositionLists'
 import { RosterProgressStrip } from '@/components/league/RosterProgressStrip'
 import { rosterProgress } from '@/lib/draftBoard'
-import { DraftState, PoolPlayer } from '@/lib/types'
+import { DraftGrade, DraftState, PoolPlayer } from '@/lib/types'
+import { DraftGradesForm } from '@/components/league/DraftGradesForm'
 import { PlayerSearch } from '@/components/league/PlayerSearch'
 
 /**
@@ -19,7 +20,7 @@ import { PlayerSearch } from '@/components/league/PlayerSearch'
  * anything. Viewers follow along on /draft.
  */
 export default function LiveDraftPage() {
-  const [state, setState] = useState<(DraftState & { pool: PoolPlayer[] }) | null>(null)
+  const [state, setState] = useState<(DraftState & { pool: PoolPlayer[]; grades: DraftGrade[] }) | null>(null)
   const [error, setError] = useState('')
   const [authed, setAuthed] = useState<boolean | null>(null)
   const [player, setPlayer] = useState('')
@@ -167,6 +168,36 @@ export default function LiveDraftPage() {
             .map(([overall, team]) => `#${overall} → ${team}`)
             .join(' · ')}
         </p>
+      )}
+
+      {state.skipped && state.skipped.length > 0 && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+          <p className="font-medium">
+            {state.skipped.length} skipped pick{state.skipped.length === 1 ? '' : 's'} still empty
+          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Click one to fill it — the clock is already pointing at the first.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {state.skipped.map((c) => (
+              <button
+                key={`${c.round}-${c.slot}`}
+                type="button"
+                onClick={() => {
+                  setOverride(true)
+                  setToTeam(c.team)
+                  setToRound(c.round)
+                }}
+                className={`rounded-md border px-2 py-1 text-xs font-medium hover:bg-secondary ${
+                  override && toTeam === c.team && toRound === c.round ? 'border-primary bg-secondary' : 'bg-card'
+                }`}
+              >
+                <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: ownerColor(c.team) }} />
+                {c.team} · R{c.round} (#{c.overall})
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {state.next ? (
@@ -340,6 +371,8 @@ export default function LiveDraftPage() {
           </ul>
         </div>
       )}
+
+      <DraftGradesForm order={state.order} picks={state.picks} initial={state.grades ?? []} />
     </div>
   )
 }

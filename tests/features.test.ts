@@ -43,6 +43,7 @@ function loadSeason(year: number): SeasonData {
     teamNames: {},
     lineups: [],
     pool: [],
+    draftGrades: [],
   }
 }
 

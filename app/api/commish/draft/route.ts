@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
 import {
   DRAFT_TAB,
+  GRADES_TAB,
   PLAYER_POOL_TAB,
   TEAMS_TAB,
   TRADES_TAB,
@@ -14,7 +15,17 @@ import {
   toObjects,
   updateCell,
 } from '@/lib/data/sheets'
-import { gridToDraft, nextDraftPick, parseDraftCell, pickTradeOwners, rowsToDraftOrder, rowsToPool, rowsToTrades } from '@/lib/data/transform'
+import {
+  gridToDraft,
+  nextDraftPick,
+  parseDraftCell,
+  pickTradeOwners,
+  rowsToDraftOrder,
+  rowsToGrades,
+  rowsToPool,
+  rowsToTrades,
+  skippedCells,
+} from '@/lib/data/transform'
 import { samePlayer } from '@/lib/players'
 import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
 import { LEAGUE } from '@/lib/league'
@@ -76,16 +87,26 @@ async function readState(): Promise<{ state: DraftState; board: string[][] } | {
   // Pick swaps logged in the Trades tab ("Round 1, Pick 5") move the clock
   const owners = pickTradeOwners(rowsToTrades(toObjects(tradeRows)))
   const next = nextDraftPick(picks, order, LEAGUE.draftRounds, owners)
-  return { state: { order, picks, next, rounds: LEAGUE.draftRounds, traded: Array.from(owners.entries()) }, board }
+  // Cells the snake passed without a pick (a manager who had to leave)
+  const skipped = picks.length > 0 ? skippedCells(picks, order, LEAGUE.draftRounds).filter((c) => c.overall <= picks.length) : []
+  return { state: { order, picks, next, rounds: LEAGUE.draftRounds, traded: Array.from(owners.entries()), skipped }, board }
 }
 
 export async function GET() {
   if (!isCommish()) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   if (!hasLiveSheet()) return NextResponse.json({ error: 'Google Sheet is not configured' }, { status: 501 })
-  const [result, poolRows] = await Promise.all([readState(), readTabOrEmpty(PLAYER_POOL_TAB)])
+  const [result, poolRows, gradeRows] = await Promise.all([
+    readState(),
+    readTabOrEmpty(PLAYER_POOL_TAB),
+    readTabOrEmpty(GRADES_TAB),
+  ])
   if ('error' in result) return NextResponse.json(result, { status: 400 })
-  // The pool rides along so the typeahead has no second round trip
-  return NextResponse.json({ ...result.state, pool: rowsToPool(toObjects(poolRows)) })
+  // The pool and any saved grades ride along so the page has no second round trip
+  return NextResponse.json({
+    ...result.state,
+    pool: rowsToPool(toObjects(poolRows)),
+    grades: rowsToGrades(toObjects(gradeRows)),
+  })
 }
 
 export async function POST(req: Request) {

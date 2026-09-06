@@ -1,4 +1,4 @@
-import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, rowsToDraftOrder, orderFromPicks, nextDraftPick, picksUntil, pickTradeOwners, ownerOfPick } from '../lib/data/transform'
+import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, rowsToDraftOrder, orderFromPicks, nextDraftPick, picksUntil, pickTradeOwners, ownerOfPick, skippedCells, rowsToGrades } from '../lib/data/transform'
 import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
@@ -252,6 +252,23 @@ function check(label: string, cond: boolean, detail?: unknown) {
   const afterTwo = nextDraftPick([pick(1, 1, 'Paco'), pick(1, 3, 'Elaf')], order, 3, owners)
   check('next: clock advances past the hole left by the swap', afterTwo?.overall === 3 && afterTwo?.team === 'Chuy' && afterTwo?.slot === 2, afterTwo)
   check('until: respects traded owners', picksUntil(afterOne, order, 3, 'Chuy', owners) === 1 && picksUntil(afterOne, order, 3, 'Elaf', owners) === 0)
+
+  // Skipped picks: the count lands on a filled cell, so the clock falls back to the first hole
+  const skippedBoard = [pick(1, 1, 'Paco'), pick(1, 2, 'Chuy'), pick(2, 3, 'Elaf'), pick(2, 2, 'Chuy'), pick(2, 1, 'Paco')] // Elaf R1 skipped
+  const fb = nextDraftPick(skippedBoard, order, 3)
+  check('skipped: clock falls back to the skipped cell', fb?.round === 1 && fb?.team === 'Elaf' && fb?.overall === 3, fb)
+  check('skipped: only holes behind the count are listed', skippedCells(skippedBoard, order, 3).map((c) => c.overall).join() === '3')
+  check('skipped: clean board -> just the next cell', skippedCells(picks, order, 3).map((c) => c.overall).join() === '5')
+  const full = [...skippedBoard, pick(1, 3, 'Elaf'), pick(3, 1, 'Paco'), pick(3, 2, 'Chuy'), pick(3, 3, 'Elaf')]
+  check('skipped: full board -> no next pick', nextDraftPick(full, order, 3) === null)
+
+  const grades = rowsToGrades([
+    { Team: 'Zeus', Grade: '8.5', 'Best Pick': 'Bijan Robinson', 'Worst Pick': 'Some Kicker', Notes: 'solid' },
+    { Team: 'Elaf', Grade: '11', 'Best Pick': '', 'Worst Pick': '', Notes: '' },
+    { Team: 'Nobody', Grade: '5', 'Best Pick': '', 'Worst Pick': '', Notes: '' },
+    { Team: 'Paco', Grade: 'abc', 'Best Pick': '', 'Worst Pick': '', Notes: '' },
+  ])
+  check('grades: parsed, clamped, sorted, unknowns dropped', grades.length === 2 && grades[0].team === 'Elaf' && grades[0].grade === 10 && grades[1].team === 'Chuy' && grades[1].notes === 'solid', grades)
 }
 
 // --- Roster minimums ---

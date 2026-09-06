@@ -106,6 +106,61 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
         </div>
       )}
 
+      {season.draftGrades.length > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Draft grades</h2>
+            <p className="text-sm text-muted-foreground">The league&apos;s consensus verdict, handed down at the end of draft night.</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {season.draftGrades.map((g) => {
+              const tone = g.grade >= 8 ? 'text-win' : g.grade < 5 ? 'text-loss' : ''
+              const best = draft.find((p) => p.team === g.team && p.player === g.bestPick)
+              const worst = draft.find((p) => p.team === g.team && p.player === g.worstPick)
+              return (
+                <div key={g.team} className="rounded-xl border bg-card p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <TeamMark team={g.team} />
+                      <p className="truncate text-xs text-muted-foreground">{teamNameOf(g.team, season.teamNames)}</p>
+                    </div>
+                    <p className={`tabular text-3xl font-extrabold leading-none ${tone}`}>
+                      {g.grade}
+                      <span className="text-sm font-medium text-muted-foreground">/10</span>
+                    </p>
+                  </div>
+                  <dl className="mt-3 space-y-1.5 text-sm">
+                    {g.bestPick && (
+                      <div className="flex gap-2">
+                        <dt className="w-12 shrink-0 text-xs font-semibold uppercase tracking-wide text-win">Best</dt>
+                        <dd className="min-w-0 truncate">
+                          <Link href={`/players/${playerSlug(g.bestPick)}?season=${season.season}`} className="hover:underline">
+                            {g.bestPick}
+                          </Link>
+                          {best && <span className="text-xs text-muted-foreground"> · R{best.round}</span>}
+                        </dd>
+                      </div>
+                    )}
+                    {g.worstPick && (
+                      <div className="flex gap-2">
+                        <dt className="w-12 shrink-0 text-xs font-semibold uppercase tracking-wide text-loss">Worst</dt>
+                        <dd className="min-w-0 truncate">
+                          <Link href={`/players/${playerSlug(g.worstPick)}?season=${season.season}`} className="hover:underline">
+                            {g.worstPick}
+                          </Link>
+                          {worst && <span className="text-xs text-muted-foreground"> · R{worst.round}</span>}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                  {g.notes && <p className="mt-2 text-xs italic text-muted-foreground">“{g.notes}”</p>}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       <div className="flex flex-wrap gap-2 text-xs">
             {Object.entries(POSITION_COLORS).map(([pos, color]) => (
               <span key={pos} className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1">

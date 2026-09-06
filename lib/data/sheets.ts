@@ -37,6 +37,7 @@ export const TRADES_TAB = process.env.TRADES_TAB ?? 'Trades'
 export const PREDICTIONS_TAB = process.env.PREDICTIONS_TAB ?? 'Predictions'
 export const LINEUPS_TAB = process.env.LINEUPS_TAB ?? 'Lineups'
 export const PLAYER_POOL_TAB = process.env.PLAYER_POOL_TAB ?? 'Player Pool'
+export const GRADES_TAB = process.env.GRADES_TAB ?? 'Draft Grades'
 
 function credentials(): { email: string; key: string } | null {
   const json = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
@@ -171,6 +172,14 @@ export async function appendRows(tab: string, rows: (string | number)[][], opts:
     `/values/${encodeURIComponent(`${tab}!A1`)}:append?valueInputOption=${mode}&insertDataOption=INSERT_ROWS`,
     { method: 'POST', body: JSON.stringify({ values: rows }) },
   )
+}
+
+/** Overwrite a block starting at A1 (header included). Rows beyond the block are left alone. */
+export async function writeRange(tab: string, values: (string | number)[][]): Promise<void> {
+  await sheetsFetch(`/values/${encodeURIComponent(`${tab}!A1`)}?valueInputOption=RAW`, {
+    method: 'PUT',
+    body: JSON.stringify({ values }),
+  })
 }
 
 /** Overwrite one row from column A, e.g. a header row. */
