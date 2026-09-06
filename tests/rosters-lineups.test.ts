@@ -257,8 +257,13 @@ function check(label: string, cond: boolean, detail?: unknown) {
   const skippedBoard = [pick(1, 1, 'Paco'), pick(1, 2, 'Chuy'), pick(2, 3, 'Elaf'), pick(2, 2, 'Chuy'), pick(2, 1, 'Paco')] // Elaf R1 skipped
   const fb = nextDraftPick(skippedBoard, order, 3)
   check('skipped: clock falls back to the skipped cell', fb?.round === 1 && fb?.team === 'Elaf' && fb?.overall === 3, fb)
-  check('skipped: only holes behind the count are listed', skippedCells(skippedBoard, order, 3).map((c) => c.overall).join() === '3')
-  check('skipped: clean board -> just the next cell', skippedCells(picks, order, 3).map((c) => c.overall).join() === '5')
+  check('skipped: only holes behind the last filled position are listed', skippedCells(skippedBoard, order, 3).map((c) => c.overall).join() === '3')
+  check('skipped: clean board -> no holes', skippedCells(picks, order, 3).length === 0)
+  // An absent manager: the clock jumps their turns, their cells stay holes
+  const jump = nextDraftPick(skippedBoard, order, 3, undefined, new Set(['Elaf']))
+  check('absent: clock skips the absent manager to the next real pick', jump?.overall === 7 && jump?.team === 'Paco' && jump?.round === 3, jump)
+  const only = nextDraftPick(skippedBoard, order, 3, undefined, new Set(['Elaf', 'Paco', 'Chuy']))
+  check('absent: everyone absent -> nothing on the clock', only === null)
   const full = [...skippedBoard, pick(1, 3, 'Elaf'), pick(3, 1, 'Paco'), pick(3, 2, 'Chuy'), pick(3, 3, 'Elaf')]
   check('skipped: full board -> no next pick', nextDraftPick(full, order, 3) === null)
 

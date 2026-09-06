@@ -27,13 +27,28 @@ export default function LiveDraftPage() {
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   // Traded pick the ledger doesn't know about: send the player to another column/round
+  // Managers who left: the clock jumps their remaining picks (kept on this device)
+  const [absent, setAbsent] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('plff-draft-absent') ?? '[]') as string[]
+    } catch {
+      return []
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem('plff-draft-absent', JSON.stringify(absent))
+    } catch {
+      // storage unavailable — the toggle still works for this visit
+    }
+  }, [absent])
   const [override, setOverride] = useState(false)
   const [toTeam, setToTeam] = useState('')
   const [toRound, setToRound] = useState<number | ''>('')
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch('/api/commish/draft')
+      const res = await fetch(`/api/commish/draft${absent.length ? `?skip=${encodeURIComponent(absent.join(','))}` : ''}`)
       if (res.status === 401) {
         setAuthed(false)
         return
@@ -49,7 +64,7 @@ export default function LiveDraftPage() {
     } catch {
       setError('Network error — check the connection and reload')
     }
-  }, [])
+  }, [absent])
 
   useEffect(() => {
     load()
@@ -170,14 +185,41 @@ export default function LiveDraftPage() {
         </p>
       )}
 
+      <details className="rounded-xl border bg-card px-4 py-3 text-sm shadow-sm" open={absent.length > 0}>
+        <summary className="cursor-pointer select-none font-medium">
+          Skip a manager&apos;s remaining picks
+          {absent.length > 0 && <span className="ml-2 text-xs text-muted-foreground">— skipping {absent.join(', ')}</span>}
+        </summary>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Someone had to leave? Tick them and the clock jumps over their turns. Their empty cells stay listed below to
+          fill in later.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {state.order.map((o) => {
+            const on = absent.includes(o.team)
+            return (
+              <button
+                key={o.slot}
+                type="button"
+                onClick={() => setAbsent((prev) => (on ? prev.filter((t) => t !== o.team) : [...prev, o.team]))}
+                className={`rounded-md border px-2 py-1 text-xs font-medium ${
+                  on ? 'border-amber-500 bg-amber-500/15 line-through' : 'bg-card hover:bg-secondary'
+                }`}
+              >
+                <span className="mr-1.5 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: ownerColor(o.team) }} />
+                {o.team}
+              </button>
+            )
+          })}
+        </div>
+      </details>
+
       {state.skipped && state.skipped.length > 0 && (
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <p className="font-medium">
             {state.skipped.length} skipped pick{state.skipped.length === 1 ? '' : 's'} still empty
           </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Click one to fill it — the clock is already pointing at the first.
-          </p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Click one to fill it.</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {state.skipped.map((c) => (
               <button

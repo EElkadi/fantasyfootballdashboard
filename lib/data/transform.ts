@@ -212,48 +212,63 @@ export function ownerOfPick(overall: number, order: DraftSlot[], owners?: Map<nu
   return order[slot - 1]?.team
 }
 
+/** True when the cell an overall pick would be written to already holds a player. */
+function positionFilled(overall: number, picks: DraftPick[], order: DraftSlot[], owners?: Map<number, string>): boolean {
+  const { round, slot } = snakePosition(overall, order.length)
+  const team = ownerOfPick(overall, order, owners)
+  const ownerSlot = order.find((o) => o.team === team)?.slot ?? slot
+  return picks.some((p) => p.round === round && p.slot === ownerSlot)
+}
+
 /**
- * The pick on the clock, or null once the board is full. Counts players on
- * the board rather than scanning for the first empty snake cell, so a
- * traded pick placed in its new owner's column doesn't stall the clock on
- * the hole it leaves. `slot` is the column the player should be written to —
- * the owner's column, not the snake's. Needs a complete order (1..n).
+ * The pick on the clock: the first snake position whose owner's cell is
+ * still empty, or null once the board is full. Ownership comes from the
+ * trade ledger, so a swapped pick placed in its new owner's column counts
+ * as made and the clock moves on past the hole it leaves. `absent` teams
+ * (someone who had to leave) are skipped over; their empty cells stay
+ * listed by skippedCells() to fill later. `slot` is the column to write to.
+ * Needs a complete order (1..n).
  */
 export function nextDraftPick(
   picks: DraftPick[],
   order: DraftSlot[],
   rounds: number,
   owners?: Map<number, string>,
+  absent?: Set<string>,
 ): NextPick | null {
   const teams = order.length
   if (teams === 0 || order.some((o, i) => o.slot !== i + 1)) return null
-  const taken = new Set(picks.map((p) => `${p.round}|${p.slot}`))
-  const overall = picks.length + 1
-  if (overall <= rounds * teams) {
+  for (let overall = 1; overall <= rounds * teams; overall++) {
+    const team = ownerOfPick(overall, order, owners)
+    if (!team || absent?.has(team)) continue
+    if (positionFilled(overall, picks, order, owners)) continue
     const { round, slot } = snakePosition(overall, teams)
-    const team = ownerOfPick(overall, order, owners) ?? order[slot - 1].team
-    const ownerSlot = order.find((o) => o.team === team)?.slot ?? slot
-    if (!taken.has(`${round}|${ownerSlot}`)) return { round, slot: ownerSlot, overall, team }
+    return { round, slot: order.find((o) => o.team === team)?.slot ?? slot, overall, team }
   }
-  // The count points at a filled cell (picks were skipped and the draft moved
-  // on) or past the end: fall back to the first empty cell in snake order so
-  // the board can still be completed.
-  return skippedCells(picks, order, rounds)[0] ?? null
+  return null
 }
 
-/** Empty cells the snake has already passed (skipped picks), in snake order. */
-export function skippedCells(picks: DraftPick[], order: DraftSlot[], rounds: number): NextPick[] {
+/**
+ * Holes: empty positions the draft has already moved past (a skipped
+ * manager, a mis-entered pick), in snake order. Anything at or after the
+ * last filled position is simply the future, not a hole.
+ */
+export function skippedCells(picks: DraftPick[], order: DraftSlot[], rounds: number, owners?: Map<number, string>): NextPick[] {
   const teams = order.length
-  if (teams === 0) return []
-  const taken = new Set(picks.map((p) => `${p.round}|${p.slot}`))
-  const out: NextPick[] = []
+  if (teams === 0 || picks.length === 0) return []
+  let lastFilled = 0
   for (let overall = 1; overall <= rounds * teams; overall++) {
-    const { round, slot } = snakePosition(overall, teams)
-    if (!taken.has(`${round}|${slot}`)) out.push({ round, slot, overall, team: order[slot - 1].team })
+    if (positionFilled(overall, picks, order, owners)) lastFilled = overall
   }
-  // Only cells behind the count are "skipped"; the rest are simply the future
-  const behind = out.filter((c) => c.overall <= picks.length)
-  return behind.length > 0 ? behind : out.slice(0, 1)
+  const holes: NextPick[] = []
+  for (let overall = 1; overall < lastFilled; overall++) {
+    if (positionFilled(overall, picks, order, owners)) continue
+    const team = ownerOfPick(overall, order, owners)
+    if (!team) continue
+    const { round, slot } = snakePosition(overall, teams)
+    holes.push({ round, slot: order.find((o) => o.team === team)?.slot ?? slot, overall, team })
+  }
+  return holes
 }
 
 /** How many picks before `team` is up (0 = on the clock), or null if they have none left. */

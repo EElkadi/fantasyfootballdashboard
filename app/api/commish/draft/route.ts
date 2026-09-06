@@ -28,7 +28,7 @@ import {
 } from '@/lib/data/transform'
 import { samePlayer } from '@/lib/players'
 import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
-import { LEAGUE } from '@/lib/league'
+import { LEAGUE, resolveOwner } from '@/lib/league'
 import { DraftState } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
@@ -60,7 +60,7 @@ function roundRow(board: string[][], round: number): number {
  * Live state derived from the sheet every time — restart-safe and shareable
  * across devices. The next pick is the first empty snake position.
  */
-async function readState(): Promise<{ state: DraftState; board: string[][] } | { error: string }> {
+async function readState(absent?: Set<string>): Promise<{ state: DraftState; board: string[][] } | { error: string }> {
   const [board, teamsRows, tradeRows] = await Promise.all([
     readTab(DRAFT_TAB).catch((err: unknown) => err),
     readTab(TEAMS_TAB).catch((err: unknown) => err),
@@ -86,17 +86,25 @@ async function readState(): Promise<{ state: DraftState; board: string[][] } | {
   const picks = gridToDraft(board, teamObjects)
   // Pick swaps logged in the Trades tab ("Round 1, Pick 5") move the clock
   const owners = pickTradeOwners(rowsToTrades(toObjects(tradeRows)))
-  const next = nextDraftPick(picks, order, LEAGUE.draftRounds, owners)
-  // Cells the snake passed without a pick (a manager who had to leave)
-  const skipped = picks.length > 0 ? skippedCells(picks, order, LEAGUE.draftRounds).filter((c) => c.overall <= picks.length) : []
+  const next = nextDraftPick(picks, order, LEAGUE.draftRounds, owners, absent)
+  // Cells the draft has moved past without a pick (a manager who had to leave)
+  const skipped = skippedCells(picks, order, LEAGUE.draftRounds, owners)
   return { state: { order, picks, next, rounds: LEAGUE.draftRounds, traded: Array.from(owners.entries()), skipped }, board }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   if (!isCommish()) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
   if (!hasLiveSheet()) return NextResponse.json({ error: 'Google Sheet is not configured' }, { status: 501 })
+  // ?skip=Kenny,Bala — teams whose remaining picks the clock should jump over
+  const skip = new URL(req.url).searchParams.get('skip') ?? ''
+  const absent = new Set(
+    skip
+      .split(',')
+      .map((t) => resolveOwner(t)?.name)
+      .filter((t): t is string => Boolean(t)),
+  )
   const [result, poolRows, gradeRows] = await Promise.all([
-    readState(),
+    readState(absent),
     readTabOrEmpty(PLAYER_POOL_TAB),
     readTabOrEmpty(GRADES_TAB),
   ])
