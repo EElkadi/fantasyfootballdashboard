@@ -1,5 +1,5 @@
 import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, rowsToDraftOrder, orderFromPicks, nextDraftPick, picksUntil, pickTradeOwners, ownerOfPick, skippedCells, rowsToGrades } from '../lib/data/transform'
-import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef } from '../lib/players'
+import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef, missingFromRosters } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
 import { parseRankings, draftedBy, seedFromPool, poolKey, reconcileOrder, moveKey, applyTextImport, orderToText, rosterProgress } from '../lib/draftBoard'
@@ -294,6 +294,22 @@ function check(label: string, cond: boolean, detail?: unknown) {
   check('grades text: picks carry their round', text.includes('✅ Best: Bijan Robinson (R1)') && text.includes('❌ Worst: Some Kicker (R12)') && text.includes('✅ Best: Josh Allen\n'), text)
   check('grades text: note in italics, league average at the end', text.includes('_Chalk, but correct_') && text.endsWith('League average: 6.2/10'), text.slice(-40))
   check('formatGrade: integers stay whole, decimals to one place', formatGrade(7) === '7' && formatGrade(7.4) === '7.4' && formatGrade(7.25) === '7.3' && formatGrade(10) === '10')
+}
+
+// --- Roster sync from the draft board ---
+{
+  const picks = [
+    { round: 1, slot: 5, overall: 5, team: 'Kenny', player: 'Bijan Robinson', nflTeam: 'ATL', position: 'RB' },
+    { round: 2, slot: 5, overall: 20, team: 'Kenny', player: 'Josh Allen', nflTeam: 'BUF', position: 'QB' },
+    { round: 15, slot: 5, overall: 173, team: 'Kenny', player: 'Late Guy', nflTeam: 'NYJ', position: 'WR' },
+    { round: 1, slot: 1, overall: 1, team: 'Paco', player: 'Jahmyr Gibbs', nflTeam: 'DET', position: 'RB' },
+  ] as DraftPick[]
+  const missing = missingFromRosters(picks, { Kenny: ['Bijan Robinson ATL RB', 'Josh Allen (QB, BUF)'], Paco: ['Jahmyr Gibbs'] })
+  check('roster sync: only the absent pick is missing, in cell form', JSON.stringify(missing) === JSON.stringify({ Kenny: ['Late Guy NYJ WR'] }), missing)
+  check('roster sync: team with no column at all -> all picks', missingFromRosters(picks, {}).Paco?.length === 1 && missingFromRosters(picks, {}).Kenny?.length === 3)
+  check('roster sync: nothing missing -> empty', Object.keys(missingFromRosters(picks.slice(3), { Paco: ['Jahmyr Gibbs DET RB'] })).length === 0)
+  const longTeam = missingFromRosters([{ ...picks[3], nflTeam: 'DETROIT LIONS' }] as DraftPick[], {})
+  check('roster sync: a non-code team is left off so the cell round-trips', longTeam.Paco?.[0] === 'Jahmyr Gibbs RB' && samePlayer(cellRef(longTeam.Paco[0]), picks[3]), longTeam)
 }
 
 // --- Roster minimums ---

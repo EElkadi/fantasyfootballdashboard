@@ -1,7 +1,8 @@
 import 'server-only'
-import { ROSTERS_TAB, readTab, updateCell, updateRow, columnLetter } from './sheets'
+import { ROSTERS_TAB, readTab, updateCell, updateRow, batchUpdateCells, columnLetter } from './sheets'
 import { canonTeam } from './transform'
-import { cellRef, samePlayer } from '@/lib/players'
+import { cellRef, missingFromRosters, samePlayer } from '@/lib/players'
+import { DraftPick } from '@/lib/types'
 import { ACTIVE_OWNERS } from '@/lib/league'
 
 /**
@@ -89,4 +90,53 @@ export async function removeFromRoster(team: string, player: string): Promise<st
     }
   }
   return `${player} wasn't found on ${owner}'s roster column — check the ${ROSTERS_TAB} tab`
+}
+
+/**
+ * Make sure every drafted player is on their team's roster column. Picks
+ * write to the roster best-effort, so a rate-limited burst (a rapid fill-in
+ * after the draft) can leave gaps — this closes them in one write.
+ */
+export async function syncRostersFromDraft(
+  picks: DraftPick[],
+): Promise<{ added: Record<string, string[]>; warning: string | null; failed: boolean }> {
+  const grid = await readGrid()
+  if (typeof grid === 'string') return { added: {}, warning: grid, failed: true }
+  const rosters: Record<string, string[]> = {}
+  grid.columns.forEach((col, team) => {
+    rosters[team] = grid.rows.slice(1).map((r) => (r[col] ?? '').trim()).filter(Boolean)
+  })
+  const missing = missingFromRosters(picks, rosters)
+  const cells: { cell: string; value: string }[] = []
+  const added: Record<string, string[]> = {}
+  const noColumn: string[] = []
+  for (const [team, players] of Object.entries(missing)) {
+    const col = grid.columns.get(team)
+    if (col === undefined) {
+      noColumn.push(team)
+      continue
+    }
+    // Fill the column's gaps first (an undo or trade leaves blanks mid-column),
+    // then append below the last occupied row — never over an existing name
+    const empties: number[] = []
+    for (let row = 1; row < grid.rows.length; row++) if (!(grid.rows[row][col] ?? '').trim()) empties.push(row)
+    let next = grid.rows.length
+    for (const player of players) {
+      const row = empties.length ? empties.shift()! : next++
+      cells.push({ cell: `${columnLetter(col + 1)}${row + 1}`, value: player })
+    }
+    added[team] = players
+  }
+  if (cells.length > 0) {
+    try {
+      await batchUpdateCells(ROSTERS_TAB, cells)
+    } catch {
+      return {
+        added: {},
+        warning: `Couldn't write ${cells.length} roster cell${cells.length === 1 ? '' : 's'} — try again`,
+        failed: true,
+      }
+    }
+  }
+  return { added, warning: noColumn.length ? `No roster column for ${noColumn.join(', ')}` : null, failed: false }
 }

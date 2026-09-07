@@ -10,8 +10,8 @@ import {
   columnLetter,
   describeSheetsError,
   hasLiveSheet,
-  readTab,
-  readTabOrEmpty,
+  listTabs,
+  readTabs,
   toObjects,
   updateCell,
 } from '@/lib/data/sheets'
@@ -29,7 +29,7 @@ import {
 import { samePlayer } from '@/lib/players'
 import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
 import { LEAGUE, resolveOwner } from '@/lib/league'
-import { DraftState } from '@/lib/types'
+import { DraftGrade, DraftState, PoolPlayer } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
@@ -60,16 +60,26 @@ function roundRow(board: string[][], round: number): number {
  * Live state derived from the sheet every time — restart-safe and shareable
  * across devices. The next pick is the first empty snake position.
  */
-async function readState(absent?: Set<string>): Promise<{ state: DraftState; board: string[][] } | { error: string }> {
-  const [board, teamsRows, tradeRows] = await Promise.all([
-    readTab(DRAFT_TAB).catch((err: unknown) => err),
-    readTab(TEAMS_TAB).catch((err: unknown) => err),
-    readTabOrEmpty(TRADES_TAB),
-  ])
-  if (!Array.isArray(teamsRows)) return { error: describeSheetsError(teamsRows, TEAMS_TAB) }
-  // A board that can't be read must not be mistaken for a blank one — the
-  // first pick would then fail at write time with a much less useful message
-  if (!Array.isArray(board)) return { error: describeSheetsError(board, DRAFT_TAB) }
+async function readState(
+  absent?: Set<string>,
+): Promise<{ state: DraftState; board: string[][]; pool: PoolPlayer[]; grades: DraftGrade[] } | { error: string }> {
+  // One batched read for everything the tool needs
+  let tabs: Record<string, string[][]>
+  try {
+    // A board that isn't there must not be mistaken for a blank one — the
+    // first pick would otherwise fail at write time with a worse message
+    const existing = await listTabs()
+    for (const required of [DRAFT_TAB, TEAMS_TAB]) {
+      if (!existing.has(required)) return { error: `No tab named "${required}" in the sheet — check the name matches exactly` }
+    }
+    tabs = await readTabs([DRAFT_TAB, TEAMS_TAB, TRADES_TAB, PLAYER_POOL_TAB, GRADES_TAB])
+  } catch (err) {
+    return { error: describeSheetsError(err, DRAFT_TAB) }
+  }
+  const board = tabs[DRAFT_TAB]
+  const teamsRows = tabs[TEAMS_TAB]
+  const tradeRows = tabs[TRADES_TAB]
+  if (teamsRows.length === 0) return { error: `The "${TEAMS_TAB}" tab is missing or empty` }
   const teamObjects = toObjects(teamsRows)
 
   const order = rowsToDraftOrder(teamObjects)
@@ -89,7 +99,12 @@ async function readState(absent?: Set<string>): Promise<{ state: DraftState; boa
   const next = nextDraftPick(picks, order, LEAGUE.draftRounds, owners, absent)
   // Cells the draft has moved past without a pick (a manager who had to leave)
   const skipped = skippedCells(picks, order, LEAGUE.draftRounds, owners)
-  return { state: { order, picks, next, rounds: LEAGUE.draftRounds, traded: Array.from(owners.entries()), skipped }, board }
+  return {
+    state: { order, picks, next, rounds: LEAGUE.draftRounds, traded: Array.from(owners.entries()), skipped },
+    board,
+    pool: rowsToPool(toObjects(tabs[PLAYER_POOL_TAB])),
+    grades: rowsToGrades(toObjects(tabs[GRADES_TAB])),
+  }
 }
 
 /** "Kenny,Bala" or ["Kenny","Bala"] -> canonical owner names */
@@ -103,18 +118,10 @@ export async function GET(req: Request) {
   if (!hasLiveSheet()) return NextResponse.json({ error: 'Google Sheet is not configured' }, { status: 501 })
   // ?skip=Kenny,Bala — teams whose remaining picks the clock should jump over
   const absent = parseAbsent(new URL(req.url).searchParams.get('skip'))
-  const [result, poolRows, gradeRows] = await Promise.all([
-    readState(absent),
-    readTabOrEmpty(PLAYER_POOL_TAB),
-    readTabOrEmpty(GRADES_TAB),
-  ])
+  const result = await readState(absent)
   if ('error' in result) return NextResponse.json(result, { status: 400 })
   // The pool and any saved grades ride along so the page has no second round trip
-  return NextResponse.json({
-    ...result.state,
-    pool: rowsToPool(toObjects(poolRows)),
-    grades: rowsToGrades(toObjects(gradeRows)),
-  })
+  return NextResponse.json({ ...result.state, pool: result.pool, grades: result.grades })
 }
 
 export async function POST(req: Request) {
