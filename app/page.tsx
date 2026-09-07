@@ -8,7 +8,8 @@ import { simulateSeason } from '@/lib/data/simulate'
 import { AWARD_META, weeklyAwards } from '@/lib/data/awards'
 import { pairsOf } from '@/lib/data/transform'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const season = await getDefaultSeason()

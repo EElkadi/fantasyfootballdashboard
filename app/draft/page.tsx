@@ -10,7 +10,8 @@ import { CopyButton } from '@/components/league/CopyButton'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 import { TeamMark } from '@/components/league/TeamMark'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Draft Board' }
 
 export default async function DraftPage({ searchParams }: { searchParams: { season?: string } }) {

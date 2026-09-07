@@ -5,7 +5,8 @@ import { MatchupCard } from '@/components/league/MatchupCard'
 import { TeamMark } from '@/components/league/TeamMark'
 import { LEAGUE } from '@/lib/league'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Matchups' }
 
 export default async function MatchupsPage({

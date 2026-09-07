@@ -1,4 +1,4 @@
-import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, rowsToDraftOrder, orderFromPicks, nextDraftPick, picksUntil, pickTradeOwners, ownerOfPick, skippedCells, rowsToGrades } from '../lib/data/transform'
+import { rowsToLineups, rowsToTeamNames, rowsToPool, canonSlot, parseDraftCell, rowsToDraftOrder, orderFromPicks, nextDraftPick, picksUntil, pickTradeOwners, ownerOfPick, skippedCells, rowsToGrades, gridToRosters } from '../lib/data/transform'
 import { searchPool, bestAvailable, enrichFromPool, poolIndex, formatPoolPlayer, playerSlug, takenKeys, samePlayer, cellRef, missingFromRosters } from '../lib/players'
 import { parseSubmission } from '../lib/parser/parse'
 import { buildRosterView, describeAcquisition, freeAgents } from '../lib/data/rosterView'
@@ -310,6 +310,15 @@ function check(label: string, cond: boolean, detail?: unknown) {
   check('roster sync: nothing missing -> empty', Object.keys(missingFromRosters(picks.slice(3), { Paco: ['Jahmyr Gibbs DET RB'] })).length === 0)
   const longTeam = missingFromRosters([{ ...picks[3], nflTeam: 'DETROIT LIONS' }] as DraftPick[], {})
   check('roster sync: a non-code team is left off so the cell round-trips', longTeam.Paco?.[0] === 'Jahmyr Gibbs RB' && samePlayer(cellRef(longTeam.Paco[0]), picks[3]), longTeam)
+}
+
+// --- Rosters tab parsing ---
+{
+  const plain = gridToRosters([['Paco', 'Zeus', 'Notes'], ['Bijan Robinson ATL RB', 'Josh Allen BUF QB', 'remember to add K'], ['', 'Romeo Doubs GB WR', '']])
+  check('rosters grid: owner columns only, aliases canonical, blanks dropped', plain.Paco?.length === 1 && plain.Chuy?.length === 2 && !('Notes' in plain), plain)
+  const titled = gridToRosters([['2026 Rosters', '', ''], ['Paco', 'Chuy', 'Elaf'], ['A', 'B', 'C']])
+  check('rosters grid: a title row above the headers is skipped', titled.Paco?.[0] === 'A' && titled.Elaf?.[0] === 'C', titled)
+  check('rosters grid: no owner header row -> empty', Object.keys(gridToRosters([['x', 'y'], ['1', '2']])).length === 0)
 }
 
 // --- Roster minimums ---

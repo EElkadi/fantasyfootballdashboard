@@ -7,7 +7,8 @@ import { playerSlug } from '@/lib/players'
 import { LineupEntry, SLOTS, Slot, TeamLineup } from '@/lib/types'
 import { TeamMark } from '@/components/league/TeamMark'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Lineups' }
 
 /** ISO timestamps become "Thu 7:10 PM"; anything hand-typed shows as written. */

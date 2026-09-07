@@ -23,6 +23,7 @@ import {
   rowsToTeamNames,
   rowsToTrades,
   rowsToWaivers,
+  gridToRosters,
   wideRowToMatchup,
 } from './transform'
 import { computeStandings } from './standings'
@@ -219,15 +220,36 @@ export function availableSeasons(): number[] {
 /** Last successful live load per season, so a Sheets outage shows stale-but-real data instead of blanks. */
 const lastGoodSeason = new Map<number, SeasonData>()
 
+/** Whether this instance is currently serving a fallback instead of the live sheet. */
+export interface DataHealth {
+  degraded: boolean
+  /** When the live read last failed */
+  failedAt?: string
+  /** What is being shown instead */
+  serving?: 'last-good' | 'archive'
+  reason?: string
+}
+let health: DataHealth = { degraded: false }
+export function getDataHealth(): DataHealth {
+  return health
+}
+
 export async function getSeason(season: number = CURRENT_SEASON): Promise<SeasonData> {
   if (season === CURRENT_SEASON && hasLiveSheet()) {
     try {
       const live = await cachedLive(season)
       lastGoodSeason.set(season, live)
+      health = { degraded: false }
       return live
     } catch (err) {
       console.error('Live sheet read failed:', err)
       const prev = lastGoodSeason.get(season)
+      health = {
+        degraded: true,
+        failedAt: new Date().toISOString(),
+        serving: prev ? 'last-good' : 'archive',
+        reason: err instanceof Error ? err.message.slice(0, 160) : String(err),
+      }
       if (prev) return prev
     }
   }
@@ -275,23 +297,6 @@ export async function getPredictions(season: number = CURRENT_SEASON): Promise<P
     }
   }
   return rowsToPredictions(await readCsv(season, 'predictions.csv'))
-}
-
-/** Rosters tab (one column per team) -> team -> raw player cells. */
-export function gridToRosters(rows: string[][]): Record<string, string[]> {
-  if (rows.length < 2) return {}
-  const header = rows[0]
-  const rosters: Record<string, string[]> = {}
-  header.forEach((team, col) => {
-    // Only owner columns count — a "Notes" column must not become a team
-    const owner = resolveOwner(team)?.name
-    if (!owner) return
-    rosters[owner] = rows
-      .slice(1)
-      .map((r) => (r[col] ?? '').trim())
-      .filter(Boolean)
-  })
-  return rosters
 }
 
 const cachedRosters = unstable_cache(async () => gridToRosters(await readTab(ROSTERS_TAB)), ['rosters'], {

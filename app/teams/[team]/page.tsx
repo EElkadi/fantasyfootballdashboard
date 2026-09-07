@@ -9,7 +9,8 @@ import { ScoresChart, SeriesPoint } from '@/components/league/ScoresChart'
 import { playerSlug } from '@/lib/players'
 import { TeamMark } from '@/components/league/TeamMark'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 
 export function generateMetadata({ params }: { params: { team: string } }): Metadata {
   const owner = resolveOwner(decodeURIComponent(params.team))

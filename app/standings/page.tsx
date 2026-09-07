@@ -7,7 +7,8 @@ import { simulateSeason } from '@/lib/data/simulate'
 import { playoffClinchStatus } from '@/lib/data/clinch'
 import { CURRENT_SEASON, LEAGUE } from '@/lib/league'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Standings' }
 
 export default async function StandingsPage({ searchParams }: { searchParams: { season?: string } }) {

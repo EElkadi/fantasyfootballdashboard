@@ -7,7 +7,8 @@ import { ACTIVE_OWNERS, CURRENT_SEASON, HONORS, LEAGUE, PREDICTIONS_LOCK_AT, pre
 import { PredictionForm } from '@/components/league/PredictionForm'
 import { TeamMark } from '@/components/league/TeamMark'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Predictions' }
 
 export default async function PredictionsPage({ searchParams }: { searchParams: { season?: string } }) {

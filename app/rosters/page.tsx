@@ -7,7 +7,8 @@ import { positionColor } from '@/lib/players'
 import { PositionLists } from '@/components/league/PositionLists'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Rosters' }
 
 export default async function RostersPage() {
