@@ -9,7 +9,8 @@ import { weeklyAwards } from '@/lib/data/awards'
 import { recapText } from '@/lib/recap/text'
 import { pairsOf } from '@/lib/data/transform'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 
 export function generateMetadata({ params }: { params: { week: string } }): Metadata {
   return { title: `Week ${params.week} Recap` }

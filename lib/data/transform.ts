@@ -547,3 +547,34 @@ export function rowsToGrades(rows: Record<string, string>[]): DraftGrade[] {
   }
   return grades.sort((a, b) => b.grade - a.grade || a.team.localeCompare(b.team))
 }
+
+/**
+ * Rosters tab (one column per team, owner names as headers) -> team -> raw
+ * player cells. The header row is wherever the owner names are — a title
+ * row above them doesn't break it. Only real owners become columns.
+ */
+export function gridToRosters(rows: string[][]): Record<string, string[]> {
+  // The header is the row naming the most owners (at least two) — so a
+  // title row that happens to mention one manager can't be mistaken for it
+  let headerIdx = -1
+  let best = 1
+  rows.slice(0, 10).forEach((r, i) => {
+    const n = r.filter((c) => resolveOwner(c ?? '')).length
+    if (n > best) {
+      best = n
+      headerIdx = i
+    }
+  })
+  if (headerIdx < 0) return {}
+  const header = rows[headerIdx]
+  const rosters: Record<string, string[]> = {}
+  header.forEach((team, col) => {
+    const owner = resolveOwner(team ?? '')?.name
+    if (!owner) return
+    rosters[owner] = rows
+      .slice(headerIdx + 1)
+      .map((r) => (r[col] ?? '').trim())
+      .filter(Boolean)
+  })
+  return rosters
+}

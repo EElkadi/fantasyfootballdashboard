@@ -7,7 +7,8 @@ import { positionColor } from '@/lib/players'
 import { ScoresChart, SeriesPoint } from '@/components/league/ScoresChart'
 import { TeamMark } from '@/components/league/TeamMark'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   return { title: decodeURIComponent(params.slug).replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) }

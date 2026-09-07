@@ -7,7 +7,8 @@ import { playerSlug, positionColor } from '@/lib/players'
 import { Trade } from '@/lib/types'
 import { TeamMark } from '@/components/league/TeamMark'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Transactions' }
 
 export default async function WaiversPage({ searchParams }: { searchParams: { season?: string } }) {

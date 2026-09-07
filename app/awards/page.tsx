@@ -4,7 +4,8 @@ import { getDefaultSeason } from '@/lib/data'
 import { AWARD_KEYS, AWARD_META, seasonAwards, tallyAwards } from '@/lib/data/awards'
 import { TeamMark } from '@/components/league/TeamMark'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Awards' }
 
 export default async function AwardsPage() {

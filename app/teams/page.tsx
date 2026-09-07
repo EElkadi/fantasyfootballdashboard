@@ -3,7 +3,8 @@ import { Metadata } from 'next'
 import { getDefaultSeason } from '@/lib/data'
 import { ACTIVE_OWNERS, OWNERS, ownerColor, teamNameOf } from '@/lib/league'
 
-export const revalidate = 60
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Teams' }
 
 export default async function TeamsPage() {

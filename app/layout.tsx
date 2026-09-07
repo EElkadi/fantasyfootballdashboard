@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/components/ui/theme-provider'
 import { Metadata, Viewport } from 'next'
 import { Analytics } from '@vercel/analytics/react'
 import { SiteNav } from '@/components/league/SiteNav'
+import { DataHealthNotice } from '@/components/league/DataHealthNotice'
 import { LEAGUE } from '@/lib/league'
 
 const inter = Inter({
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <div className="flex min-h-screen flex-col">
             <SiteNav />
+            <DataHealthNotice />
             <main className="flex-1">{children}</main>
             <footer className="border-t py-6">
               <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-4 text-xs text-muted-foreground">

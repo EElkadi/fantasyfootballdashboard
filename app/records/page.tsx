@@ -6,7 +6,8 @@ import { HONORS, resolveOwner } from '@/lib/league'
 import { playerSlug } from '@/lib/players'
 import { TeamMark } from '@/components/league/TeamMark'
 
-export const revalidate = 300
+// Rendered per request from the 60-second data cache — never a build-time snapshot
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Records' }
 
 export default async function RecordsPage() {
