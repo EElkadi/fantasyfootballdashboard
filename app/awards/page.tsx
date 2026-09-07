@@ -3,6 +3,7 @@ import { Metadata } from 'next'
 import { getDefaultSeason } from '@/lib/data'
 import { AWARD_KEYS, AWARD_META, seasonAwards, tallyAwards } from '@/lib/data/awards'
 import { TeamMark } from '@/components/league/TeamMark'
+import { PageHeader } from '@/components/league/PageHeader'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -16,12 +17,7 @@ export default async function AwardsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Weekly Awards · {season.season}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Handed out automatically from the box scores every week. Nobody votes; nobody is safe.
-        </p>
-      </div>
+      <PageHeader title="Weekly Awards" description={`${season.season} · handed out automatically from the box scores every week. Nobody votes; nobody is safe.`} />
 
       {awards.length === 0 ? (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">

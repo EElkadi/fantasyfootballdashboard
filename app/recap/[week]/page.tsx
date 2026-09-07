@@ -8,6 +8,7 @@ import { RecapShare, RecapData } from '@/components/league/RecapShare'
 import { weeklyAwards } from '@/lib/data/awards'
 import { recapText } from '@/lib/recap/text'
 import { pairsOf } from '@/lib/data/transform'
+import { PageHeader } from '@/components/league/PageHeader'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -76,18 +77,16 @@ export default async function RecapPage({ params }: { params: { week: string } }
   })
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Week {week} recap card</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Rendered from the box scores — share the image, or copy the text version straight into the league chat.
-          </p>
-        </div>
-        <Link href={`/matchups?week=${week}`} className="text-sm font-medium text-primary hover:underline">
-          Week {week} box scores →
-        </Link>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <PageHeader
+        title={`Week ${week} recap card`}
+        description="Rendered from the box scores — share the image, or copy the text version straight into the league chat."
+        actions={
+          <Link href={`/matchups?week=${week}`} className="text-sm font-medium text-primary hover:underline">
+            Week {week} box scores →
+          </Link>
+        }
+      />
       <RecapShare data={data} text={text} />
     </div>
   )

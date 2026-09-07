@@ -72,4 +72,14 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+  /* Horizontal scroller with no scrollbar and a soft fade at the right edge
+     so overflowing items taper off instead of being cut mid-letter. */
+  .scroll-fade-x {
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(to right, black calc(100% - 2.5rem), transparent);
+  }
+  .scroll-fade-x::-webkit-scrollbar {
+    display: none;
+  }
 }

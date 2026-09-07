@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Metadata } from 'next'
 import { getDefaultSeason } from '@/lib/data'
 import { ACTIVE_OWNERS, OWNERS, ownerColor, teamNameOf } from '@/lib/league'
+import { PageHeader } from '@/components/league/PageHeader'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -11,11 +12,8 @@ export default async function TeamsPage() {
   const season = await getDefaultSeason()
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Teams</h1>
-        <p className="mt-1 text-sm text-muted-foreground">All twelve franchises.</p>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <PageHeader title="Teams" description="All twelve franchises." />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {ACTIVE_OWNERS.map((o) => {
           const s = season.standings.find((x) => x.team === o.name)

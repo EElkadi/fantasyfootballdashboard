@@ -6,6 +6,7 @@ import { leaguePasscodeConfigured } from '@/lib/commish/auth'
 import { ACTIVE_OWNERS, CURRENT_SEASON, HONORS, LEAGUE, PREDICTIONS_LOCK_AT, predictionsLocked } from '@/lib/league'
 import { PredictionForm } from '@/components/league/PredictionForm'
 import { TeamMark } from '@/components/league/TeamMark'
+import { PageHeader } from '@/components/league/PageHeader'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -41,14 +42,11 @@ export default async function PredictionsPage({ searchParams }: { searchParams: 
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Preseason Predictions · {seasonYear}</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          {locked
-            ? 'Ballots are locked. Every week the table below re-scores them against the real standings — lowest error wins bragging rights, and there is nowhere to hide.'
-            : `Rank all twelve, call the champion and the Turd, drop a bold take. Ballots hide until kickoff, then get scored against the standings all season. Locks ${lockText}.`}
-        </p>
-      </div>
+      <PageHeader title="Preseason Predictions" description={
+          locked
+            ? `${seasonYear} · ballots are locked. Every week the table below re-scores them against the real standings — lowest error wins bragging rights, and there is nowhere to hide.`
+            : `${seasonYear} · rank all twelve, call the champion and the Turd, drop a bold take. Ballots hide until kickoff, then get scored against the standings all season. Locks ${lockText}.`
+        } />
 
       {!locked &&
         (hasLiveSheet() && leaguePasscodeConfigured() ? (

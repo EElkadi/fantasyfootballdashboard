@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { HONORS, resolveOwner } from '@/lib/league'
 import { playerSlug } from '@/lib/players'
 import { TeamMark } from '@/components/league/TeamMark'
+import { PageHeader } from '@/components/league/PageHeader'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -19,13 +20,7 @@ export default async function RecordsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Record Book</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Every number below comes from the actual box scores{span ? ` (${span})` : ''}. History grows as more
-          seasons are archived.
-        </p>
-      </div>
+      <PageHeader title="Record Book" description={`Every number below comes from the actual box scores${span ? ` (${span})` : ''}. History grows as more seasons are archived.`} />
 
       {HONORS.length > 0 && (
         <section className="space-y-3">
