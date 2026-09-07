@@ -6,6 +6,8 @@ import { computePot, CURRENT_SEASON } from '@/lib/league'
 import { playerSlug, positionColor } from '@/lib/players'
 import { Trade } from '@/lib/types'
 import { TeamMark } from '@/components/league/TeamMark'
+import { PageHeader } from '@/components/league/PageHeader'
+import { SeasonTabs } from '@/components/league/SeasonTabs'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -34,28 +36,12 @@ export default async function WaiversPage({ searchParams }: { searchParams: { se
   const weeks = Array.from(new Set(waivers.map((m) => m.week))).sort((a, b) => a - b)
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Transactions</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {season.season} · waiver fees start at $20 and climb $20 per add — every dollar goes into the pot.
-          </p>
-        </div>
-        <div className="flex gap-1.5 text-sm">
-          {availableSeasons().map((s) => (
-            <Link
-              key={s}
-              href={`/waivers?season=${s}`}
-              className={`rounded-md px-2.5 py-1 font-medium ${
-                s === season.season ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {s}
-            </Link>
-          ))}
-        </div>
-      </div>
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
+      <PageHeader
+        title="Transactions"
+        description={`${season.season} · waiver fees start at $20 and climb $20 per add — every dollar goes into the pot.`}
+        actions={<SeasonTabs seasons={availableSeasons()} current={season.season} href={(s) => `/waivers?season=${s}`} />}
+      />
 
       <section className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border bg-card p-4 shadow-sm">

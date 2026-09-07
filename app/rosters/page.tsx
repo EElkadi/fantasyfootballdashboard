@@ -6,6 +6,7 @@ import { CURRENT_SEASON, LEAGUE, ownerColor, teamNameOf } from '@/lib/league'
 import { positionColor } from '@/lib/players'
 import { PositionLists } from '@/components/league/PositionLists'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
+import { PageHeader } from '@/components/league/PageHeader'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -26,18 +27,15 @@ export default async function RostersPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
       {liveDraft && <AutoRefresh seconds={30} />}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Rosters · {season.season}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every team&apos;s current roster, straight from the league sheet. Draft picks, waiver adds and trades all
-            land here as they happen.
-          </p>
-        </div>
-        <Link href="/waivers" className="text-sm font-medium text-primary hover:underline">
-          Transaction log →
-        </Link>
-      </div>
+      <PageHeader
+        title="Rosters"
+        description={`${season.season} · every team's current roster, straight from the league sheet. Draft picks, waiver adds and trades all land here as they happen.`}
+        actions={
+          <Link href="/waivers" className="text-sm font-medium text-primary hover:underline">
+            Transaction log →
+          </Link>
+        }
+      />
 
       {total === 0 ? (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">

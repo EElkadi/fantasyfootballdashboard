@@ -78,9 +78,9 @@ export default async function HomePage() {
               Season tally →
             </Link>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {mvp && (
-              <AwardCard title="⭐ MVP">
+              <AwardCard title="⭐ MVP" className="col-span-2">
                 <p className="truncate font-semibold">{mvp.player}</p>
                 <p className="tabular mt-1 text-2xl font-bold">{mvp.score} pts</p>
                 <p className="text-xs text-muted-foreground">
@@ -198,9 +198,9 @@ function PotCard({ isArchive, waiverFees }: { isArchive: boolean; waiverFees: nu
   )
 }
 
-function AwardCard({ title, children }: { title: string; children: React.ReactNode }) {
+function AwardCard({ title, className = '', children }: { title: string; className?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
+    <div className={`min-w-0 rounded-xl border bg-card p-4 shadow-sm ${className}`}>
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
       <div className="mt-2">{children}</div>
     </div>

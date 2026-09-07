@@ -6,6 +6,8 @@ import { TeamMark } from '@/components/league/TeamMark'
 import { simulateSeason } from '@/lib/data/simulate'
 import { playoffClinchStatus } from '@/lib/data/clinch'
 import { CURRENT_SEASON, LEAGUE } from '@/lib/league'
+import { PageHeader } from '@/components/league/PageHeader'
+import { SeasonTabs } from '@/components/league/SeasonTabs'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -23,27 +25,11 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Standings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {season.season} season · through week {season.lastCompletedWeek}
-          </p>
-        </div>
-        <div className="flex gap-1.5 text-sm">
-          {availableSeasons().map((s) => (
-            <Link
-              key={s}
-              href={`/standings?season=${s}`}
-              className={`rounded-md px-2.5 py-1 font-medium ${
-                s === season.season ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {s}
-            </Link>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title="Standings"
+        description={`${season.season} season · through week ${season.lastCompletedWeek}`}
+        actions={<SeasonTabs seasons={availableSeasons()} current={season.season} href={(s) => `/standings?season=${s}`} />}
+      />
 
       {season.standings.length === 0 ? (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">

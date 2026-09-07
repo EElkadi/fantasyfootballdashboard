@@ -62,7 +62,7 @@ export function SiteNav() {
           <span className="hidden sm:inline">Premier League</span>
           <span className="sm:hidden">PLFF</span>
         </Link>
-        <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto">
+        <nav className="scroll-fade-x flex flex-1 items-center gap-0.5 overflow-x-auto">
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} className={linkClass(active(l.href))}>
               {l.label}

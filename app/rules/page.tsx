@@ -1,18 +1,14 @@
 import { Metadata } from 'next'
 import { CONSTITUTION, SCORING_TABLES } from '@/lib/rules'
 import { LEAGUE } from '@/lib/league'
+import { PageHeader } from '@/components/league/PageHeader'
 
 export const metadata: Metadata = { title: 'Rules & Scoring' }
 
 export default function RulesPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-10 px-4 py-8">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Constitution & Scoring</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {LEAGUE.name} · since {LEAGUE.since}. All stats based on ESPN.com.
-        </p>
-      </div>
+      <PageHeader title="Constitution & Scoring" description={`${LEAGUE.name} · since ${LEAGUE.since}. All stats based on ESPN.com.`} />
 
       <section className="space-y-4">
         <h2 className="text-2xl font-bold tracking-tight">Scoring</h2>

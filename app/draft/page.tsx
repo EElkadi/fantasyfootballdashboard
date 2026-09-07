@@ -9,6 +9,8 @@ import { draftGradesText, formatGrade } from '@/lib/recap/text'
 import { CopyButton } from '@/components/league/CopyButton'
 import { AutoRefresh } from '@/components/league/AutoRefresh'
 import { TeamMark } from '@/components/league/TeamMark'
+import { PageHeader } from '@/components/league/PageHeader'
+import { SeasonTabs } from '@/components/league/SeasonTabs'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -43,47 +45,41 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
   for (const p of draft) teamOf.set(p.slot, p.team)
   const pick = (round: number, slot: number) => draft.find((p) => p.round === round && p.slot === slot)
 
+  const hasBoard = draft.length > 0
+
   return (
-    <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-8">
+    <div className="mx-auto max-w-[1400px] space-y-6 py-8">
       {liveDraft && <AutoRefresh seconds={20} />}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">
+      <div className="mx-auto max-w-6xl space-y-6 px-4">
+      <PageHeader
+        title={
+          <>
             Draft Board
             {liveDraft && (
               <span className="ml-3 inline-flex items-center gap-1.5 align-middle text-sm font-semibold text-win">
                 <span className="h-2 w-2 animate-pulse rounded-full bg-[hsl(var(--win))]" /> live
               </span>
             )}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          </>
+        }
+        description={
+          <>
             {season.season} · {draft.length} picks · click any player for their season ·{' '}
             <Link href="/my-board" className="font-medium text-primary hover:underline">
               my draft board →
             </Link>
-          </p>
-        </div>
-        <div className="flex gap-1.5 text-sm">
-          {availableSeasons().map((s) => (
-            <Link
-              key={s}
-              href={`/draft?season=${s}`}
-              className={`rounded-md px-2.5 py-1 font-medium ${
-                s === season.season ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {s}
-            </Link>
-          ))}
-        </div>
-      </div>
+          </>
+        }
+        actions={<SeasonTabs seasons={availableSeasons()} current={season.season} href={(s) => `/draft?season=${s}`} />}
+      />
 
-      {draft.length === 0 ? (
+      {!hasBoard && (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
           No draft board for {season.season} yet — it appears here once the Final Draft Board tab is filled in after
           draft night.
         </p>
-      ) : (
+      )}
+      {hasBoard && (
         <>
           {next && (
         <div
@@ -175,7 +171,13 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
               </span>
             ))}
           </div>
+        </>
+      )}
+      </div>
 
+      {hasBoard && (
+        <>
+          <div className="px-4">
           <div className="overflow-x-auto rounded-xl border bg-card shadow-sm">
             <table className="w-full border-collapse text-xs">
               <thead>
@@ -234,9 +236,10 @@ export default async function DraftPage({ searchParams }: { searchParams: { seas
               </tbody>
             </table>
           </div>
+          </div>
 
           {value && (
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="mx-auto grid max-w-6xl gap-6 px-4 md:grid-cols-2">
               <ValueList
                 title="Steals of the draft"
                 subtitle="Outscored their draft slot the most"

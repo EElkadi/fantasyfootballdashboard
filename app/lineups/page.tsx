@@ -5,7 +5,10 @@ import { pairsOf } from '@/lib/data/transform'
 import { LEAGUE } from '@/lib/league'
 import { playerSlug } from '@/lib/players'
 import { LineupEntry, SLOTS, Slot, TeamLineup } from '@/lib/types'
+import { PageHeader } from '@/components/league/PageHeader'
+import { SeasonTabs } from '@/components/league/SeasonTabs'
 import { TeamMark } from '@/components/league/TeamMark'
+import { WeekNav } from '@/components/league/WeekNav'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -63,78 +66,63 @@ export default async function LineupsPage({ searchParams }: { searchParams: { we
     return { team, submitted, scored, lastUpdate }
   }
 
-  const allWeeks = new Set<number>([
+  const weeks = [
     ...season.weeks,
     ...season.lineups.map((l) => l.week),
     ...season.schedule.filter((s) => s.week <= LEAGUE.regularSeasonWeeks).map((s) => s.week),
-  ])
-  const weekLink = (w: number) => `/lineups?week=${w}${seasonParam ? `&season=${seasonParam}` : ''}`
+  ]
+  const seasonQuery = seasonParam ? `&season=${seasonParam}` : ''
+  const hasMismatch = pairs.some(([a, b]) => [a, b].filter(Boolean).some((t) => mismatches(side(t)) > 0))
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Lineups</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <PageHeader
+        title="Lineups"
+        description={
+          <>
             {season.season} · week {week}
             {scheduleWeek?.label ? ` · ${scheduleWeek.label}` : ''} — who&apos;s starting whom, as submitted in the
             chat. Partial lineups show what&apos;s in so far.
-          </p>
-        </div>
-        <div className="flex gap-1.5 text-sm">
-          {availableSeasons().length > 1 &&
-            availableSeasons().map((s) => (
-              <Link
-                key={s}
-                href={`/lineups?season=${s}`}
-                className={`rounded-md px-2.5 py-1 font-medium ${
-                  s === season.season ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {s}
-              </Link>
-            ))}
-        </div>
-      </div>
+          </>
+        }
+        actions={<SeasonTabs seasons={availableSeasons()} current={season.season} href={(s) => `/lineups?season=${s}`} />}
+      />
 
-      <nav className="flex flex-wrap gap-1.5">
-        {Array.from(allWeeks)
-          .sort((a, b) => a - b)
-          .map((w) => (
-            <Link
-              key={w}
-              href={weekLink(w)}
-              className={`tabular rounded-md px-2.5 py-1 text-sm font-medium transition-colors ${
-                w === week
-                  ? 'bg-primary text-primary-foreground'
-                  : w <= latest
-                    ? 'bg-secondary text-foreground hover:bg-secondary/70'
-                    : 'border border-dashed text-muted-foreground hover:bg-secondary/50'
-              }`}
-            >
-              {w}
-            </Link>
-          ))}
-      </nav>
+      <WeekNav weeks={weeks} current={week} latest={latest} href={(w) => `/lineups?week=${w}${seasonQuery}`} />
 
       {pairs.length === 0 ? (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Nothing scheduled for week {week}.</p>
       ) : (
-        <div className="space-y-3">
-          {pairs.map(([a, b]) => (
-            <LineupCard key={a} left={side(a)} right={b ? side(b) : null} season={season.season} />
-          ))}
-          <p className="text-xs text-muted-foreground">
-            ⚠ marks a submitted starter who differs from the player scored in the box score.{' '}
-            <Link href={`/matchups?week=${week}${seasonParam ? `&season=${seasonParam}` : ''}`} className="underline">
-              Box scores →
-            </Link>
-          </p>
-        </div>
+        <>
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            {pairs.map(([a, b]) => (
+              <LineupCard key={a} left={side(a)} right={b ? side(b) : null} season={season.season} />
+            ))}
+          </div>
+          {hasMismatch && (
+            <p className="text-xs text-muted-foreground">
+              <span className="text-amber-600 dark:text-amber-400">⚠</span> marks a submitted starter who differs from
+              the player scored in the box score.{' '}
+              <Link href={`/matchups?week=${week}${seasonQuery}`} className="underline">
+                Box scores →
+              </Link>
+            </p>
+          )}
+        </>
       )}
     </div>
   )
 }
+
+const scoredIn = (s: SideView, slot: Slot) => s.scored?.players.find((p) => p.slot === slot)?.player
+
+const isMismatch = (s: SideView, slot: Slot) => {
+  const sub = s.submitted[slot]
+  const scored = scoredIn(s, slot)
+  return Boolean(sub && scored && playerSlug(sub.player) !== playerSlug(scored))
+}
+
+const mismatches = (s: SideView) => SLOTS.filter((slot) => isMismatch(s, slot)).length
 
 function Status({ s }: { s: SideView }) {
   const n = Object.keys(s.submitted).length
@@ -147,70 +135,76 @@ function Status({ s }: { s: SideView }) {
   }
   const full = n >= SLOTS.length
   return (
-    <span className="flex flex-wrap items-center gap-1.5 text-xs">
+    <>
       <span
-        className={`rounded px-1.5 py-0.5 font-medium ${
+        className={`rounded px-1.5 py-0.5 text-xs font-medium ${
           full ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400' : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
         }`}
       >
         {full ? 'complete' : `partial ${n}/${SLOTS.length}`}
       </span>
-      {s.lastUpdate && <span className="text-muted-foreground">{fmtTime(s.lastUpdate)}</span>}
-    </span>
+      {s.lastUpdate && <span className="text-xs text-muted-foreground">{fmtTime(s.lastUpdate)}</span>}
+    </>
   )
 }
 
-function Cell({ s, slot, season }: { s: SideView | null; slot: Slot; season: number }) {
-  if (!s) return <td className="py-1 pl-4" />
-  const sub = s.submitted[slot]
-  const scored = s.scored?.players.find((p) => p.slot === slot)?.player
-  const name = sub?.player ?? scored
-  if (!name) return <td className="py-1 pl-4 pr-2 text-muted-foreground">—</td>
-  const mismatch = sub && scored && playerSlug(sub.player) !== playerSlug(scored)
+/** One team's header: mark on the outside edge, status under it, mirrored on the right. */
+function SideHeader({ s, end }: { s: SideView | null; end: boolean }) {
+  if (!s) return <div />
+  const edge = end ? 'items-end text-right' : 'items-start'
   return (
-    <td className={`py-1 pl-4 pr-2 ${sub ? '' : 'text-muted-foreground'}`}>
+    <div className={`flex min-w-0 flex-col gap-1.5 ${edge}`}>
+      <TeamMark team={s.team} className={end ? 'flex-row-reverse' : ''} />
+      <div className={`flex flex-wrap items-center gap-1.5 ${end ? 'justify-end' : ''}`}>
+        <Status s={s} />
+      </div>
+    </div>
+  )
+}
+
+/** One team's starter at a slot, aligned to the card's outside edge. */
+function Starter({ s, slot, season, end }: { s: SideView | null; slot: Slot; season: number; end: boolean }) {
+  const align = end ? 'text-right' : ''
+  if (!s) return <div className={align} />
+  const sub = s.submitted[slot]
+  const scored = scoredIn(s, slot)
+  const name = sub?.player ?? scored
+  if (!name) return <div className={`text-muted-foreground ${align}`}>—</div>
+  return (
+    <div className={`min-w-0 ${align} ${sub ? '' : 'text-muted-foreground'}`}>
       <Link href={`/players/${playerSlug(name)}?season=${season}`} className="hover:underline">
         {name}
       </Link>
-      {mismatch && (
-        <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400" title={`Scored as ${scored}`}>
+      {isMismatch(s, slot) && (
+        <p className="text-xs text-amber-600 dark:text-amber-400" title={`Scored as ${scored}`}>
           ⚠ scored {scored}
-        </span>
+        </p>
       )}
-    </td>
+    </div>
   )
 }
 
+/**
+ * Head-to-head card: the left team reads left-to-right from the left edge, the
+ * right team mirrors it from the right edge, with the slot label down the
+ * middle — the same shape as the scoreboard people already know.
+ */
 function LineupCard({ left, right, season }: { left: SideView; right: SideView | null; season: number }) {
   return (
     <div className="rounded-xl border bg-card shadow-sm">
-      <div className="grid grid-cols-2 gap-3 border-b px-4 py-3">
-        {[left, right].map((s, i) =>
-          s ? (
-            <div key={s.team} className={`space-y-1 ${i === 1 ? 'text-right' : ''}`}>
-              <div className={`flex ${i === 1 ? 'justify-end' : ''}`}>
-                <TeamMark team={s.team} />
-              </div>
-              <div className={`flex ${i === 1 ? 'justify-end' : ''}`}>
-                <Status s={s} />
-              </div>
-            </div>
-          ) : (
-            <div key="empty" />
-          ),
-        )}
+      <div className="grid grid-cols-2 gap-4 border-b px-4 py-3">
+        <SideHeader s={left} end={false} />
+        <SideHeader s={right} end />
       </div>
-      <table className="w-full text-sm">
-        <tbody>
-          {SLOTS.map((slot) => (
-            <tr key={slot} className="border-t border-border/40 first:border-0">
-              <td className="w-12 py-1 pl-4 pr-2 text-xs font-medium text-muted-foreground">{slot}</td>
-              <Cell s={left} slot={slot} season={season} />
-              <Cell s={right} slot={slot} season={season} />
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ul className="divide-y divide-border/40 px-4 text-sm">
+        {SLOTS.map((slot) => (
+          <li key={slot} className="grid grid-cols-[1fr_3.25rem_1fr] items-center gap-2 py-1.5">
+            <Starter s={left} slot={slot} season={season} end={false} />
+            <span className="text-center text-xs font-medium uppercase tracking-wide text-muted-foreground">{slot}</span>
+            <Starter s={right} slot={slot} season={season} end />
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

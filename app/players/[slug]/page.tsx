@@ -6,6 +6,7 @@ import { playerSeasonSummary, PlayerSeasonSummary } from '@/lib/data/playerStats
 import { positionColor } from '@/lib/players'
 import { ScoresChart, SeriesPoint } from '@/components/league/ScoresChart'
 import { TeamMark } from '@/components/league/TeamMark'
+import { SeasonTabs } from '@/components/league/SeasonTabs'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
 export const dynamic = 'force-dynamic'
@@ -38,7 +39,7 @@ export default async function PlayerPage({
     `${n}${n % 10 === 1 && n % 100 !== 11 ? 'st' : n % 10 === 2 && n % 100 !== 12 ? 'nd' : n % 10 === 3 && n % 100 !== 13 ? 'rd' : 'th'}`
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-8">
       <section className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <span
@@ -54,23 +55,11 @@ export default async function PlayerPage({
             </p>
           </div>
         </div>
-        {summaries.length > 1 && (
-          <div className="flex gap-1.5 text-sm">
-            {summaries.map((s) => (
-              <Link
-                key={s.season}
-                href={`/players/${params.slug}?season=${s.season}`}
-                className={`rounded-md px-2.5 py-1 font-medium ${
-                  s.season === summary.season
-                    ? 'bg-secondary text-foreground'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {s.season}
-              </Link>
-            ))}
-          </div>
-        )}
+        <SeasonTabs
+          seasons={summaries.map((s) => s.season)}
+          current={summary.season}
+          href={(s) => `/players/${params.slug}?season=${s}`}
+        />
       </section>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">

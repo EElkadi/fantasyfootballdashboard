@@ -2,7 +2,10 @@ import Link from 'next/link'
 import { Metadata } from 'next'
 import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
 import { MatchupCard } from '@/components/league/MatchupCard'
+import { PageHeader } from '@/components/league/PageHeader'
+import { SeasonTabs } from '@/components/league/SeasonTabs'
 import { TeamMark } from '@/components/league/TeamMark'
+import { WeekNav } from '@/components/league/WeekNav'
 import { LEAGUE } from '@/lib/league'
 
 // Rendered per request from the 60-second data cache — never a build-time snapshot
@@ -34,54 +37,33 @@ export default async function MatchupsPage({
     }
   }
 
-  const allWeeks = new Set<number>([
+  const allWeeks = [
     ...season.weeks,
     ...season.schedule.filter((s) => s.week <= LEAGUE.regularSeasonWeeks).map((s) => s.week),
-  ])
+  ]
   const weekLink = (w: number) =>
     `/matchups?week=${w}${seasonParam ? `&season=${seasonParam}` : ''}`
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-4 py-8">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Matchups</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {season.season} season
-            {(() => {
-              const label = scheduleWeek?.label ?? LEAGUE.playoffWeekLabels[week]
-              return label ? ` · ${label}` : ''
-            })()}
-          </p>
-        </div>
-        <SeasonSwitcher current={season.season} basePath="/matchups" />
-      </div>
+    <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+      <PageHeader
+        title="Matchups"
+        description={`${season.season} season${(() => {
+          const label = scheduleWeek?.label ?? LEAGUE.playoffWeekLabels[week]
+          return label ? ` · ${label}` : ''
+        })()}`}
+        actions={<SeasonTabs seasons={availableSeasons()} current={season.season} href={(s) => `/matchups?season=${s}`} />}
+      />
 
-      <nav className="flex flex-wrap gap-1.5">
-        {Array.from(allWeeks)
-          .sort((a, b) => a - b)
-          .map((w) => (
-            <Link
-              key={w}
-              href={weekLink(w)}
-              className={`tabular rounded-md px-2.5 py-1 text-sm font-medium transition-colors ${
-                w === week
-                  ? 'bg-primary text-primary-foreground'
-                  : w <= latest
-                    ? 'bg-secondary text-foreground hover:bg-secondary/70'
-                    : 'border border-dashed text-muted-foreground hover:bg-secondary/50'
-              }`}
-            >
-              {w}
-            </Link>
-          ))}
-      </nav>
+      <WeekNav weeks={allWeeks} current={week} latest={latest} href={weekLink} />
 
       {matchups.length > 0 ? (
-        <div className="space-y-3">
-          {matchups.map((m, i) => (
-            <MatchupCard key={i} matchup={m} defaultOpen={matchups.length === 1} season={season.season} />
-          ))}
+        <div className="space-y-4">
+          <div className="grid items-start gap-3 lg:grid-cols-2">
+            {matchups.map((m, i) => (
+              <MatchupCard key={i} matchup={m} defaultOpen={matchups.length === 1} season={season.season} />
+            ))}
+          </div>
           {!seasonParam && (
             <p className="text-sm">
               <Link href={`/recap/${week}`} className="font-medium text-primary hover:underline">
@@ -106,26 +88,6 @@ export default async function MatchupsPage({
       ) : (
         <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">Nothing for week {week}.</p>
       )}
-    </div>
-  )
-}
-
-function SeasonSwitcher({ current, basePath }: { current: number; basePath: string }) {
-  const seasons = availableSeasons()
-  if (seasons.length < 2) return null
-  return (
-    <div className="flex gap-1.5 text-sm">
-      {seasons.map((s) => (
-        <Link
-          key={s}
-          href={`${basePath}?season=${s}`}
-          className={`rounded-md px-2.5 py-1 font-medium ${
-            s === current ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {s}
-        </Link>
-      ))}
     </div>
   )
 }
