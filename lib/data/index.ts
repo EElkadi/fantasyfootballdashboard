@@ -5,7 +5,7 @@ import { parse } from 'csv-parse/sync'
 import { unstable_cache } from 'next/cache'
 import { DraftGrade, DraftSlot, LineupEntry, Matchup, PoolPlayer, Prediction, ScheduleWeek, SeasonData } from '@/lib/types'
 import { ACTIVE_OWNERS, ARCHIVED_SEASONS, CURRENT_SEASON, LEAGUE, resolveOwner } from '@/lib/league'
-import { hasLiveSheet, readTab, readTabOrEmpty, serviceAccountEmail, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB, LINEUPS_TAB, PLAYER_POOL_TAB, GRADES_TAB } from './sheets'
+import { hasLiveSheet, readTab, readTabs, serviceAccountEmail, toObjects, SHEET_ID, SCORES_TAB, SCHEDULE_TABS, ROSTERS_TAB, DRAFT_TAB, WAIVERS_TAB, TEAMS_TAB, ADJUSTMENTS_TAB, TRADES_TAB, PREDICTIONS_TAB, LINEUPS_TAB, PLAYER_POOL_TAB, GRADES_TAB } from './sheets'
 import {
   canonTeam,
   gridToDraft,
@@ -152,57 +152,53 @@ async function loadArchiveSeason(season: number): Promise<SeasonData> {
 }
 
 async function loadLiveSeason(season: number): Promise<SeasonData> {
-  const [scoreRows, scheduleCandidates, draftRows, teamsRows, waiverRows, adjustmentRows, tradeRows, lineupRows, poolRows, gradeRows] =
-    await Promise.all([
-      readTabOrEmpty(SCORES_TAB),
-      Promise.all(SCHEDULE_TABS.map(readTabOrEmpty)),
-      readTabOrEmpty(DRAFT_TAB),
-      readTabOrEmpty(TEAMS_TAB),
-      readTabOrEmpty(WAIVERS_TAB),
-      readTabOrEmpty(ADJUSTMENTS_TAB),
-      readTabOrEmpty(TRADES_TAB),
-      readTabOrEmpty(LINEUPS_TAB),
-      readTabOrEmpty(PLAYER_POOL_TAB),
-      readTabOrEmpty(GRADES_TAB),
-    ])
-  const matchups = toObjects(scoreRows)
+  // One batched read for every tab. A missing tab is empty; a failed read
+  // throws, so the cache never stores a blank season by mistake.
+  const t = await readTabs([
+    SCORES_TAB,
+    ...SCHEDULE_TABS,
+    DRAFT_TAB,
+    TEAMS_TAB,
+    WAIVERS_TAB,
+    ADJUSTMENTS_TAB,
+    TRADES_TAB,
+    LINEUPS_TAB,
+    PLAYER_POOL_TAB,
+    GRADES_TAB,
+  ])
+  const matchups = toObjects(t[SCORES_TAB])
     .map(wideRowToMatchup)
     .filter((m): m is Matchup => m !== null)
-  annotateAdjustments(matchups, toObjects(adjustmentRows))
+  annotateAdjustments(matchups, toObjects(t[ADJUSTMENTS_TAB]))
   // First candidate tab that actually parses as a week grid wins
-  let schedule =
-    scheduleCandidates.map((rows) => gridToSchedule(toObjects(rows))).find((s) => s.length > 0) ?? []
-  const teamObjects = toObjects(teamsRows)
-  let draft = draftRows.length > 0 && teamObjects.length > 0 ? gridToDraft(draftRows, teamObjects) : []
+  let schedule = SCHEDULE_TABS.map((tab) => gridToSchedule(toObjects(t[tab]))).find((s) => s.length > 0) ?? []
+  const teamObjects = toObjects(t[TEAMS_TAB])
+  let draft = t[DRAFT_TAB].length > 0 && teamObjects.length > 0 ? gridToDraft(t[DRAFT_TAB], teamObjects) : []
 
   // The committed data/seasons/<year>/ files are a seed for the live season:
-  // reference data the Sheet doesn't actually supply — a tab that is empty,
-  // not created yet, or renamed — falls back to them. Without this a
-  // half-configured sheet silently blanks the schedule, since a missing tab
-  // reads as empty rather than throwing and so never reaches the catch in
-  // getSeason(). Scores, waivers and trades are deliberately excluded: those
-  // accumulate during the season, so empty is a legitimate state for them.
+  // reference data the Sheet doesn't actually supply — a tab that is empty
+  // or not created yet — falls back to them. Scores, waivers and trades are
+  // deliberately excluded: those accumulate during the season, so empty is
+  // a legitimate state for them.
   if (schedule.length === 0 || draft.length === 0) {
     const seed = await loadArchiveSeason(season)
     if (schedule.length === 0) schedule = seed.schedule
     if (draft.length === 0) draft = seed.draft
   }
 
-  const waivers = rowsToWaivers(toObjects(waiverRows))
-  const trades = rowsToTrades(toObjects(tradeRows))
   return assemble(
     season,
     'sheet',
     matchups,
     schedule,
     draft,
-    waivers,
-    trades,
+    rowsToWaivers(toObjects(t[WAIVERS_TAB])),
+    rowsToTrades(toObjects(t[TRADES_TAB])),
     rowsToTeamNames(teamObjects),
-    rowsToLineups(toObjects(lineupRows)),
-    rowsToPool(toObjects(poolRows)),
+    rowsToLineups(toObjects(t[LINEUPS_TAB])),
+    rowsToPool(toObjects(t[PLAYER_POOL_TAB])),
     rowsToDraftOrder(teamObjects),
-    rowsToGrades(toObjects(gradeRows)),
+    rowsToGrades(toObjects(t[GRADES_TAB])),
   )
 }
 
@@ -220,12 +216,19 @@ export function availableSeasons(): number[] {
  * configured; otherwise it falls back to archived CSVs (empty for a season
  * that hasn't started).
  */
+/** Last successful live load per season, so a Sheets outage shows stale-but-real data instead of blanks. */
+const lastGoodSeason = new Map<number, SeasonData>()
+
 export async function getSeason(season: number = CURRENT_SEASON): Promise<SeasonData> {
   if (season === CURRENT_SEASON && hasLiveSheet()) {
     try {
-      return await cachedLive(season)
+      const live = await cachedLive(season)
+      lastGoodSeason.set(season, live)
+      return live
     } catch (err) {
-      console.error('Live sheet read failed, falling back to archive:', err)
+      console.error('Live sheet read failed:', err)
+      const prev = lastGoodSeason.get(season)
+      if (prev) return prev
     }
   }
   return loadArchiveSeason(season)
@@ -300,12 +303,15 @@ const cachedRosters = unstable_cache(async () => gridToRosters(await readTab(ROS
  * Current rosters: team -> players. Cached with the season (waiver, trade and
  * draft writes all revalidate it). Empty without a sheet or a Rosters tab.
  */
+let lastGoodRosters: Record<string, string[]> | null = null
 export async function getRosters(): Promise<Record<string, string[]>> {
   if (!hasLiveSheet()) return {}
   try {
-    return await cachedRosters()
-  } catch {
-    return {}
+    lastGoodRosters = await cachedRosters()
+    return lastGoodRosters
+  } catch (err) {
+    console.error('Rosters read failed:', err)
+    return lastGoodRosters ?? {}
   }
 }
 

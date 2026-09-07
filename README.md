@@ -113,6 +113,19 @@ Three tabs (names configurable via env):
   and shows it as an "Adj" line in the box score; this tab just supplies the
   reason. `/commish` writes here when you apply a penalty at score entry.
 
+### Reads, quota and failures
+
+Every page load that misses the 60-second cache reads the whole workbook in
+**one** `values:batchGet` call (plus one cheap metadata call to learn which
+tabs exist), so a season refresh costs two requests, not eleven — well under
+Google's ~60 reads/minute per service account. Rate limits and 5xx responses
+are retried with a short backoff. A read that still fails **throws** rather
+than reading as empty: the cache never stores a blank season, and each server
+instance keeps serving its last good copy until the sheet answers again (a
+cold instance with no copy yet falls back to the committed season files).
+Only a tab that genuinely doesn't exist reads as empty. Appends are never
+retried, so a lost reply can't double-write a score or a waiver.
+
 ## Weekly routine (commissioner)
 
 Everything runs from `/commish` — the Sheet is the database, not the interface:
@@ -124,6 +137,8 @@ Everything runs from `/commish` — the Sheet is the database, not the interface
    partials included. `/lineups` shows the league who's starting whom.
 3. Log waiver adds and trades with their forms — both write their tabs AND
    keep the Rosters tab (the parser's name matching) current automatically.
+   If the Rosters tab ever drifts from the draft board, **Sync rosters from
+   draft board** on `/commish` adds whatever is missing.
 4. Open `/recap/<week>` and either share the image or hit **Copy for the group
    chat** for a text recap (results, awards, standings, next week's slate).
 

@@ -311,6 +311,31 @@ function SheetStatus() {
   const [diag, setDiag] = useState<Diagnostics | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncNote, setSyncNote] = useState('')
+
+  const syncRosters = async () => {
+    setSyncing(true)
+    setSyncNote('')
+    try {
+      const res = await fetch('/api/commish/rosters', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) setSyncNote(data.error ?? 'Sync failed')
+      else {
+        const detail = Object.entries(data.added as Record<string, string[]>)
+          .map(([team, players]) => `${team} +${players.length}`)
+          .join(', ')
+        setSyncNote(
+          (data.count ? `Added ${data.count}: ${detail}.` : 'Rosters already match the draft board.') +
+            (data.warning ? ` ⚠ ${data.warning}` : ''),
+        )
+      }
+    } catch {
+      setSyncNote('Network error — nothing changed.')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const check = async () => {
     setBusy(true)
@@ -341,6 +366,9 @@ function SheetStatus() {
           <Button variant="outline" onClick={check} disabled={busy}>
             {busy ? 'Checking…' : 'Check sheet status'}
           </Button>
+          <Button variant="outline" onClick={syncRosters} disabled={syncing} title="Add any drafted player missing from the Rosters tab">
+            {syncing ? 'Syncing…' : 'Sync rosters from draft board'}
+          </Button>
           {diag && (
             <span className="text-xs text-muted-foreground">
               Sheet {diag.sheetId} · season {diag.currentSeason}
@@ -348,6 +376,7 @@ function SheetStatus() {
           )}
         </div>
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {syncNote && <p className="text-sm text-muted-foreground">{syncNote}</p>}
         {diag && (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

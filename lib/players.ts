@@ -1,6 +1,6 @@
 /** Player identity, URL slugs, position styling and pool search — shared client/server. */
 
-import { PoolPlayer } from '@/lib/types'
+import { DraftPick, PoolPlayer } from '@/lib/types'
 import { parseDraftCell } from '@/lib/data/transform'
 
 export function playerSlug(name: string): string {
@@ -150,6 +150,21 @@ export function bestAvailable(
     const pos = p.position && POSITION_ORDER.includes(p.position) ? p.position : '?'
     out[pos] ??= []
     if (out[pos].length < perPosition) out[pos].push(p)
+  }
+  return out
+}
+
+/**
+ * Drafted players absent from their team's roster column, as the cell text
+ * to write ("Name TEAM POS"). Pure; see tests.
+ */
+export function missingFromRosters(picks: DraftPick[], rosters: Record<string, string[]>): Record<string, string[]> {
+  const out: Record<string, string[]> = {}
+  for (const p of picks) {
+    const have = (rosters[p.team] ?? []).map(cellRef)
+    if (have.some((ref) => samePlayer(ref, p))) continue
+    // Same cell form the typeahead writes — a long team name would fold into the player's name on read-back
+    ;(out[p.team] ??= []).push(formatPoolPlayer({ player: p.player, nflTeam: p.nflTeam, position: p.position, rank: 0 }))
   }
   return out
 }

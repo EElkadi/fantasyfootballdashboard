@@ -123,19 +123,88 @@ export function describeSheetsError(err: unknown, tab: string): string {
   return `Google Sheets request failed: ${message.slice(0, 200)}`
 }
 
+const RETRY_DELAYS_MS = [400, 1200]
+const RATE_LIMIT_DELAYS_MS = [1500, 3000]
+
+/**
+ * One Sheets API call. Reads and idempotent writes (PUT cells, batchUpdate)
+ * are retried on 5xx and network blips; appends never are, because a reply
+ * lost after Google committed the row would otherwise land it twice. Rate
+ * limits (429) are retried on reads only, honouring Retry-After, with a
+ * longer backoff since the quota is per minute.
+ */
 async function sheetsFetch(path: string, init?: RequestInit): Promise<any> {
   const token = await accessToken()
-  const res = await fetch(`${SHEETS_BASE}/${SHEET_ID}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-    cache: 'no-store',
+  const method = (init?.method ?? 'GET').toUpperCase()
+  const isAppend = path.includes(':append')
+  const isRead = method === 'GET'
+  for (let attempt = 0; ; attempt++) {
+    let res: Response
+    try {
+      res = await fetch(`${SHEETS_BASE}/${SHEET_ID}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          ...init?.headers,
+        },
+        cache: 'no-store',
+      })
+    } catch (err) {
+      if (!isAppend && attempt < RETRY_DELAYS_MS.length) {
+        await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]))
+        continue
+      }
+      throw err
+    }
+    if (res.ok) return res.json()
+    const body = await res.text()
+    if (res.status === 429 && isRead && attempt < RATE_LIMIT_DELAYS_MS.length) {
+      const hinted = Number(res.headers.get('retry-after')) * 1000
+      await new Promise((r) => setTimeout(r, hinted > 0 ? Math.min(hinted, 5000) : RATE_LIMIT_DELAYS_MS[attempt]))
+      continue
+    }
+    if (res.status >= 500 && !isAppend && attempt < RETRY_DELAYS_MS.length) {
+      await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]))
+      continue
+    }
+    throw new SheetsError(res.status, body)
+  }
+}
+
+/** Tab titles present in the spreadsheet (one metadata call, memoised briefly). */
+let tabTitles: { at: number; titles: Set<string> } | null = null
+export async function listTabs(): Promise<Set<string>> {
+  if (tabTitles && Date.now() - tabTitles.at < 30_000) return tabTitles.titles
+  const data = await sheetsFetch('?fields=sheets.properties.title')
+  const titles = new Set<string>((data.sheets ?? []).map((sh: any) => String(sh.properties?.title ?? '')))
+  tabTitles = { at: Date.now(), titles }
+  return titles
+}
+
+/**
+ * Read several tabs in ONE request (values:batchGet). Tabs the spreadsheet
+ * doesn't have come back empty — that's a legitimate state, logged once —
+ * while a real failure (quota, outage, permissions) throws so callers never
+ * mistake it for empty data.
+ */
+export async function readTabs(tabs: string[], range = 'A1:AZ2000'): Promise<Record<string, string[][]>> {
+  const existing = await listTabs()
+  const present = tabs.filter((t) => existing.has(t))
+  const out: Record<string, string[][]> = {}
+  for (const t of tabs) {
+    out[t] = []
+    if (!existing.has(t)) console.warn(`Sheet has no tab named "${t}" (treated as empty)`)
+  }
+  if (present.length === 0) return out
+  const query = present.map((t) => `ranges=${encodeURIComponent(`${t}!${range}`)}`).join('&')
+  const data = await sheetsFetch(`/values:batchGet?${query}`)
+  const ranges: { range?: string; values?: string[][] }[] = data.valueRanges ?? []
+  // Responses come back in request order
+  ranges.forEach((vr, i) => {
+    out[present[i]] = (vr.values ?? []) as string[][]
   })
-  if (!res.ok) throw new SheetsError(res.status, await res.text())
-  return res.json()
+  return out
 }
 
 /** Read a tab; returns rows of cells (strings). */
@@ -172,6 +241,18 @@ export async function appendRows(tab: string, rows: (string | number)[][], opts:
     `/values/${encodeURIComponent(`${tab}!A1`)}:append?valueInputOption=${mode}&insertDataOption=INSERT_ROWS`,
     { method: 'POST', body: JSON.stringify({ values: rows }) },
   )
+}
+
+/** Write several single cells in one request. */
+export async function batchUpdateCells(tab: string, cells: { cell: string; value: string | number }[]): Promise<void> {
+  if (cells.length === 0) return
+  await sheetsFetch(`/values:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({
+      valueInputOption: 'USER_ENTERED',
+      data: cells.map((c) => ({ range: `${tab}!${c.cell}`, values: [[c.value]] })),
+    }),
+  })
 }
 
 /** Overwrite a block starting at A1 (header included). Rows beyond the block are left alone. */
