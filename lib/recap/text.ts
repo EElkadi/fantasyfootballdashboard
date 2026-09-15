@@ -1,4 +1,5 @@
 import { Award, AWARD_META } from '@/lib/data/awards'
+import type { WeeklyScoreRow } from '@/lib/data/standings'
 import { DraftGrade, DraftPick } from '@/lib/types'
 
 /**
@@ -14,6 +15,8 @@ export interface RecapTextInput {
   regularSeasonWeeks: number
   playoffTeams: number
   results: { winner: string; loser: string; winScore: number; loseScore: number; tiebreaker?: boolean }[]
+  /** The week's scoring order; omitted in the playoffs, where top-6 doesn't apply */
+  weeklyScores?: WeeklyScoreRow[]
   awards: Award[]
   mvp?: { player: string; team: string; score: number; slot: string }
   /** Standings after this week; omitted for playoff weeks */
@@ -36,6 +39,16 @@ export function recapText(input: RecapTextInput): string {
     lines.push(`${r.winner} ${r.winScore} – ${r.loseScore} ${r.loser}${tb}`)
   }
   lines.push('')
+
+  if (input.weeklyScores && input.weeklyScores.length > 0) {
+    const made = input.weeklyScores.filter((r) => r.top6).length
+    lines.push(`*Weekly scoring* (top ${made} bank a second win)`)
+    for (const r of input.weeklyScores) {
+      lines.push(`${r.rank}. ${r.team} ${r.score}`)
+      if (r.rank === made && r.rank < input.weeklyScores.length) lines.push('———')
+    }
+    lines.push('')
+  }
 
   if (input.awards.length > 0 || input.mvp) {
     lines.push('*Awards*')

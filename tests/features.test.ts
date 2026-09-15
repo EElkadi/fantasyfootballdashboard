@@ -1,7 +1,7 @@
 import { readFileSync } from 'fs'
 import { parse } from 'csv-parse/sync'
 import { gridToSchedule, longToMatchups, matchupsToTeamWeeks, matchupsToPlayerWeeks, rowsToPredictions, pairsOf } from '../lib/data/transform'
-import { computeStandings } from '../lib/data/standings'
+import { computeStandings, h2hIndexOf, rankTeams, weeklyScoreOrder } from '../lib/data/standings'
 import { weeklyAwards, seasonAwards, tallyAwards } from '../lib/data/awards'
 import { recapText } from '../lib/recap/text'
 import { consensusOrder, scorePredictions } from '../lib/data/predictions'
@@ -83,6 +83,95 @@ const s2024 = loadSeason(2024)
   check('awards: every team appears in the tally', tally.length === 12)
 }
 
+// --- Standings tiebreaks: record, then head-to-head, then points scored ---
+{
+  const h2h = (pairs: [string, string][]) => {
+    const m = new Map<string, number>()
+    for (const [w, l] of pairs) m.set(`${w}|${l}`, (m.get(`${w}|${l}`) ?? 0) + 1)
+    return m
+  }
+  const row = (team: string, wins: number, pointsFor: number) => ({ team, wins, losses: 20 - wins, pointsFor })
+
+  const beat = rankTeams([row('A', 12, 1200), row('B', 12, 1400)], h2h([['A', 'B']]))
+  check('tiebreak: head-to-head outranks points scored', beat[0] === 'A', beat)
+
+  const split = rankTeams([row('A', 12, 1200), row('B', 12, 1400)], h2h([['A', 'B'], ['B', 'A']]))
+  check('tiebreak: a split series falls through to points scored', split[0] === 'B', split)
+
+  const never = rankTeams([row('A', 12, 1200), row('B', 12, 1400)], h2h([]))
+  check('tiebreak: teams that never met fall through to points scored', never[0] === 'B', never)
+
+  const record = rankTeams([row('A', 11, 9999), row('B', 12, 1)], h2h([['A', 'B']]))
+  check('tiebreak: record comes before any tiebreaker', record[0] === 'B', record)
+
+  // A beat both, B beat C — head-to-head decides all three despite C scoring most
+  const three = rankTeams(
+    [row('A', 12, 1000), row('B', 12, 1100), row('C', 12, 1500)],
+    h2h([['A', 'B'], ['A', 'C'], ['B', 'C']]),
+  )
+  check('tiebreak: three-way tie resolved by the mini-league', three.join() === 'A,B,C', three)
+
+  // Once A is placed, B and C revert to the plain two-team rule
+  const restart = rankTeams(
+    [row('A', 12, 1000), row('B', 12, 1100), row('C', 12, 1500)],
+    h2h([['A', 'B'], ['A', 'C'], ['C', 'B']]),
+  )
+  check('tiebreak: group re-resolves after each team is placed', restart.join() === 'A,C,B', restart)
+
+  const even = h2h([])
+  check(
+    'tiebreak: dead-even teams order deterministically',
+    rankTeams([row('A', 12, 1000), row('B', 12, 1000)], even).join() ===
+      rankTeams([row('B', 12, 1000), row('A', 12, 1000)], even).join(),
+  )
+
+  // Real seasons never contradict the rule
+  for (const [year, season] of [[2025, s2025], [2024, s2024]] as const) {
+    const idx = h2hIndexOf(season.matchups.filter((m) => m.week <= 14))
+    const net = (x: string, y: string) => (idx.get(`${x}|${y}`) ?? 0) - (idx.get(`${y}|${x}`) ?? 0)
+    let broken: string | null = null
+    season.standings.forEach((a, i) => {
+      const b = season.standings[i + 1]
+      if (!b) return
+      if (a.overall.wins < b.overall.wins) broken = `${a.team} above ${b.team} on fewer wins`
+      const tied = a.overall.wins === b.overall.wins && a.overall.losses === b.overall.losses
+      const groupSize = season.standings.filter(
+        (t) => t.overall.wins === a.overall.wins && t.overall.losses === a.overall.losses,
+      ).length
+      // Adjacent pairs are only decisive when the whole tied group is those two
+      if (tied && groupSize === 2) {
+        const n = net(a.team, b.team)
+        if (n < 0 || (n === 0 && a.pointsFor < b.pointsFor)) broken = `${a.team} above ${b.team}`
+      }
+    })
+    check(`standings ${year}: order obeys record → head-to-head → points`, broken === null, broken)
+    check(`standings ${year}: ranks run 1..n in order`, season.standings.every((s, i) => s.rank === i + 1))
+  }
+}
+
+// --- Weekly scoring order (the top-6 game) ---
+{
+  const week1 = weeklyScoreOrder(s2025.teamWeeks, s2025.matchups, 1)
+  check('weekly: every team appears once, highest first', week1.length === 12 && week1.every((r, i) => i === 0 || week1[i - 1].score >= r.score))
+  check('weekly: ranks are 1..12', week1.every((r, i) => r.rank === i + 1))
+  check('weekly: exactly six make the cut', week1.filter((r) => r.top6).length === 6)
+  check('weekly: the cut is the top six of the order', week1.slice(0, 6).every((r) => r.top6) && week1.slice(6).every((r) => !r.top6))
+  check('weekly: a week nobody played is empty', weeklyScoreOrder(s2025.teamWeeks, s2025.matchups, 18).length === 0)
+
+  // The card and the standings must agree on who banked the extra win
+  const tallied = new Map<string, number>()
+  for (let w = 1; w <= 14; w++) {
+    for (const r of weeklyScoreOrder(s2025.teamWeeks, s2025.matchups, w)) {
+      if (r.top6) tallied.set(r.team, (tallied.get(r.team) ?? 0) + 1)
+    }
+  }
+  check(
+    'weekly: top-6 wins match the standings',
+    s2025.standings.every((s) => (tallied.get(s.team) ?? 0) === s.top6.wins),
+    s2025.standings.map((s) => `${s.team} ${tallied.get(s.team) ?? 0}/${s.top6.wins}`),
+  )
+}
+
 // --- Recap text ---
 {
   const week = 3
@@ -107,9 +196,27 @@ const s2024 = loadSeason(2024)
   })
   check('recap: title and sections present', /\*PLFF 2025 · Week 3 Recap\*/.test(text) && text.includes('*Results*') && text.includes('*Awards*') && text.includes('*Standings*'), text.split('\n').slice(0, 3))
   check('recap: six result lines', results.every((r) => text.includes(`${r.winner} ${r.winScore} – ${r.loseScore} ${r.loser}`)))
-  check('recap: playoff line drawn after 7th', text.split('\n').findIndex((l) => l === '———') === text.split('\n').findIndex((l) => l.startsWith('7. ')) + 1)
+  const standingsLines = text.split('\n').slice(text.split('\n').findIndex((l) => l.startsWith('*Standings*')))
+  check('recap: playoff line drawn after 7th', standingsLines.findIndex((l) => l === '———') === standingsLines.findIndex((l) => l.startsWith('7. ')) + 1)
   check('recap: six next-week pairings', pairsOf(next).length === 6 && pairsOf(next).every(([a, b]) => text.includes(`${a} vs ${b}`)))
   check('recap: ends with the link', text.endsWith('https://example.test/matchups?week=3'))
+  const weekly = weeklyScoreOrder(s2025.teamWeeks, s2025.matchups, week)
+  const withScores = recapText({
+    season: 2025,
+    week,
+    regularSeasonWeeks: 14,
+    playoffTeams: 7,
+    results,
+    weeklyScores: weekly,
+    awards: [],
+  })
+  const wsLines = withScores.split('\n')
+  const wsStart = wsLines.findIndex((l) => l.startsWith('*Weekly scoring*'))
+  check('recap: weekly scoring section present', wsStart > -1 && wsLines[wsStart].includes('top 6'), wsLines[wsStart])
+  check('recap: all twelve scores listed in order', weekly.every((r) => wsLines.includes(`${r.rank}. ${r.team} ${r.score}`)), wsLines.slice(wsStart, wsStart + 14))
+  check('recap: cut line drawn after the sixth score', wsLines[wsStart + 7] === '———', wsLines.slice(wsStart + 6, wsStart + 9))
+  check('recap: weekly scoring omitted for playoff weeks', !recapText({ season: 2025, week: 16, regularSeasonWeeks: 14, playoffTeams: 7, results, awards: [] }).includes('*Weekly scoring*'))
+
   const playoff = recapText({ season: 2025, week: 16, weekLabel: 'Semifinals', regularSeasonWeeks: 14, playoffTeams: 7, results: results.slice(0, 2), awards: [] })
   check('recap: playoff week uses the label, no standings', playoff.startsWith('🏈 *PLFF 2025 · Semifinals Recap*') && !playoff.includes('*Standings*'), playoff)
 }
