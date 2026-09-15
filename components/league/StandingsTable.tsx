@@ -99,6 +99,7 @@ export function StandingsTable({
           <span className="mr-1 inline-block h-3 w-4 rounded-sm bg-destructive/10 align-middle" /> Turd Bowl zone
         </span>
         <span>Each week counts twice: your matchup + a top-6 scoring finish.</span>
+        <span>Ties broken by head-to-head, then points for.</span>
       </div>
     </div>
   )

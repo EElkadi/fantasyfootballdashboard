@@ -5,23 +5,43 @@ import { Matchup, TeamStanding, TeamWeek } from '@/lib/types'
  *
  * Each week every team plays two "games": the head-to-head matchup, and the
  * top-6 game (finish in the top 6 scores of the week = a win). Overall record
- * is the sum. Ranking: overall wins desc, then head-to-head among tied teams,
- * then points scored (per constitution §IX).
+ * is the sum. Ranking: overall record, then head-to-head among the tied
+ * teams, then points scored (constitution §IX).
  */
-export function computeStandings(teamWeeks: TeamWeek[], matchups: Matchup[]): TeamStanding[] {
-  const teams = Array.from(new Set(teamWeeks.map((r) => r.team)))
-  if (teams.length === 0) return []
 
-  const weeks = Array.from(new Set(teamWeeks.map((r) => r.week))).sort((a, b) => a - b)
+export interface WeeklyScoreRow {
+  team: string
+  score: number
+  /** 1 = highest score of the week */
+  rank: number
+  /** made the top-6 cut, i.e. banked the extra win */
+  top6: boolean
+}
 
-  // Slot scores for breaking exact score ties (constitution §IX: RB1 → WR1 → QB)
+/** Head-to-head meeting counts, keyed `winner|loser`. */
+export type H2HIndex = Map<string, number>
+
+export function h2hIndexOf(matchups: Matchup[]): H2HIndex {
+  const index: H2HIndex = new Map()
+  for (const m of matchups) {
+    const key = `${m.winner}|${m.loser}`
+    index.set(key, (index.get(key) ?? 0) + 1)
+  }
+  return index
+}
+
+/**
+ * Exact-score tiebreak for the top-6 cut: highest RB1, then WR1, then QB
+ * (constitution §IX).
+ */
+function slotTiebreaker(matchups: Matchup[]) {
   const slotScore = new Map<string, number>()
   for (const m of matchups) {
     for (const side of [m.team1, m.team2]) {
       for (const p of side.players) slotScore.set(`${m.week}|${side.team}|${p.slot}`, p.score)
     }
   }
-  const slotTiebreak = (week: number, a: string, b: string): number => {
+  return (week: number, a: string, b: string): number => {
     for (const slot of ['RB1', 'WR1', 'QB']) {
       const sa = slotScore.get(`${week}|${a}|${slot}`) ?? 0
       const sb = slotScore.get(`${week}|${b}|${slot}`) ?? 0
@@ -29,6 +49,80 @@ export function computeStandings(teamWeeks: TeamWeek[], matchups: Matchup[]): Te
     }
     return 0
   }
+}
+
+/**
+ * The week's scoring order, highest first, flagged with who made the top-6
+ * cut. Half the league wins that game, so a short week (fewer teams reporting)
+ * cuts proportionally rather than handing out six wins regardless.
+ */
+export function weeklyScoreOrder(teamWeeks: TeamWeek[], matchups: Matchup[], week: number): WeeklyScoreRow[] {
+  const tiebreak = slotTiebreaker(matchups)
+  return weeklyOrder(teamWeeks.filter((r) => r.week === week), week, tiebreak)
+}
+
+function weeklyOrder(
+  rows: TeamWeek[],
+  week: number,
+  tiebreak: (week: number, a: string, b: string) => number,
+): WeeklyScoreRow[] {
+  const cutoff = Math.min(6, Math.ceil(rows.length / 2))
+  return [...rows]
+    .sort((a, b) => b.score - a.score || tiebreak(week, a.team, b.team))
+    .map((row, i) => ({ team: row.team, score: row.score, rank: i + 1, top6: i < cutoff }))
+}
+
+/**
+ * Order teams that are level on overall record: head-to-head first, then
+ * points scored.
+ *
+ * Head-to-head is a mini-league among exactly the teams still tied — each
+ * team's wins minus losses in meetings with the others. The best takes the
+ * next spot, then the group re-resolves among whoever is left, so a three-way
+ * tie collapses to the plain two-team rule once one team is placed. Teams that
+ * never met each other net out to zero and fall through to points scored.
+ *
+ * Returns team names in rank order.
+ */
+export function rankTeams(
+  rows: { team: string; wins: number; losses: number; pointsFor: number }[],
+  h2h: H2HIndex,
+): string[] {
+  const byRecord = [...rows].sort((a, b) => b.wins - a.wins || a.losses - b.losses)
+  const ranked: string[] = []
+
+  for (let i = 0; i < byRecord.length; ) {
+    // Everyone level with byRecord[i] forms one tied group.
+    let end = i + 1
+    while (end < byRecord.length && byRecord[end].wins === byRecord[i].wins && byRecord[end].losses === byRecord[i].losses) {
+      end++
+    }
+    const group = byRecord.slice(i, end)
+
+    while (group.length > 0) {
+      let best = 0
+      for (let j = 1; j < group.length; j++) {
+        const net = (t: (typeof group)[number]) =>
+          group.reduce((s, o) => (o === t ? s : s + (h2h.get(`${t.team}|${o.team}`) ?? 0) - (h2h.get(`${o.team}|${t.team}`) ?? 0)), 0)
+        const a = group[j]
+        const b = group[best]
+        const cmp = net(a) - net(b) || a.pointsFor - b.pointsFor || b.team.localeCompare(a.team)
+        if (cmp > 0) best = j
+      }
+      ranked.push(group[best].team)
+      group.splice(best, 1)
+    }
+    i = end
+  }
+  return ranked
+}
+
+export function computeStandings(teamWeeks: TeamWeek[], matchups: Matchup[]): TeamStanding[] {
+  const teams = Array.from(new Set(teamWeeks.map((r) => r.team)))
+  if (teams.length === 0) return []
+
+  const weeks = Array.from(new Set(teamWeeks.map((r) => r.week))).sort((a, b) => a - b)
+  const tiebreak = slotTiebreaker(matchups)
 
   // Top-6 results per week
   const top6Wins = new Map<string, number>()
@@ -36,16 +130,12 @@ export function computeStandings(teamWeeks: TeamWeek[], matchups: Matchup[]): Te
   const weeklyRankSum = new Map<string, number>()
   const weeklyRankCount = new Map<string, number>()
   for (const week of weeks) {
-    const rows = teamWeeks.filter((r) => r.week === week)
-    const sorted = [...rows].sort((a, b) => b.score - a.score || slotTiebreak(week, a.team, b.team))
-    const cutoff = Math.min(6, Math.ceil(sorted.length / 2))
-    sorted.forEach((row, i) => {
-      row.top6 = i < cutoff
-      if (i < cutoff) top6Wins.set(row.team, (top6Wins.get(row.team) ?? 0) + 1)
-      else top6Losses.set(row.team, (top6Losses.get(row.team) ?? 0) + 1)
-      weeklyRankSum.set(row.team, (weeklyRankSum.get(row.team) ?? 0) + i + 1)
+    for (const row of weeklyOrder(teamWeeks.filter((r) => r.week === week), week, tiebreak)) {
+      const bucket = row.top6 ? top6Wins : top6Losses
+      bucket.set(row.team, (bucket.get(row.team) ?? 0) + 1)
+      weeklyRankSum.set(row.team, (weeklyRankSum.get(row.team) ?? 0) + row.rank)
       weeklyRankCount.set(row.team, (weeklyRankCount.get(row.team) ?? 0) + 1)
-    })
+    }
   }
 
   const standings: TeamStanding[] = teams.map((team) => {
@@ -89,44 +179,11 @@ export function computeStandings(teamWeeks: TeamWeek[], matchups: Matchup[]): Te
     }
   })
 
-  // Head-to-head win counts for tiebreaks
-  const h2hIndex = new Map<string, number>()
-  for (const m of matchups) {
-    const key = `${m.winner}|${m.loser}`
-    h2hIndex.set(key, (h2hIndex.get(key) ?? 0) + 1)
-  }
-
-  // Rank: overall wins, then — for an exact two-team tie — head-to-head
-  // (constitution §IX), then point differential (long-standing sheet
-  // practice for multi-team ties), then points for.
-  const byRecordThenDiff = (a: TeamStanding, b: TeamStanding) => {
-    if (a.overall.wins !== b.overall.wins) return b.overall.wins - a.overall.wins
-    if (a.overall.losses !== b.overall.losses) return a.overall.losses - b.overall.losses
-    if (a.diff !== b.diff) return b.diff - a.diff
-    return b.pointsFor - a.pointsFor
-  }
-  standings.sort(byRecordThenDiff)
-  for (let i = 0; i < standings.length - 1; i++) {
-    const a = standings[i]
-    const b = standings[i + 1]
-    const tiedGroup =
-      a.overall.wins === b.overall.wins &&
-      a.overall.losses === b.overall.losses &&
-      (i + 2 >= standings.length ||
-        standings[i + 2].overall.wins !== a.overall.wins ||
-        standings[i + 2].overall.losses !== a.overall.losses) &&
-      (i === 0 ||
-        standings[i - 1].overall.wins !== a.overall.wins ||
-        standings[i - 1].overall.losses !== a.overall.losses)
-    if (tiedGroup) {
-      const aBeatB = h2hIndex.get(`${a.team}|${b.team}`) ?? 0
-      const bBeatA = h2hIndex.get(`${b.team}|${a.team}`) ?? 0
-      if (bBeatA > aBeatB) {
-        standings[i] = b
-        standings[i + 1] = a
-      }
-    }
-  }
+  const order = rankTeams(
+    standings.map((s) => ({ team: s.team, wins: s.overall.wins, losses: s.overall.losses, pointsFor: s.pointsFor })),
+    h2hIndexOf(matchups),
+  )
+  standings.sort((a, b) => order.indexOf(a.team) - order.indexOf(b.team))
 
   // Power score: scoring strength (50%), recent form over last 3 weeks (30%),
   // overall win% (20%) — normalized to the league and scaled 0–100.

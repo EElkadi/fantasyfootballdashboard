@@ -19,8 +19,9 @@ WhatsApp scores ──paste──▶ /commish ──review──▶ Google Sheet
 - **The Google Sheet stays the source of truth.** The site reads it directly
   server-side; there is no script to run and no redeploy after entering scores.
 - **Standings are computed from the box scores** (H2H + weekly top-6, ranked by
-  overall wins → two-team H2H → point differential), so they can't drift from
-  the results like a hand-maintained tab can.
+  overall record → head-to-head among the tied teams → points scored), so they
+  can't drift from the results like a hand-maintained tab can. Playoff odds
+  seed simulated seasons with the same rule.
 - **Past seasons** are archived as CSVs under `data/seasons/<year>/` and feed
   the Record Book and all-time head-to-head numbers.
 

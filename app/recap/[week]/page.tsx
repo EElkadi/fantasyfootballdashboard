@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { getDefaultSeason } from '@/lib/data'
-import { computeStandings } from '@/lib/data/standings'
+import { computeStandings, weeklyScoreOrder } from '@/lib/data/standings'
 import { LEAGUE } from '@/lib/league'
 import { RecapShare, RecapData } from '@/components/league/RecapShare'
 import { weeklyAwards } from '@/lib/data/awards'
@@ -27,13 +27,16 @@ export default async function RecapPage({ params }: { params: { week: string } }
 
   const weekRows = season.teamWeeks.filter((r) => r.week === week)
   const topScore = weekRows.reduce((a, b) => (b.score > a.score ? b : a))
+  // Top-6 wins are a regular-season game only
+  const isRegular = week <= LEAGUE.regularSeasonWeeks
+  const weeklyScores = isRegular ? weeklyScoreOrder(season.teamWeeks, season.matchups, week) : undefined
   const weekPlayers = season.playerWeeks.filter((p) => p.week === week)
   const mvp = weekPlayers.length ? weekPlayers.reduce((a, b) => (b.score > a.score ? b : a)) : undefined
 
   // Standings as they stood after this week (playoff games never count)
   const cutoff = Math.min(week, LEAGUE.regularSeasonWeeks)
   const throughWeek = computeStandings(
-    season.teamWeeks.filter((r) => r.week <= cutoff).map((r) => ({ ...r })),
+    season.teamWeeks.filter((r) => r.week <= cutoff),
     season.matchups.filter((m) => m.week <= cutoff),
   )
 
@@ -53,6 +56,7 @@ export default async function RecapPage({ params }: { params: { week: string } }
       }
     }),
     topScore: { team: topScore.team, score: topScore.score },
+    weeklyScores,
     mvp: mvp ? { player: mvp.player, team: mvp.team, score: mvp.score, slot: mvp.slot } : undefined,
     standings: throughWeek.map((s) => ({
       team: s.team,
@@ -60,7 +64,6 @@ export default async function RecapPage({ params }: { params: { week: string } }
     })),
   }
 
-  const isRegular = week <= LEAGUE.regularSeasonWeeks
   const next = season.schedule.find((s) => s.week === week + 1 && week + 1 <= LEAGUE.regularSeasonWeeks)
   const text = recapText({
     season: season.season,
@@ -69,6 +72,7 @@ export default async function RecapPage({ params }: { params: { week: string } }
     regularSeasonWeeks: LEAGUE.regularSeasonWeeks,
     playoffTeams: LEAGUE.playoffTeams,
     results: data.results,
+    weeklyScores,
     awards: weeklyAwards(season, week),
     mvp: data.mvp,
     standings: isRegular ? data.standings : undefined,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { LEAGUE, ownerColor } from '@/lib/league'
+import type { WeeklyScoreRow } from '@/lib/data/standings'
 
 export interface RecapData {
   season: number
@@ -12,6 +13,8 @@ export interface RecapData {
   topScore?: { team: string; score: number }
   mvp?: { player: string; team: string; score: number; slot: string }
   standings: { team: string; record: string }[]
+  /** The week's scoring order; omitted in the playoffs, where top-6 doesn't apply */
+  weeklyScores?: WeeklyScoreRow[]
 }
 
 const W = 1080
@@ -133,6 +136,42 @@ export function RecapShare({ data, text }: { data: RecapData; text: string }) {
     }
     if (data.topScore) chip(leftX, 258, 'Top score', data.topScore.team, `${data.topScore.score} pts`)
     if (data.mvp) chip(leftX + 278, 282, 'MVP', data.mvp.player, `${data.mvp.score} pts · ${data.mvp.team}`)
+
+    // Weekly scoring — the half of everyone's record the box scores don't show
+    const weekly = data.weeklyScores ?? []
+    if (weekly.length > 0) {
+      const made = weekly.filter((r) => r.top6)
+      const missed = weekly.filter((r) => !r.top6)
+      const colW = 264
+      const colX = [leftX, leftX + leftW - colW]
+      const headY = chipY + 132 + 46
+      const wsRowH = 31
+
+      const column = (x: number, label: string, rows: WeeklyScoreRow[], won: boolean) => {
+        ctx.fillStyle = won ? GREEN : MUTED
+        ctx.font = font(700, 20)
+        drawTracked(ctx, label.toUpperCase(), x, headY, 3)
+        rows.forEach((r, i) => {
+          const y = headY + 34 + i * wsRowH
+          ctx.fillStyle = MUTED
+          ctx.font = font(500, 22)
+          ctx.textAlign = 'right'
+          ctx.fillText(String(r.rank), x + 18, y)
+          ctx.textAlign = 'left'
+          dot(x + 36, y - 8, 7, ownerColor(r.team))
+          ctx.fillStyle = won ? FG : MUTED
+          ctx.font = font(600, 25)
+          ctx.fillText(fit(ctx, r.team, colW - 122), x + 52, y)
+          ctx.fillStyle = won ? GREEN : MUTED
+          ctx.font = font(700, 25)
+          ctx.textAlign = 'right'
+          ctx.fillText(String(r.score), x + colW, y)
+          ctx.textAlign = 'left'
+        })
+      }
+      column(colX[0], `Top ${made.length} · extra win`, made, true)
+      column(colX[1], `Bottom ${missed.length}`, missed, false)
+    }
 
     // Standings
     ctx.fillStyle = MUTED

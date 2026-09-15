@@ -38,7 +38,6 @@ export interface TeamWeek {
   opponent: string
   result: 'Win' | 'Loss'
   /** Finished in the top 6 scores of the week */
-  top6?: boolean
 }
 
 export interface PlayerWeek {

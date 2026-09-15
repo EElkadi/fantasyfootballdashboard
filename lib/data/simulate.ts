@@ -1,5 +1,6 @@
 import { SeasonData, TeamStanding } from '@/lib/types'
 import { LEAGUE } from '@/lib/league'
+import { h2hIndexOf, rankTeams } from './standings'
 
 export interface TeamOdds {
   team: string
@@ -40,8 +41,9 @@ function gaussian(rand: () => number): number {
 /**
  * Monte Carlo the rest of the regular season. Each team's weekly score is
  * modeled as a normal draw from its own mean/stddev (shrunk toward the league
- * mean early in the year). Playoffs = top 6 by overall record with point
- * differential as the tiebreaker; turd bowl = bottom 4.
+ * mean early in the year). Seeding uses the real rule — overall record, then
+ * head-to-head among tied teams, then points scored — so simulated seeds are
+ * broken the same way the standings page breaks them.
  */
 export function simulateSeason(data: SeasonData, sims = 3000): SimulationResult | null {
   const { standings, teamWeeks, schedule, lastCompletedWeek } = data
@@ -72,6 +74,7 @@ export function simulateSeason(data: SeasonData, sims = 3000): SimulationResult 
   }
 
   const base = new Map<string, TeamStanding>(standings.map((s) => [s.team, s]))
+  const baseH2H = h2hIndexOf(data.matchups.filter((m) => m.week <= LEAGUE.regularSeasonWeeks))
   const rand = mulberry32(20260830 + lastCompletedWeek * 7)
 
   const tally = new Map<
@@ -81,13 +84,16 @@ export function simulateSeason(data: SeasonData, sims = 3000): SimulationResult 
 
   for (let sim = 0; sim < sims; sim++) {
     const wins = new Map(teams.map((t) => [t, base.get(t)!.overall.wins]))
-    const diff = new Map(teams.map((t) => [t, base.get(t)!.diff]))
+    const pointsFor = new Map(teams.map((t) => [t, base.get(t)!.pointsFor]))
+    const h2h = new Map(baseH2H)
 
     for (const week of remainingWeeks) {
       const weekScores = new Map<string, number>()
       for (const team of teams) {
         const m = model.get(team)!
-        weekScores.set(team, Math.max(20, Math.round(m.mean + m.std * gaussian(rand))))
+        const score = Math.max(20, Math.round(m.mean + m.std * gaussian(rand)))
+        weekScores.set(team, score)
+        pointsFor.set(team, pointsFor.get(team)! + score)
       }
       // H2H
       const done = new Set<string>()
@@ -100,20 +106,26 @@ export function simulateSeason(data: SeasonData, sims = 3000): SimulationResult 
         const a = weekScores.get(team)!
         const b = weekScores.get(opp)!
         const winner = a === b ? (rand() < 0.5 ? team : opp) : a > b ? team : opp
+        const loser = winner === team ? opp : team
         wins.set(winner, wins.get(winner)! + 1)
-        diff.set(team, diff.get(team)! + a - b)
-        diff.set(opp, diff.get(opp)! + b - a)
+        const key = `${winner}|${loser}`
+        h2h.set(key, (h2h.get(key) ?? 0) + 1)
       }
       // Top 6
       const ranked = [...teams].sort((x, y) => weekScores.get(y)! - weekScores.get(x)!)
       for (let i = 0; i < 6 && i < ranked.length; i++) wins.set(ranked[i], wins.get(ranked[i])! + 1)
     }
 
-    const order = [...teams].sort((a, b) => {
-      const dw = wins.get(b)! - wins.get(a)!
-      if (dw !== 0) return dw
-      return diff.get(b)! - diff.get(a)!
-    })
+    // Every week is worth two games (H2H + top 6), so losses follow from wins.
+    const order = rankTeams(
+      teams.map((team) => ({
+        team,
+        wins: wins.get(team)!,
+        losses: 2 * (base.get(team)!.gamesPlayed + remainingWeeks.length) - wins.get(team)!,
+        pointsFor: pointsFor.get(team)!,
+      })),
+      h2h,
+    )
     order.forEach((team, i) => {
       const t = tally.get(team)!
       const seed = i + 1
