@@ -1,246 +1,78 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { LEAGUE, ownerColor } from '@/lib/league'
-import type { WeeklyScoreRow } from '@/lib/data/standings'
+import { CARD_SIZE, RecapData, recapCards } from './recapCards'
 
-export interface RecapData {
-  season: number
-  week: number
-  weekLabel?: string
-  results: { winner: string; loser: string; winScore: number; loseScore: number; tiebreaker?: boolean }[]
-  topScore?: { team: string; score: number }
-  mvp?: { player: string; team: string; score: number; slot: string }
-  standings: { team: string; record: string }[]
-  /** The week's scoring order; omitted in the playoffs, where top-6 doesn't apply */
-  weeklyScores?: WeeklyScoreRow[]
-}
-
-const W = 1080
-const H = 1080
-const PAD = 56
-const GREEN = '#34d399'
-const MUTED = 'rgba(226, 232, 240, 0.62)'
-const LINE = 'rgba(148, 163, 184, 0.25)'
-const FG = '#f1f5f9'
+export type { RecapData } from './recapCards'
 
 /**
- * WhatsApp-ready weekly recap image, drawn directly on a canvas so what you
- * preview is exactly the PNG that gets shared. Native share sheet on mobile
- * (straight into the league chat), PNG download elsewhere.
+ * The weekly recap as a set of WhatsApp-ready square cards plus a text
+ * version. On a phone the share sheet sends every card in one go, straight
+ * into the league chat; elsewhere each card downloads as a PNG.
  */
 export function RecapShare({ data, text }: { data: RecapData; text: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const cards = useMemo(() => recapCards(data), [data])
+  const canvases = useRef<(HTMLCanvasElement | null)[]>([])
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [showText, setShowText] = useState(false)
 
-  const draw = useCallback(async () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    await document.fonts.ready
-    // next/font gives Inter a generated family name — read it off the body
-    const family = getComputedStyle(document.body).fontFamily || 'sans-serif'
-    const font = (weight: number, size: number) => `${weight} ${size}px ${family}`
-
-    // Background
-    const grad = ctx.createLinearGradient(0, 0, W * 0.55, H)
-    grad.addColorStop(0, '#0b1220')
-    grad.addColorStop(0.55, '#101c33')
-    grad.addColorStop(1, '#0c2921')
-    ctx.fillStyle = grad
-    ctx.fillRect(0, 0, W, H)
-
-    const dot = (x: number, y: number, r: number, color: string) => {
-      ctx.beginPath()
-      ctx.arc(x, y, r, 0, Math.PI * 2)
-      ctx.fillStyle = color
-      ctx.fill()
-    }
-
-    // Header
-    ctx.textBaseline = 'alphabetic'
-    ctx.fillStyle = GREEN
-    ctx.font = font(700, 25)
-    drawTracked(ctx, 'PREMIER LEAGUE FANTASY FOOTBALL', PAD, PAD + 22, 4)
-    ctx.fillStyle = MUTED
-    ctx.font = font(600, 30)
-    ctx.textAlign = 'right'
-    ctx.fillText(String(data.season), W - PAD, PAD + 24)
-    ctx.textAlign = 'left'
-    ctx.fillStyle = FG
-    ctx.font = font(800, 58)
-    ctx.fillText(`Week ${data.week} Recap${data.weekLabel ? ` · ${data.weekLabel}` : ''}`, PAD - 2, PAD + 88)
-
-    // Layout columns
-    const top = PAD + 140
-    const leftX = PAD
-    const leftW = 560
-    const rightX = PAD + leftW + 44
-    const rightW = W - PAD - rightX
-
-    // Results
-    const rowH = 66
-    data.results.forEach((r, i) => {
-      const y = top + i * rowH
-      const mid = y + rowH / 2 + 10
-      dot(leftX + 9, mid - 10, 8, ownerColor(r.winner))
-      ctx.fillStyle = FG
-      ctx.font = font(700, 33)
-      ctx.fillText(fit(ctx, r.winner, 150), leftX + 30, mid)
-      ctx.font = font(800, 33)
-      ctx.textAlign = 'center'
-      ctx.fillText(`${r.winScore}–${r.loseScore}`, leftX + 268, mid)
-      ctx.textAlign = 'left'
-      dot(leftX + 356, mid - 10, 8, ownerColor(r.loser))
-      ctx.fillStyle = MUTED
-      ctx.font = font(500, 33)
-      ctx.fillText(fit(ctx, r.loser, 140), leftX + 377, mid)
-      if (r.tiebreaker) {
-        ctx.fillStyle = GREEN
-        ctx.font = font(700, 21)
-        ctx.fillText('TB', leftX + leftW - 34, mid)
-      }
-      if (i < data.results.length - 1) {
-        ctx.strokeStyle = LINE
-        ctx.lineWidth = 1
-        ctx.beginPath()
-        ctx.moveTo(leftX, y + rowH)
-        ctx.lineTo(leftX + leftW, y + rowH)
-        ctx.stroke()
-      }
-    })
-
-    // Award chips
-    const chipY = top + data.results.length * rowH + 40
-    const chip = (x: number, w: number, label: string, line1: string, line2: string) => {
-      ctx.fillStyle = 'rgba(52, 211, 153, 0.08)'
-      ctx.strokeStyle = 'rgba(52, 211, 153, 0.35)'
-      ctx.lineWidth = 1.5
-      roundRect(ctx, x, chipY, w, 132, 18)
-      ctx.fill()
-      ctx.stroke()
-      ctx.fillStyle = 'rgba(226,232,240,0.6)'
-      ctx.font = font(600, 20)
-      drawTracked(ctx, label.toUpperCase(), x + 24, chipY + 38, 3)
-      ctx.fillStyle = FG
-      ctx.font = font(800, 30)
-      ctx.fillText(fit(ctx, line1, w - 48), x + 24, chipY + 76)
-      ctx.fillStyle = 'rgba(226,232,240,0.75)'
-      ctx.font = font(500, 23)
-      ctx.fillText(fit(ctx, line2, w - 48), x + 24, chipY + 110)
-    }
-    if (data.topScore) chip(leftX, 258, 'Top score', data.topScore.team, `${data.topScore.score} pts`)
-    if (data.mvp) chip(leftX + 278, 282, 'MVP', data.mvp.player, `${data.mvp.score} pts · ${data.mvp.team}`)
-
-    // Weekly scoring — the half of everyone's record the box scores don't show
-    const weekly = data.weeklyScores ?? []
-    if (weekly.length > 0) {
-      const made = weekly.filter((r) => r.top6)
-      const missed = weekly.filter((r) => !r.top6)
-      const colW = 264
-      const colX = [leftX, leftX + leftW - colW]
-      const headY = chipY + 132 + 46
-      const wsRowH = 31
-
-      const column = (x: number, label: string, rows: WeeklyScoreRow[], won: boolean) => {
-        ctx.fillStyle = won ? GREEN : MUTED
-        ctx.font = font(700, 20)
-        drawTracked(ctx, label.toUpperCase(), x, headY, 3)
-        rows.forEach((r, i) => {
-          const y = headY + 34 + i * wsRowH
-          ctx.fillStyle = MUTED
-          ctx.font = font(500, 22)
-          ctx.textAlign = 'right'
-          ctx.fillText(String(r.rank), x + 18, y)
-          ctx.textAlign = 'left'
-          dot(x + 36, y - 8, 7, ownerColor(r.team))
-          ctx.fillStyle = won ? FG : MUTED
-          ctx.font = font(600, 25)
-          ctx.fillText(fit(ctx, r.team, colW - 122), x + 52, y)
-          ctx.fillStyle = won ? GREEN : MUTED
-          ctx.font = font(700, 25)
-          ctx.textAlign = 'right'
-          ctx.fillText(String(r.score), x + colW, y)
-          ctx.textAlign = 'left'
-        })
-      }
-      column(colX[0], `Top ${made.length} · extra win`, made, true)
-      column(colX[1], `Bottom ${missed.length}`, missed, false)
-    }
-
-    // Standings
-    ctx.fillStyle = MUTED
-    ctx.font = font(700, 23)
-    drawTracked(ctx, 'STANDINGS', rightX, top + 6, 3)
-    const sTop = top + 26
-    const sRowH = 57
-    data.standings.forEach((t, i) => {
-      const y = sTop + i * sRowH
-      const mid = y + sRowH / 2 + 9
-      ctx.fillStyle = MUTED
-      ctx.font = font(500, 26)
-      ctx.fillText(String(i + 1), rightX, mid)
-      dot(rightX + 52, mid - 8, 7, ownerColor(t.team))
-      ctx.fillStyle = FG
-      ctx.font = font(600, 26)
-      ctx.fillText(fit(ctx, t.team, rightW - 150), rightX + 70, mid)
-      ctx.fillStyle = MUTED
-      ctx.textAlign = 'right'
-      ctx.fillText(t.record, rightX + rightW, mid)
-      ctx.textAlign = 'left'
-      const isPlayoffLine = i === LEAGUE.playoffTeams - 1
-      ctx.strokeStyle = isPlayoffLine ? GREEN : LINE
-      ctx.lineWidth = isPlayoffLine ? 3 : 1
-      ctx.beginPath()
-      ctx.moveTo(rightX, y + sRowH)
-      ctx.lineTo(rightX + rightW, y + sRowH)
-      ctx.stroke()
-    })
-
-    // Footer
-    ctx.fillStyle = MUTED
-    ctx.font = font(500, 22)
-    ctx.fillText('Since 2015 · $3,600 on the line', PAD, H - PAD + 8)
-    ctx.textAlign = 'right'
-    ctx.fillText(data.week > 14 ? `Playoffs · week ${data.week}` : `Week ${data.week} of 14`, W - PAD, H - PAD + 8)
-    ctx.textAlign = 'left'
-  }, [data])
-
   useEffect(() => {
-    draw()
-  }, [draw])
+    let cancelled = false
+    document.fonts.ready.then(() => {
+      if (cancelled) return
+      // next/font gives Inter a generated family name — read it off the body
+      const family = getComputedStyle(document.body).fontFamily || 'sans-serif'
+      cards.forEach((card, i) => {
+        const ctx = canvases.current[i]?.getContext('2d')
+        if (ctx) card.draw(ctx, family)
+      })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [cards])
 
-  const share = async () => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+  const toFile = async (i: number): Promise<File | null> => {
+    const canvas = canvases.current[i]
+    if (!canvas) return null
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+    return blob ? new File([blob], `plff-week-${data.week}-${cards[i].key}.png`, { type: 'image/png' }) : null
+  }
+
+  const download = (file: File) => {
+    const url = URL.createObjectURL(file)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.name
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const shareAll = async () => {
     setBusy(true)
     setNote('')
     try {
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
-      if (!blob) return
-      const file = new File([blob], `plff-week-${data.week}-recap.png`, { type: 'image/png' })
-      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: `Week ${data.week} Recap` })
+      const files = (await Promise.all(cards.map((_, i) => toFile(i)))).filter((f): f is File => f !== null)
+      if (files.length === 0) return
+      if (typeof navigator.share === 'function' && navigator.canShare?.({ files })) {
+        await navigator.share({ files, title: `Week ${data.week} Recap` })
         setNote('Shared!')
       } else {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = file.name
-        a.click()
-        URL.revokeObjectURL(url)
-        setNote('Downloaded — drop it in the chat.')
+        files.forEach(download)
+        setNote(`Downloaded ${files.length} image${files.length === 1 ? '' : 's'} — drop them in the chat.`)
       }
     } catch (err) {
-      if ((err as Error)?.name !== 'AbortError') setNote('Could not generate the image — try again.')
+      if ((err as Error)?.name !== 'AbortError') setNote('Could not generate the images — try again.')
     } finally {
       setBusy(false)
     }
+  }
+
+  const downloadOne = async (i: number) => {
+    const file = await toFile(i)
+    if (file) download(file)
   }
 
   const copyText = async () => {
@@ -258,8 +90,8 @@ export function RecapShare({ data, text }: { data: RecapData; text: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={share} disabled={busy}>
-          {busy ? 'Rendering…' : 'Share / download image'}
+        <Button onClick={shareAll} disabled={busy}>
+          {busy ? 'Rendering…' : cards.length > 1 ? `Share all ${cards.length} images` : 'Share / download image'}
         </Button>
         <Button variant="outline" onClick={copyText}>
           Copy for the group chat
@@ -278,40 +110,29 @@ export function RecapShare({ data, text }: { data: RecapData; text: string }) {
           {text}
         </pre>
       )}
-      <canvas
-        ref={canvasRef}
-        width={W}
-        height={H}
-        className="w-full max-w-[540px] rounded-xl border shadow-sm"
-        aria-label={`Week ${data.week} recap card`}
-      />
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {cards.map((card, i) => (
+          <figure key={card.key} className="space-y-1.5">
+            <canvas
+              ref={(el) => {
+                canvases.current[i] = el
+              }}
+              width={CARD_SIZE}
+              height={CARD_SIZE}
+              className="w-full rounded-xl border shadow-sm"
+              aria-label={`Week ${data.week} ${card.label.toLowerCase()} card`}
+            />
+            <figcaption className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>
+                {i + 1}. {card.label}
+              </span>
+              <button type="button" onClick={() => downloadOne(i)} className="underline-offset-2 hover:underline">
+                Download
+              </button>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   )
-}
-
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + w, y, x + w, y + h, r)
-  ctx.arcTo(x + w, y + h, x, y + h, r)
-  ctx.arcTo(x, y + h, x, y, r)
-  ctx.arcTo(x, y, x + w, y, r)
-  ctx.closePath()
-}
-
-/** Letter-spaced text (canvas has no letter-spacing in all browsers). */
-function drawTracked(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, tracking: number) {
-  let cx = x
-  for (const ch of text) {
-    ctx.fillText(ch, cx, y)
-    cx += ctx.measureText(ch).width + tracking
-  }
-}
-
-/** Truncate with ellipsis to fit maxWidth at the current font. */
-function fit(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
-  if (ctx.measureText(text).width <= maxWidth) return text
-  let t = text
-  while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1)
-  return t + '…'
 }

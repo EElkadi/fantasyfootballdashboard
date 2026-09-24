@@ -65,7 +65,11 @@ Three tabs (names configurable via env):
 
 - **Scores** — one row per matchup in the historical 43-column layout:
   `Week, Team 1, QB Name, QB, RB1 Name, RB1, … Flex2, Total1, Team 2, …,
-  Total2, Winner, Loser`. `/commish` appends rows in exactly this shape.
+  Total2, Winner, Loser`. `/commish` writes rows in exactly this shape, into
+  the first open row under the data (or a row already numbered for that
+  week), never wherever Google's append would put it. Re-saving a matchup
+  overwrites its own row. Rows with a week and teams but no scores are
+  treated as placeholders, not 0–0 games.
 - **Team by Team Schedule** — the week grid: a `Week` column plus one column
   per team, cells naming that week's opponent. A row label like
   `RIVALRY WEEK 7` still parses as week 7 and shows as "Rivalry Week" on the
@@ -103,7 +107,10 @@ Three tabs (names configurable via env):
   splits 60/30/10). `/commish` has a one-click form that appends rows here.
 - **Trades** (optional) — `TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS`, one
   asset per row with blank team cells continuing a multi-player deal. Powers
-  the trade ledger on `/waivers`.
+  the trade ledger on `/waivers`. An `On Rosters` column is stamped once a
+  trade's players have moved on the Rosters tab; `/commish` lists any
+  unstamped trade (typed straight into the sheet, say) with the moves it
+  would make, and applies them on one click.
 - **Predictions** (optional) — `Submitted | Manager | Order | Champion | Turd | Bold Take`,
   one row per ballot, appended by `/predictions` (requires `LEAGUE_PASSCODE`).
   `Order` is a comma-separated list, best first; a manager's latest row wins.
@@ -164,7 +171,8 @@ The site updates within a minute of any save.
 ```
 npx tsx tests/parser.test.ts   # parser acceptance tests (real league samples)
 npx tsx tests/data.test.ts     # transforms, schedule rules, clinch math
-npx tsx tests/features.test.ts # awards, recap text, predictions, career
+npx tsx tests/features.test.ts # awards, recap metrics + text, predictions, career
 npx tsx tests/rosters-lineups.test.ts # lineup merging, team names, roster provenance, lineup-mode parsing
+npx tsx tests/sheet-writes.test.ts # score row placement, trades -> rosters
 npm run lint && npx tsc --noEmit
 ```
