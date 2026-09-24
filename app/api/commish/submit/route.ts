@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { ADJUSTMENTS_TAB, appendRow, describeSheetsError, hasLiveSheet, SCORES_TAB } from '@/lib/data/sheets'
+import { ADJUSTMENTS_TAB, appendRow, describeSheetsError, hasLiveSheet, readTab, SCORES_TAB, updateRow } from '@/lib/data/sheets'
+import { scoreRowFor } from '@/lib/data/scoreRows'
 import { decideWinner } from '@/lib/parser/parse'
 import { resolveOwner } from '@/lib/league'
 import { Slot, SLOTS } from '@/lib/types'
@@ -34,8 +35,10 @@ function validateLineup(l: SubmitLineup): string | null {
 }
 
 /**
- * Append one matchup to the Scores tab in its historical 43-column format:
+ * Write one matchup to the Scores tab in its historical 43-column format:
  * Week, Team 1, <name,score per slot>, Total1, Team 2, <...>, Total2, Winner, Loser.
+ * The target row is chosen by scoreRowFor — never Google's append, which
+ * lands rows far below the data whenever anything sits further down the tab.
  */
 export async function POST(req: Request) {
   if (!isCommish()) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
@@ -80,10 +83,12 @@ export async function POST(req: Request) {
 
   const row: (string | number)[] = [week, team1, ...slotCells(l1), total1, team2, ...slotCells(l2), total2, winner, loser]
 
+  let target: { row: number; replacing: boolean }
   try {
-    await appendRow(SCORES_TAB, row)
+    target = scoreRowFor(await readTab(SCORES_TAB), week, team1, team2)
+    await updateRow(SCORES_TAB, target.row, row)
   } catch (err) {
-    console.error('Sheet append failed:', err)
+    console.error('Scores write failed:', err)
     return NextResponse.json({ error: describeSheetsError(err, SCORES_TAB) }, { status: 502 })
   }
 
@@ -116,6 +121,8 @@ export async function POST(req: Request) {
     winner,
     loser,
     tiebreaker: tiebreaker ?? null,
+    sheetRow: target.row,
+    replaced: target.replacing,
     warning: adjustmentWarning,
   })
 }

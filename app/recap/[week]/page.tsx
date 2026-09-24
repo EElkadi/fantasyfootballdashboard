@@ -2,10 +2,10 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
 import { getDefaultSeason } from '@/lib/data'
-import { computeStandings, weeklyScoreOrder } from '@/lib/data/standings'
 import { LEAGUE } from '@/lib/league'
 import { RecapShare, RecapData } from '@/components/league/RecapShare'
-import { weeklyAwards } from '@/lib/data/awards'
+import { AWARD_META } from '@/lib/data/awards'
+import { recapMetrics } from '@/lib/recap/metrics'
 import { recapText } from '@/lib/recap/text'
 import { pairsOf } from '@/lib/data/transform'
 import { PageHeader } from '@/components/league/PageHeader'
@@ -27,18 +27,10 @@ export default async function RecapPage({ params }: { params: { week: string } }
 
   const weekRows = season.teamWeeks.filter((r) => r.week === week)
   const topScore = weekRows.reduce((a, b) => (b.score > a.score ? b : a))
-  // Top-6 wins are a regular-season game only
-  const isRegular = week <= LEAGUE.regularSeasonWeeks
-  const weeklyScores = isRegular ? weeklyScoreOrder(season.teamWeeks, season.matchups, week) : undefined
   const weekPlayers = season.playerWeeks.filter((p) => p.week === week)
   const mvp = weekPlayers.length ? weekPlayers.reduce((a, b) => (b.score > a.score ? b : a)) : undefined
-
-  // Standings as they stood after this week (playoff games never count)
-  const cutoff = Math.min(week, LEAGUE.regularSeasonWeeks)
-  const throughWeek = computeStandings(
-    season.teamWeeks.filter((r) => r.week <= cutoff),
-    season.matchups.filter((m) => m.week <= cutoff),
-  )
+  // Standings, scoring order, awards, power, odds and luck as of this week
+  const metrics = recapMetrics(season, week)
 
   const data: RecapData = {
     season: season.season,
@@ -56,14 +48,15 @@ export default async function RecapPage({ params }: { params: { week: string } }
       }
     }),
     topScore: { team: topScore.team, score: topScore.score },
-    weeklyScores,
+    weeklyScores: metrics.weeklyScores,
     mvp: mvp ? { player: mvp.player, team: mvp.team, score: mvp.score, slot: mvp.slot } : undefined,
-    standings: throughWeek.map((s) => ({
-      team: s.team,
-      record: `${s.overall.wins}-${s.overall.losses}`,
-    })),
+    standings: metrics.standings,
+    awards: metrics.awards.map((a) => ({ ...AWARD_META[a.key], team: a.team, detail: a.detail })),
+    power: metrics.power,
+    oddsNote: metrics.oddsNote,
   }
 
+  const isRegular = week <= LEAGUE.regularSeasonWeeks
   const next = season.schedule.find((s) => s.week === week + 1 && week + 1 <= LEAGUE.regularSeasonWeeks)
   const text = recapText({
     season: season.season,
@@ -72,10 +65,14 @@ export default async function RecapPage({ params }: { params: { week: string } }
     regularSeasonWeeks: LEAGUE.regularSeasonWeeks,
     playoffTeams: LEAGUE.playoffTeams,
     results: data.results,
-    weeklyScores,
-    awards: weeklyAwards(season, week),
+    weeklyScores: metrics.weeklyScores,
+    awards: metrics.awards,
     mvp: data.mvp,
-    standings: isRegular ? data.standings : undefined,
+    standings: isRegular ? metrics.standings : undefined,
+    oddsNote: metrics.oddsNote,
+    power: metrics.power,
+    luckiest: metrics.luckiest,
+    unluckiest: metrics.unluckiest,
     nextWeek: next ? { week: next.week, label: next.label, pairs: pairsOf(next) } : undefined,
     url: `${LEAGUE.siteUrl}/matchups?week=${week}&season=${season.season}`,
   })
@@ -84,7 +81,7 @@ export default async function RecapPage({ params }: { params: { week: string } }
     <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
       <PageHeader
         title={`Week ${week} recap card`}
-        description="Rendered from the box scores — share the image, or copy the text version straight into the league chat."
+        description="Rendered from the box scores — share the cards, or copy the text version straight into the league chat."
         actions={
           <Link href={`/matchups?week=${week}`} className="text-sm font-medium text-primary hover:underline">
             Week {week} box scores →

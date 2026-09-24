@@ -70,6 +70,11 @@ export function wideRowToMatchup(row: Record<string, string>): Matchup | null {
 
   const team1 = lineup('', team1Name, 'Total1')
   const team2 = lineup('_2', team2Name, 'Total2')
+  // A row laid out ahead of time (week and teams typed, nothing scored) is a
+  // placeholder, not a 0–0 game
+  const unscored = (side: TeamLineup, totalKey: string) =>
+    !side.players.some((p) => p.player || p.score) && !(row[totalKey] ?? '').trim()
+  if (unscored(team1, 'Total1') && unscored(team2, 'Total2')) return null
   attachAdjustment(team1)
   attachAdjustment(team2)
   const winner = canonTeam(row['Winner'] ?? '') || (team1.total >= team2.total ? team1Name : team2Name)

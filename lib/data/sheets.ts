@@ -233,14 +233,24 @@ export async function appendRow(tab: string, row: (string | number)[], opts: { r
   await appendRows(tab, [row], opts)
 }
 
-/** Append several rows in one request. */
-export async function appendRows(tab: string, rows: (string | number)[][], opts: { raw?: boolean } = {}): Promise<void> {
-  if (rows.length === 0) return
+/**
+ * Append several rows in one request. Resolves to the 1-based sheet row the
+ * first one landed on, when Google reports it.
+ */
+export async function appendRows(
+  tab: string,
+  rows: (string | number)[][],
+  opts: { raw?: boolean } = {},
+): Promise<number | undefined> {
+  if (rows.length === 0) return undefined
   const mode = opts.raw ? 'RAW' : 'USER_ENTERED'
-  await sheetsFetch(
+  const data = await sheetsFetch(
     `/values/${encodeURIComponent(`${tab}!A1`)}:append?valueInputOption=${mode}&insertDataOption=INSERT_ROWS`,
     { method: 'POST', body: JSON.stringify({ values: rows }) },
   )
+  // e.g. "'Trades'!A12:D13"
+  const first = String(data?.updates?.updatedRange ?? '').match(/![A-Z]+(\d+)/)
+  return first ? parseInt(first[1]) : undefined
 }
 
 /** Write several single cells in one request. */

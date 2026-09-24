@@ -1,5 +1,6 @@
 import { Award, AWARD_META } from '@/lib/data/awards'
 import type { WeeklyScoreRow } from '@/lib/data/standings'
+import type { LuckLine, PowerLine, StandingLine } from './metrics'
 import { DraftGrade, DraftPick } from '@/lib/types'
 
 /**
@@ -20,7 +21,12 @@ export interface RecapTextInput {
   awards: Award[]
   mvp?: { player: string; team: string; score: number; slot: string }
   /** Standings after this week; omitted for playoff weeks */
-  standings?: { team: string; record: string }[]
+  standings?: StandingLine[]
+  /** why standings carry no playoff odds yet */
+  oddsNote?: string
+  power?: PowerLine[]
+  luckiest?: LuckLine[]
+  unluckiest?: LuckLine[]
   nextWeek?: { week: number; label?: string; pairs: [string, string][] }
   /** Absolute link to the week's box scores */
   url?: string
@@ -63,11 +69,33 @@ export function recapText(input: RecapTextInput): string {
   }
 
   if (input.standings && input.standings.length > 0) {
-    lines.push(`*Standings* (top ${input.playoffTeams} in)`)
+    const withOdds = input.standings.some((s) => s.odds)
+    lines.push(`*Standings* (top ${input.playoffTeams} in${withOdds ? ' · playoff odds' : ''})`)
     input.standings.forEach((s, i) => {
-      lines.push(`${i + 1}. ${s.team} ${s.record}`)
+      lines.push(`${i + 1}. ${s.team} ${s.record}${s.odds ? ` · ${s.odds}` : ''}`)
       if (i === input.playoffTeams - 1 && i < input.standings!.length - 1) lines.push('———')
     })
+    if (input.oddsNote) lines.push(`_${input.oddsNote}_`)
+    lines.push('')
+  }
+
+  if (input.power && input.power.length > 0) {
+    lines.push('*Power rankings*')
+    for (const p of input.power) lines.push(`${p.rank}. ${p.team} ${p.power}${moveText(p.move)}`)
+    lines.push('')
+  }
+
+  if (input.luckiest?.length || input.unluckiest?.length) {
+    lines.push('*Luck index* (H2H wins minus top-6 wins)')
+    // One team gets its records; a tie just lists everyone on that number
+    const luck = (emoji: string, tied: LuckLine[]) => {
+      const n = `${tied[0].luck > 0 ? '+' : ''}${tied[0].luck}`
+      return tied.length === 1
+        ? `${emoji} ${tied[0].team} ${n} — ${tied[0].h2h} H2H, ${tied[0].top6} top 6`
+        : `${emoji} ${n} — ${tied.map((l) => l.team).join(', ')}`
+    }
+    if (input.luckiest?.length) lines.push(luck('🍀', input.luckiest))
+    if (input.unluckiest?.length) lines.push(luck('🥶', input.unluckiest))
     lines.push('')
   }
 
@@ -79,6 +107,14 @@ export function recapText(input: RecapTextInput): string {
 
   if (input.url) lines.push(input.url)
   return lines.join('\n').trimEnd()
+}
+
+/** " ▲2", " ▼1", " –" (no change), "" before there is a last week to compare */
+function moveText(move: number | null): string {
+  if (move === null) return ''
+  if (move > 0) return ` ▲${move}`
+  if (move < 0) return ` ▼${-move}`
+  return ' –'
 }
 
 /** Draft grades for the group chat: sorted best to worst, one block per team. */

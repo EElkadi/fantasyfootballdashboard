@@ -4,6 +4,7 @@ import { gridToSchedule, longToMatchups, matchupsToTeamWeeks, matchupsToPlayerWe
 import { computeStandings, h2hIndexOf, rankTeams, weeklyScoreOrder } from '../lib/data/standings'
 import { weeklyAwards, seasonAwards, tallyAwards } from '../lib/data/awards'
 import { recapText } from '../lib/recap/text'
+import { recapMetrics } from '../lib/recap/metrics'
 import { consensusOrder, scorePredictions } from '../lib/data/predictions'
 import { careerSummary, trophyCase } from '../lib/data/career'
 import { buildRecordBook } from '../lib/data/records'
@@ -219,6 +220,56 @@ const s2024 = loadSeason(2024)
 
   const playoff = recapText({ season: 2025, week: 16, weekLabel: 'Semifinals', regularSeasonWeeks: 14, playoffTeams: 7, results: results.slice(0, 2), awards: [] })
   check('recap: playoff week uses the label, no standings', playoff.startsWith('🏈 *PLFF 2025 · Semifinals Recap*') && !playoff.includes('*Standings*'), playoff)
+}
+
+// --- Recap metrics: everything the weekly recap reports, as of that week ---
+{
+  const w1 = recapMetrics(s2025, 1)
+  check('metrics: week 1 has no playoff odds yet, and says why', w1.standings.every((s) => !s.odds) && w1.oddsNote === 'Playoff odds start after week 2', w1.oddsNote)
+  check('metrics: week 1 power has no movement to show', w1.power!.every((p) => p.move === null))
+
+  const w5 = recapMetrics(s2025, 5)
+  check('metrics: odds for every team mid-season', w5.standings.every((s) => s.odds && /^(IN|OUT|<1%|>99%|\d+%)$/.test(s.odds)), w5.standings.map((s) => s.odds))
+  check('metrics: power ranked high to low', w5.power!.every((p, i) => i === 0 || w5.power![i - 1].power >= p.power))
+  check('metrics: movement nets to zero across the league', w5.power!.reduce((sum, p) => sum + (p.move ?? 0), 0) === 0)
+  check('metrics: standings reflect only games through that week', w5.standings.every((s) => s.record.split('-').map(Number).reduce((a, b) => a + b) === 10), w5.standings.map((s) => s.record))
+  check('metrics: awards are that week\'s', w5.awards.length > 0 && w5.awards.every((a) => a.week === 5))
+
+  const w14 = recapMetrics(s2025, 14)
+  check('metrics: after week 14 the line is final', w14.standings.every((s, i) => s.odds === (i < 7 ? 'IN' : 'OUT')), w14.standings.map((s) => s.odds))
+  const lucky = w14.luckiest!
+  check('metrics: luckiest has the biggest luck index', lucky.length > 0 && s2025.standings.every((s) => s.luck <= lucky[0].luck), lucky)
+  const w7 = recapMetrics(s2025, 7)
+  const worst = Math.min(...w7.power!.map((p) => p.luck))
+  check('metrics: every team tied for the worst luck is named', w7.unluckiest!.length === w7.power!.filter((p) => p.luck === worst).length && w7.unluckiest!.length > 1, w7.unluckiest)
+
+  const w16 = recapMetrics(s2025, 16)
+  check('metrics: playoff weeks drop power, scoring order and luck', !w16.power && !w16.weeklyScores && !w16.luckiest && !w16.unluckiest)
+  check('metrics: playoff weeks still hand out awards', w16.awards.length > 0)
+
+  const text = recapText({
+    season: 2025,
+    week: 5,
+    regularSeasonWeeks: 14,
+    playoffTeams: 7,
+    results: [],
+    awards: w5.awards,
+    standings: w5.standings,
+    power: w5.power,
+    luckiest: w5.luckiest,
+    unluckiest: w5.unluckiest,
+  })
+  const lines = text.split('\n')
+  check('recap: standings header mentions playoff odds', lines.some((l) => l === '*Standings* (top 7 in · playoff odds)'))
+  check('recap: each standing carries its odds', w5.standings.every((s, i) => lines.includes(`${i + 1}. ${s.team} ${s.record} · ${s.odds}`)))
+  const pStart = lines.indexOf('*Power rankings*')
+  check('recap: power rankings listed with movement', pStart > -1 && w5.power!.every((p) => lines.slice(pStart).some((l) => l.startsWith(`${p.rank}. ${p.team} ${p.power}`))), lines.slice(pStart, pStart + 13))
+  check('recap: movement arrows render', lines.slice(pStart).some((l) => /[▲▼–]/.test(l)))
+  if (w5.luckiest) check('recap: luck index section present', lines.some((l) => l.startsWith('🍀 ') && w5.luckiest!.every((t) => l.includes(t.team))))
+  const tieText = recapText({ season: 2025, week: 7, regularSeasonWeeks: 14, playoffTeams: 7, results: [], awards: [], unluckiest: w7.unluckiest })
+  check('recap: a luck tie lists every team', w7.unluckiest!.every((t) => tieText.includes(t.team)) && tieText.includes(`🥶 ${worst} — `), tieText)
+  const w1Text = recapText({ season: 2025, week: 1, regularSeasonWeeks: 14, playoffTeams: 7, results: [], awards: [], standings: w1.standings, oddsNote: w1.oddsNote, power: w1.power })
+  check('recap: week 1 explains the missing odds, no arrows', w1Text.includes('_Playoff odds start after week 2_') && !/[▲▼]/.test(w1Text))
 }
 
 // --- Predictions ---

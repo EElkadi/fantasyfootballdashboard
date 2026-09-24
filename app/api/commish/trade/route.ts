@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
-import { TRADES_TAB, appendRow, describeSheetsError, hasLiveSheet } from '@/lib/data/sheets'
-import { addToRoster, removeFromRoster } from '@/lib/data/rosters'
-import { parseDraftCell } from '@/lib/data/transform'
+import { TRADES_TAB, appendRows, describeSheetsError, hasLiveSheet } from '@/lib/data/sheets'
+import { syncTradesToRosters } from '@/lib/data/tradeRosters'
+import type { LoggedTrade } from '@/lib/data/tradeSync'
 import { resolveOwner } from '@/lib/league'
 
 export const dynamic = 'force-dynamic'
@@ -16,16 +16,12 @@ function cleanAssets(value: unknown): string[] {
     .slice(0, 10)
 }
 
-/** An asset is a player (vs a pick swap) when it parses with a real position. */
-function asPlayer(asset: string): string | null {
-  const parsed = parseDraftCell(asset)
-  return parsed.position ? asset : null
-}
-
 /**
  * Log a trade: append rows to the Trades tab in its historical layout
  * (first row names both teams, continuation rows carry extra assets), then
- * best-effort move the player assets between the two Rosters columns.
+ * move this trade's players between the Rosters columns and stamp it. Any
+ * asset that isn't a draft pick is a player, with or without a team and
+ * position after the name.
  */
 export async function POST(req: Request) {
   if (!isCommish()) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
@@ -44,15 +40,16 @@ export async function POST(req: Request) {
   }
 
   const rowCount = Math.max(team1Gets.length, team2Gets.length)
+  const rows = Array.from({ length: rowCount }, (_, i) => [
+    i === 0 ? team1.name : '',
+    team1Gets[i] ?? '',
+    i === 0 ? team2.name : '',
+    team2Gets[i] ?? '',
+  ])
+  let firstRow: number | undefined
   try {
-    for (let i = 0; i < rowCount; i++) {
-      await appendRow(TRADES_TAB, [
-        i === 0 ? team1.name : '',
-        team1Gets[i] ?? '',
-        i === 0 ? team2.name : '',
-        team2Gets[i] ?? '',
-      ])
-    }
+    // One request keeps a multi-asset trade's rows together
+    firstRow = await appendRows(TRADES_TAB, rows)
   } catch (err) {
     console.error('Trade append failed:', err)
     return NextResponse.json(
@@ -61,22 +58,29 @@ export async function POST(req: Request) {
     )
   }
 
-  // Move player assets between rosters; pick swaps have no roster effect.
-  const warnings: string[] = []
-  const move = async (player: string, from: string, to: string) => {
-    for (const warning of [await removeFromRoster(from, player), await addToRoster(to, player)]) {
-      if (warning) warnings.push(warning)
+  // Move only this trade's players. Older unstamped trades wait for the
+  // commissioner to review them in the pending-trades banner. The trade is
+  // saved either way; roster trouble is reported, not fatal.
+  let sync = null
+  let rosterError: string | null = null
+  if (firstRow === undefined) {
+    rosterError = 'Trade saved. Use "Apply to rosters" on this page to move the players.'
+  } else {
+    try {
+      sync = await syncTradesToRosters({ apply: true, only: (t: LoggedTrade) => t.row === firstRow })
+    } catch (err) {
+      console.error('Trade roster sync failed:', err)
+      rosterError = `Trade saved, but the rosters couldn't be updated: ${describeSheetsError(err, TRADES_TAB)}. Use "Apply to rosters" on this page to retry.`
     }
-  }
-  for (const asset of team1Gets) {
-    const player = asPlayer(asset)
-    if (player) await move(player, team2.name, team1.name)
-  }
-  for (const asset of team2Gets) {
-    const player = asPlayer(asset)
-    if (player) await move(player, team1.name, team2.name)
   }
 
   revalidateTag('season-live')
-  return NextResponse.json({ ok: true, team1: team1.name, team2: team2.name, warnings })
+  return NextResponse.json({
+    ok: true,
+    team1: team1.name,
+    team2: team2.name,
+    moved: sync?.outcomes.flatMap((o) => o.moved) ?? [],
+    missing: sync?.outcomes.flatMap((o) => o.missing) ?? [],
+    rosterError,
+  })
 }

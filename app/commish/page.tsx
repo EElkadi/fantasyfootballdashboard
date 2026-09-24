@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,6 +76,7 @@ export default function CommishPage() {
   const [matchups, setMatchups] = useState<EditableMatchup[]>([])
   const [parseIssues, setParseIssues] = useState<string[]>([])
 
+  const [tradeCheck, setTradeCheck] = useState(0)
   const loadContext = async () => {
     setLoading(true)
     try {
@@ -130,34 +131,47 @@ export default function CommishPage() {
     return wk?.opponents[team]
   }
 
-  const submit = async (m: EditableMatchup) => {
-    setMatchups((prev) => prev.map((x) => (x.id === m.id ? { ...x, status: 'submitting', message: undefined } : x)))
-    const res = await fetch('/api/commish/submit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        week,
-        lineups: [m.team1, m.team2].map((l) => ({
-          team: l.team,
-          players: l.players.map((p) => ({ slot: p.slot, name: p.name, score: p.score })),
-          penalty: l.penalty || 0,
-        })),
-      }),
-    })
-    const data = await res.json().catch(() => ({}))
-    setMatchups((prev) =>
-      prev.map((x) =>
-        x.id === m.id
-          ? res.ok
-            ? {
-                ...x,
-                status: 'done',
-                message: `Saved — ${data.winner} beats ${data.loser} ${Math.max(data.total1, data.total2)}–${Math.min(data.total1, data.total2)}${data.tiebreaker ? ` (${data.tiebreaker} tiebreaker)` : ''}${data.warning ? ` ⚠ ${data.warning}` : ''}`,
-              }
-            : { ...x, status: 'error', message: data.error ?? 'Submit failed' }
-          : x,
-      ),
-    )
+  // Saves run one at a time: the server picks each matchup's row by reading
+  // the tab, so two saves in flight together could both claim the same row.
+  const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  const setStatus = (id: number, patch: Partial<EditableMatchup>) =>
+    setMatchups((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)))
+
+  const submit = (m: EditableMatchup) => {
+    setStatus(m.id, { status: 'submitting', message: 'Queued…' })
+    saveQueue.current = saveQueue.current.then(() => save(m))
+  }
+
+  const save = async (m: EditableMatchup) => {
+    setStatus(m.id, { status: 'submitting', message: undefined })
+    try {
+      const res = await fetch('/api/commish/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          week,
+          lineups: [m.team1, m.team2].map((l) => ({
+            team: l.team,
+            players: l.players.map((p) => ({ slot: p.slot, name: p.name, score: p.score })),
+            penalty: l.penalty || 0,
+          })),
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setStatus(m.id, { status: 'error', message: data.error ?? 'Submit failed' })
+        return
+      }
+      const score = `${Math.max(data.total1, data.total2)}–${Math.min(data.total1, data.total2)}`
+      const tb = data.tiebreaker ? ` (${data.tiebreaker} tiebreaker)` : ''
+      const where = data.sheetRow ? ` · ${data.replaced ? 'updated' : 'saved to'} row ${data.sheetRow}` : ''
+      setStatus(m.id, {
+        status: 'done',
+        message: `Saved — ${data.winner} beats ${data.loser} ${score}${tb}${where}${data.warning ? ` ⚠ ${data.warning}` : ''}`,
+      })
+    } catch {
+      setStatus(m.id, { status: 'error', message: 'Network error — this matchup was NOT saved. Try again.' })
+    }
   }
 
   if (loading) {
@@ -215,6 +229,7 @@ export default function CommishPage() {
           disabled.
         </div>
       )}
+      {ctx.sheetConfigured && <PendingTrades key={tradeCheck} />}
 
       <Card>
         <CardContent className="space-y-3 pt-6">
@@ -272,7 +287,13 @@ export default function CommishPage() {
 
       <LineupLogger ctx={ctx} defaultWeek={week} />
       <WaiverLogger ctx={ctx} defaultWeek={week} onLogged={loadContext} />
-      <TradeLogger ctx={ctx} onLogged={loadContext} />
+      <TradeLogger
+        ctx={ctx}
+        onLogged={() => {
+          setTradeCheck((n) => n + 1)
+          loadContext()
+        }}
+      />
       {ctx.sheetConfigured && <SheetStatus />}
     </div>
   )
@@ -603,6 +624,87 @@ function LineupLogger({ ctx, defaultWeek }: { ctx: Context; defaultWeek: number 
   )
 }
 
+interface TradeOutcomeView {
+  trade: { row: number; team1: string; team2: string }
+  moved: string[]
+  already: string[]
+  missing: string[]
+  resolved: boolean
+}
+
+/**
+ * Trades on the sheet that the Rosters tab doesn't reflect yet — typed straight
+ * into the Trades tab, or a roster write that failed. Renders nothing when
+ * everything is in line.
+ */
+function PendingTrades() {
+  const [outcomes, setOutcomes] = useState<TradeOutcomeView[]>([])
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState('')
+
+  useEffect(() => {
+    fetch('/api/commish/trade-sync')
+      .then((r) => r.json())
+      .then((d) => setOutcomes((d.outcomes ?? []).filter((o: TradeOutcomeView) => o.moved.length || !o.resolved)))
+      .catch(() => undefined)
+  }, [])
+
+  const apply = async () => {
+    setBusy(true)
+    setNote('')
+    try {
+      const res = await fetch('/api/commish/trade-sync', { method: 'POST' })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setNote(d.error ?? 'Could not update the rosters — try again.')
+        return
+      }
+      const left = (d.outcomes ?? []).filter((o: TradeOutcomeView) => !o.resolved)
+      setOutcomes(left)
+      const moved = (d.outcomes ?? []).flatMap((o: TradeOutcomeView) => o.moved)
+      setNote(moved.length ? `Rosters updated: ${moved.join(', ')}.` : 'Rosters were already up to date.')
+    } catch {
+      setNote('Network error — nothing was changed. Try again.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (outcomes.length === 0 && !note) return null
+  return (
+    <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+      {outcomes.length > 0 && (
+        <>
+          <p className="font-medium">
+            {outcomes.length} logged trade{outcomes.length === 1 ? ' isn’t' : 's aren’t'} on the rosters yet
+          </p>
+          <ul className="space-y-1 text-muted-foreground">
+            {outcomes.map((o) => (
+              <li key={o.trade.row}>
+                <span className="font-medium text-foreground">
+                  {o.trade.team1} ⇄ {o.trade.team2}
+                </span>{' '}
+                <span className="text-xs">(Trades row {o.trade.row})</span>
+                {o.moved.length > 0 && <> · will move {o.moved.join(', ')}</>}
+                {o.missing.length > 0 && (
+                  <span className="text-amber-700 dark:text-amber-400">
+                    {' '}
+                    · not on either roster: {o.missing.join(', ')}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <Button size="sm" onClick={apply} disabled={busy}>
+            {busy ? 'Updating…' : 'Apply to rosters'}
+          </Button>
+        </>
+      )}
+      {note && <p className="text-muted-foreground">{note}</p>}
+    </div>
+  )
+}
+
 function TradeLogger({ ctx, onLogged }: { ctx: Context; onLogged: () => void }) {
   const [team1, setTeam1] = useState('')
   const [team2, setTeam2] = useState('')
@@ -626,8 +728,18 @@ function TradeLogger({ ctx, onLogged }: { ctx: Context; onLogged: () => void }) 
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        setNote(`Logged: ${data.team1} ⇄ ${data.team2}. Rosters updated.`)
-        setWarnings(data.warnings ?? [])
+        const moved: string[] = data.moved ?? []
+        const missing: string[] = data.missing ?? []
+        setNote(
+          `Logged: ${data.team1} ⇄ ${data.team2}.` +
+            (moved.length ? ` Rosters: ${moved.join(', ')}.` : data.rosterError ? '' : ' No players to move.'),
+        )
+        setWarnings([
+          ...(data.rosterError ? [data.rosterError] : []),
+          ...missing.map(
+            (m) => `${m} isn't on either team's roster column — check the spelling against the Rosters tab, then use "Apply to rosters".`,
+          ),
+        ])
         setGets1('')
         setGets2('')
         onLogged()
@@ -665,8 +777,8 @@ function TradeLogger({ ctx, onLogged }: { ctx: Context; onLogged: () => void }) 
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">Log a trade</CardTitle>
         <CardDescription>
-          One asset per line — players as &quot;Name TEAM (POS)&quot;, pick swaps as plain text (e.g. &quot;Round 2,
-          Pick 19&quot;). Writes the Trades tab and moves the players between rosters.
+          One asset per line. Players by name (team and position optional), pick swaps as &quot;Round 2, Pick
+          19&quot;. Writes the Trades tab and moves the players between rosters.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
