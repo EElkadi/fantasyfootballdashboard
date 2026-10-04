@@ -45,14 +45,15 @@ for (const [raw, player, nflTeam, position] of cells) {
   })
   const trades = rowsToTrades(rows)
   check('trades: 15 in 2024', trades.length === 15, trades.length)
-  check('trades: Zeus canonicalized to Chuy', trades[0].team1 === 'Chuy', trades[0])
-  check('trades: multi-asset split', trades[0].team1Gets.length === 3, trades[0].team1Gets)
+  check('trades: Zeus canonicalized to Chuy', trades[0].parties[0].team === 'Chuy', trades[0])
+  check('trades: multi-asset split', trades[0].parties[0].gets.length === 3, trades[0].parties[0].gets)
+  check('trades: two-team deals know the sender', trades[0].parties[0].gets.every((g) => g.from === 'Monaf'), trades[0].parties[0].gets)
   // Live-tab shape: one asset per row, blank continuation team cells
   const live = rowsToTrades([
     { 'Team 1': 'Kenny', 'Team 1 Gets': 'Round 1, Pick 4', 'Team 2': 'Chuy', 'Team 2 Gets': 'Round 1, Pick 6' },
     { 'Team 1': '', 'Team 1 Gets': 'Round 4, Pick 45', 'Team 2': '', 'Team 2 Gets': 'Round 4, Pick 43' },
   ])
-  check('trades: live continuation rows', live.length === 1 && live[0].team1Gets.length === 2, live)
+  check('trades: live continuation rows', live.length === 1 && live[0].parties[0].gets.length === 2, live)
 }
 
 // --- Draft numbering end-to-end on the real 2025 board ---

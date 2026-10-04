@@ -4,7 +4,8 @@ import { availableSeasons, getDefaultSeason, getSeason } from '@/lib/data'
 import { parseDraftCell } from '@/lib/data/transform'
 import { computePot, CURRENT_SEASON } from '@/lib/league'
 import { playerSlug, positionColor } from '@/lib/players'
-import { Trade } from '@/lib/types'
+import { Trade, TradeAsset } from '@/lib/types'
+import { isPickAsset } from '@/lib/data/tradeSync'
 import { TeamMark } from '@/components/league/TeamMark'
 import { PageHeader } from '@/components/league/PageHeader'
 import { SeasonTabs } from '@/components/league/SeasonTabs'
@@ -158,31 +159,35 @@ export default async function WaiversPage({ searchParams }: { searchParams: { se
   )
 }
 
-function TradeAssets({ assets, season }: { assets: string[]; season: number }) {
+function TradeAssets({ assets, season, showFrom }: { assets: TradeAsset[]; season: number; showFrom: boolean }) {
   return (
     <ul className="space-y-1">
-      {assets.map((asset, i) => {
-        const parsed = parseDraftCell(asset)
-        if (!parsed.position) {
-          // A pick swap or other non-player asset
+      {assets.map((a, i) => {
+        const from = showFrom && a.from ? <span className="ml-1.5 text-xs text-muted-foreground">from {a.from}</span> : null
+        if (isPickAsset(a.asset)) {
           return (
             <li key={i} className="text-sm text-muted-foreground">
-              {asset}
+              {a.asset}
+              {from}
             </li>
           )
         }
+        const parsed = parseDraftCell(a.asset)
         return (
           <li key={i} className="text-sm">
             <Link href={`/players/${playerSlug(parsed.player)}?season=${season}`} className="font-medium hover:underline">
               {parsed.player}
             </Link>
-            <span
-              className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
-              style={{ backgroundColor: positionColor(parsed.position) }}
-            >
-              {parsed.position}
-            </span>
+            {parsed.position && (
+              <span
+                className="ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold text-white"
+                style={{ backgroundColor: positionColor(parsed.position) }}
+              >
+                {parsed.position}
+              </span>
+            )}
             {parsed.nflTeam && <span className="ml-1.5 text-xs text-muted-foreground">{parsed.nflTeam}</span>}
+            {from}
           </li>
         )
       })}
@@ -202,20 +207,27 @@ function TradesSection({ trades, season }: { trades: Trade[]; season: number }) 
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {trades.map((t, i) => (
-          <div key={i} className="rounded-xl border bg-card p-4 shadow-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <TeamMark team={t.team1} className="text-sm normal-case tracking-normal" /> receives
+          <div
+            key={i}
+            className={`rounded-xl border bg-card p-4 shadow-sm ${t.parties.length > 2 ? 'md:col-span-2' : ''}`}
+          >
+            {t.parties.length > 2 && (
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t.parties.length}-team trade
+              </p>
+            )}
+            <div className={`grid gap-4 ${t.parties.length > 2 ? 'sm:grid-cols-3' : 'grid-cols-2'}`}>
+              {t.parties.map((p, j) => (
+                <div
+                  key={p.team}
+                  className={`space-y-2 ${j === 0 ? '' : t.parties.length > 2 ? 'sm:border-l sm:pl-4' : 'border-l pl-4'}`}
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <TeamMark team={p.team} className="text-sm normal-case tracking-normal" /> receives
+                  </div>
+                  <TradeAssets assets={p.gets} season={season} showFrom={t.parties.length > 2} />
                 </div>
-                <TradeAssets assets={t.team1Gets} season={season} />
-              </div>
-              <div className="space-y-2 border-l pl-4">
-                <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <TeamMark team={t.team2} className="text-sm normal-case tracking-normal" /> receives
-                </div>
-                <TradeAssets assets={t.team2Gets} season={season} />
-              </div>
+              ))}
             </div>
           </div>
         ))}

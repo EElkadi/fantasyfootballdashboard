@@ -105,12 +105,17 @@ Three tabs (names configurable via env):
 - **Waiver Wire** — `WEEK | TEAM | PLAYER | COST` rows. Powers `/waivers` and
   the live pot math (fees join the pot; scoring champ stays $250 and the rest
   splits 60/30/10). `/commish` has a one-click form that appends rows here.
-- **Trades** (optional) — `TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS`, one
-  asset per row with blank team cells continuing a multi-player deal. Powers
-  the trade ledger on `/waivers`. An `On Rosters` column is stamped once a
-  trade's players have moved on the Rosters tab; `/commish` lists any
-  unstamped trade (typed straight into the sheet, say) with the moves it
-  would make, and applies them on one click.
+- **Trades** (optional) — `TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS`, plus
+  `TEAM 3 | TEAM 3 GETS` for three-team deals (added automatically the first
+  time one is logged). Each team's column lists what it *receives*, one asset
+  per row, with blank team cells continuing a deal. In a three-team deal a
+  player may carry his sender — `Josh Allen (from Jay)` — which `/commish`
+  fills in from the rosters; typed without it, the sender is found the same
+  way. Powers the trade ledger on `/waivers`. An `On Rosters` column is
+  stamped once a deal's players have moved on the Rosters tab; `/commish`
+  lists any unstamped deal (typed straight into the sheet, say) with the
+  moves it would make, and applies them on one click. Tabs too narrow or
+  short for a write are extended automatically.
 - **Predictions** (optional) — `Submitted | Manager | Order | Champion | Turd | Bold Take`,
   one row per ballot, appended by `/predictions` (requires `LEAGUE_PASSCODE`).
   `Order` is a comma-separated list, best first; a manager's latest row wins.
@@ -173,6 +178,7 @@ npx tsx tests/parser.test.ts   # parser acceptance tests (real league samples)
 npx tsx tests/data.test.ts     # transforms, schedule rules, clinch math
 npx tsx tests/features.test.ts # awards, recap metrics + text, predictions, career
 npx tsx tests/rosters-lineups.test.ts # lineup merging, team names, roster provenance, lineup-mode parsing
-npx tsx tests/sheet-writes.test.ts # score row placement, trades -> rosters
+npx tsx tests/sheet-writes.test.ts # score row placement, 2- and 3-team trades -> rosters
+NODE_OPTIONS=--conditions=react-server npx tsx tests/sheets-api.test.ts # trade writes against a mocked Sheets API
 npm run lint && npx tsc --noEmit
 ```

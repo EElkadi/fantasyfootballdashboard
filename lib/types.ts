@@ -114,12 +114,21 @@ export interface DraftState {
   skipped?: NextPick[]
 }
 
+export interface TradeAsset {
+  /** e.g. "Zack Moss (RB, CIN)" or "Round 1, Pick 4" */
+  asset: string
+  /** the team that sent it; always known in a two-team deal */
+  from?: string
+}
+
+export interface TradeParty {
+  team: string
+  gets: TradeAsset[]
+}
+
+/** A two- or three-team deal: every party lists what it receives. */
 export interface Trade {
-  team1: string
-  team2: string
-  /** Asset descriptions, e.g. "Zack Moss (RB, CIN)" or "Round 1, Pick 4" */
-  team1Gets: string[]
-  team2Gets: string[]
+  parties: TradeParty[]
 }
 
 export interface WaiverMove {
