@@ -1,16 +1,19 @@
-import { canonTeam } from './transform'
+import { MAX_TRADE_TEAMS, formatTradeAsset, groupTradeRows } from './transform'
 import { cellRef, playerSlug } from '@/lib/players'
+import { TradeParty } from '@/lib/types'
 
 /**
  * Trades -> Rosters reconciliation, as pure functions over the two tabs.
  *
- * Every trade on the Trades tab gets an "On Rosters" stamp once its players
- * have been moved. Anything unstamped — a trade typed straight into the
- * sheet, or one whose roster write failed — is replayed in tab order against
- * the current rosters: each player moves from the giving team's column to the
- * receiving team's, but only if he is actually on the giving team. That makes
- * a replay safe to repeat, and the stamp keeps a finished trade from ever
- * being replayed over later roster moves.
+ * The Trades tab holds two- and three-team deals side by side:
+ *   TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS | TEAM 3 | TEAM 3 GETS | On Rosters
+ * located by header, so column order doesn't matter. Every deal gets an "On
+ * Rosters" stamp once its players have moved. Anything unstamped — a deal
+ * typed straight into the sheet, or one whose roster write failed — is
+ * replayed in tab order against the current rosters: each player moves to the
+ * receiving team from whichever other party in the deal has him. Replays are
+ * safe to repeat, and the stamp keeps a finished deal from ever being
+ * replayed over later roster moves.
  */
 
 export const STAMP_HEADER = 'On Rosters'
@@ -21,74 +24,154 @@ export function isPickAsset(asset: string): boolean {
 }
 
 export interface LoggedTrade {
-  /** 1-based sheet row of the trade's first line */
+  /** 1-based sheet row of the deal's first line */
   row: number
-  team1: string
-  team2: string
-  team1Gets: string[]
-  team2Gets: string[]
+  parties: TradeParty[]
   stamped: boolean
 }
 
-/** The Trades tab (read from A1) -> trades with their sheet rows and stamp state. */
-export function tradesFromGrid(grid: string[][]): { trades: LoggedTrade[]; stampCol: number; hasStampHeader: boolean } {
-  const header = (grid[0] ?? []).map((h) => (h ?? '').trim().toLowerCase())
-  const find = (name: string) => header.indexOf(name)
-  const c = {
-    team1: find('team 1'),
-    gets1: find('team 1 gets'),
-    team2: find('team 2'),
-    gets2: find('team 2 gets'),
-  }
-  // Historical layout is exactly these four columns in order
-  const col = {
-    team1: c.team1 >= 0 ? c.team1 : 0,
-    gets1: c.gets1 >= 0 ? c.gets1 : 1,
-    team2: c.team2 >= 0 ? c.team2 : 2,
-    gets2: c.gets2 >= 0 ? c.gets2 : 3,
-  }
-  const existingStamp = find(STAMP_HEADER.toLowerCase())
-  const stampCol = existingStamp >= 0 ? existingStamp : Math.max(header.length, 4)
+/** Where each Trades column lives (0-based; -1 when the tab has none). */
+export interface TradeLayout {
+  /** TEAM n at index n - 1 */
+  team: number[]
+  /** TEAM n GETS at index n - 1 */
+  gets: number[]
+  stamp: number
+  /** one past the last named header cell */
+  width: number
+  /** header written in capitals ("TEAM 1") rather than "Team 1" */
+  upper: boolean
+}
 
-  const cell = (r: string[], i: number) => (r[i] ?? '').trim()
-  const split = (v: string) => v.split(';').map((s) => s.trim()).filter(Boolean)
-  const trades: LoggedTrade[] = []
-  for (let i = 1; i < grid.length; i++) {
-    const r = grid[i] ?? []
-    const t1 = canonTeam(cell(r, col.team1))
-    const t2 = canonTeam(cell(r, col.team2))
-    if (t1 && t2) {
-      trades.push({ row: i + 1, team1: t1, team2: t2, team1Gets: [], team2Gets: [], stamped: Boolean(cell(r, stampCol)) })
-    }
-    const current = trades[trades.length - 1]
-    if (!current) continue
-    current.team1Gets.push(...split(cell(r, col.gets1)))
-    current.team2Gets.push(...split(cell(r, col.gets2)))
+const slots = Array.from({ length: MAX_TRADE_TEAMS }, (_, i) => i + 1)
+
+export function tradeLayout(header: string[]): TradeLayout {
+  const names = header.map((h) => (h ?? '').trim().toLowerCase())
+  const width = names.reduce((w, h, i) => (h ? i + 1 : w), 0)
+  const team = slots.map((n) => names.indexOf(`team ${n}`))
+  const gets = slots.map((n) => names.indexOf(`team ${n} gets`))
+  // A header row with none of the names is the historical bare layout
+  if (width > 0 && team[0] < 0 && gets[0] < 0) {
+    team.splice(0, 2, 0, 2)
+    gets.splice(0, 2, 1, 3)
   }
-  return {
-    trades: trades.filter((t) => t.team1Gets.length > 0 || t.team2Gets.length > 0),
-    stampCol,
-    hasStampHeader: existingStamp >= 0,
+  const named = header.find((h) => /team\s*1/i.test(h ?? ''))
+  return { team, gets, stamp: names.indexOf(STAMP_HEADER.toLowerCase()), width, upper: named ? named === named.toUpperCase() : true }
+}
+
+/** The Trades tab (read from A1) -> deals with their sheet rows and stamp state. */
+export function tradesFromGrid(grid: string[][]): { trades: LoggedTrade[]; layout: TradeLayout } {
+  const layout = tradeLayout(grid[0] ?? [])
+  const cell = (r: string[], i: number) => (i >= 0 ? (r[i] ?? '').trim() : '')
+  const rows = grid.slice(1).map((r, i) => ({
+    row: i + 2,
+    stamp: cell(r ?? [], layout.stamp),
+    teams: layout.team.map((c) => cell(r ?? [], c)),
+    gets: layout.gets.map((c) => cell(r ?? [], c)),
+  }))
+  const trades = groupTradeRows(rows).map(({ trade, first }) => ({
+    row: first.row,
+    parties: trade.parties,
+    stamped: Boolean(first.stamp),
+  }))
+  return { trades, layout }
+}
+
+/**
+ * Header cells a write needs: the TEAM/GETS pair for each party slot in use
+ * and, when stamping, "On Rosters" — each missing one added after the last
+ * named header. Returns the cells to write and the layout once they exist.
+ */
+export function headerAdditions(
+  layout: TradeLayout,
+  { parties = 0, stamp = false }: { parties?: number; stamp?: boolean },
+): { cells: { column: number; value: string }[]; layout: TradeLayout } {
+  const next: TradeLayout = { ...layout, team: [...layout.team], gets: [...layout.gets] }
+  const cells: { column: number; value: string }[] = []
+  const add = (label: string) => {
+    const column = next.width++
+    cells.push({ column, value: next.upper ? label.toUpperCase() : label })
+    return column
   }
+  for (let n = 1; n <= parties; n++) {
+    if (next.team[n - 1] < 0) next.team[n - 1] = add(`Team ${n}`)
+    if (next.gets[n - 1] < 0) next.gets[n - 1] = add(`Team ${n} Gets`)
+  }
+  if (stamp && next.stamp < 0) next.stamp = add(STAMP_HEADER)
+  return { cells, layout: next }
+}
+
+/** 1-based row for a new deal: just below the last row holding any trade data. */
+export function nextTradeRow(grid: string[][], layout: TradeLayout): number {
+  const used = [...layout.team, ...layout.gets, layout.stamp].filter((c) => c >= 0)
+  let last = 1
+  grid.forEach((r, i) => {
+    if (i > 0 && used.some((c) => (r?.[c] ?? '').trim())) last = i + 1
+  })
+  return last + 1
+}
+
+/** A deal as sheet rows under `layout`: team names on the first row, one asset per row per party. */
+export function tradeRows(parties: TradeParty[], layout: TradeLayout): string[][] {
+  const width = Math.max(...layout.team, ...layout.gets) + 1
+  const height = Math.max(...parties.map((p) => p.gets.length))
+  return Array.from({ length: height }, (_, i) => {
+    const row: string[] = Array(width).fill('')
+    parties.forEach((p, n) => {
+      if (i === 0) row[layout.team[n]] = p.team
+      const g = p.gets[i]
+      if (g) row[layout.gets[n]] = formatTradeAsset(g, parties.length)
+    })
+    return row
+  })
+}
+
+/** Index of a player in a roster column, matched on name alone (see planTrades). */
+function rosterIndex(column: string[] | undefined, asset: string): number {
+  const slug = playerSlug(cellRef(asset).player)
+  return (column ?? []).findIndex((c) => c.trim() !== '' && playerSlug(cellRef(c).player) === slug)
+}
+
+/** Teams to look in for an asset's sender: the recorded one first, then the rest of the deal. */
+function sendersFor(parties: TradeParty[], to: string, from?: string): string[] {
+  const others = parties.map((p) => p.team).filter((t) => t !== to)
+  return from && others.includes(from) ? [from, ...others.filter((t) => t !== from)] : others
+}
+
+/**
+ * Fill in who sent each player in a deal of three or more, from the roster
+ * that has him today. Picks and players nobody has are left as typed.
+ */
+export function inferSenders(parties: TradeParty[], columns: Record<string, string[]>): TradeParty[] {
+  return parties.map((p) => ({
+    team: p.team,
+    gets: p.gets.map((g) => {
+      if (g.from || isPickAsset(g.asset)) return g
+      const from = sendersFor(parties, p.team).find((t) => rosterIndex(columns[t], g.asset) >= 0)
+      return from ? { ...g, from } : g
+    }),
+  }))
 }
 
 export interface TradeOutcome {
   trade: LoggedTrade
-  /** "Josh Allen → Jay" */
+  /** "Josh Allen: Jay → Paco" */
   moved: string[]
   /** already on the receiving roster */
   already: string[]
-  /** on neither roster column — needs a look */
+  /** on no roster in the deal — needs a look */
   missing: string[]
-  /** every player accounted for, so the trade can be stamped */
+  /** every player accounted for, so the deal can be stamped */
   resolved: boolean
 }
 
 /**
- * Replay unstamped trades against roster columns (team -> cells, index 0 =
- * sheet row 2, '' for a blank cell). Removed players leave a blank; added
- * players take the first blank in the receiving column, else go below.
- * Inputs are not mutated.
+ * Replay unstamped deals against roster columns (team -> cells, index 0 =
+ * sheet row 2, '' for a blank cell). Players are matched on name alone: one
+ * team never rosters two players of the same name, and the NFL code typed
+ * into a trade ("SF") needn't match the pool's ("SFO"). A removed player
+ * leaves a blank; an added one takes the first blank in the receiving
+ * column, else goes below. Inputs are not mutated.
  */
 export function planTrades(
   trades: LoggedTrade[],
@@ -97,40 +180,36 @@ export function planTrades(
   const next: Record<string, string[]> = {}
   for (const [team, cells] of Object.entries(columns)) next[team] = [...cells]
 
-  // Matched on name alone: one team never rosters two players of the same
-  // name, and the NFL code typed into a trade ("SF") needn't match the
-  // pool's ("SFO") or survive the player changing teams.
-  const indexOf = (team: string, asset: string) => {
-    const slug = playerSlug(cellRef(asset).player)
-    return (next[team] ?? []).findIndex((c) => c.trim() !== '' && playerSlug(cellRef(c).player) === slug)
-  }
-
   const outcomes: TradeOutcome[] = []
   for (const trade of trades) {
     if (trade.stamped) continue
     const outcome: TradeOutcome = { trade, moved: [], already: [], missing: [], resolved: true }
-    const sides: [string[], string, string][] = [
-      [trade.team1Gets, trade.team2, trade.team1],
-      [trade.team2Gets, trade.team1, trade.team2],
-    ]
-    for (const [assets, from, to] of sides) {
-      for (const asset of assets) {
+    // Everyone sends first, then everyone receives, so incoming players
+    // fill the slots outgoing ones just left
+    const arrivals: { to: string; cellText: string }[] = []
+    for (const party of trade.parties) {
+      const to = party.team
+      for (const { asset, from } of party.gets) {
         if (isPickAsset(asset)) continue
-        const at = indexOf(from, asset)
-        if (at >= 0 && next[to]) {
-          const cellText = next[from][at]
-          next[from][at] = ''
-          const gap = next[to].findIndex((c) => c.trim() === '')
-          if (gap >= 0) next[to][gap] = cellText
-          else next[to].push(cellText)
-          outcome.moved.push(`${cellRef(cellText).player} → ${to}`)
-        } else if (indexOf(to, asset) >= 0) {
+        const giver = next[to] ? sendersFor(trade.parties, to, from).find((t) => rosterIndex(next[t], asset) >= 0) : undefined
+        if (giver) {
+          const at = rosterIndex(next[giver], asset)
+          const cellText = next[giver][at]
+          next[giver][at] = ''
+          arrivals.push({ to, cellText })
+          outcome.moved.push(`${cellRef(cellText).player}: ${giver} → ${to}`)
+        } else if (rosterIndex(next[to], asset) >= 0) {
           outcome.already.push(cellRef(asset).player)
         } else {
           outcome.missing.push(asset)
           outcome.resolved = false
         }
       }
+    }
+    for (const { to, cellText } of arrivals) {
+      const gap = next[to].findIndex((c) => c.trim() === '')
+      if (gap >= 0) next[to][gap] = cellText
+      else next[to].push(cellText)
     }
     outcomes.push(outcome)
   }

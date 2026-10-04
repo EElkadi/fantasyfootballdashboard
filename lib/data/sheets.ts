@@ -253,32 +253,86 @@ export async function appendRows(
   return first ? parseInt(first[1]) : undefined
 }
 
+/**
+ * Google refuses writes outside a tab's grid ("exceeds grid limits") rather
+ * than growing it — a four-column Trades tab can't take a fifth column. Every
+ * write below runs through this: on that error the tab is extended to fit and
+ * the write is retried once.
+ */
+async function withGridRoom<T>(tab: string, rows: number, columns: number, write: () => Promise<T>): Promise<T> {
+  try {
+    return await write()
+  } catch (err) {
+    if (!(err instanceof SheetsError && err.status === 400 && /exceeds grid limits/i.test(err.body))) throw err
+    await growGrid(tab, rows, columns)
+    return write()
+  }
+}
+
+/** Add rows/columns to a tab until it is at least rows × columns. */
+async function growGrid(tab: string, rows: number, columns: number): Promise<void> {
+  const data = await sheetsFetch('?fields=sheets.properties(sheetId,title,gridProperties(rowCount,columnCount))')
+  const sheet = (data.sheets ?? []).find((sh: any) => sh.properties?.title === tab)?.properties
+  if (!sheet) throw new SheetsError(404, `No tab named "${tab}"`)
+  const requests: object[] = []
+  const have = { rows: sheet.gridProperties?.rowCount ?? 0, columns: sheet.gridProperties?.columnCount ?? 0 }
+  if (columns > have.columns) {
+    requests.push({ appendDimension: { sheetId: sheet.sheetId, dimension: 'COLUMNS', length: columns - have.columns } })
+  }
+  if (rows > have.rows) {
+    requests.push({ appendDimension: { sheetId: sheet.sheetId, dimension: 'ROWS', length: rows - have.rows } })
+  }
+  if (requests.length > 0) await sheetsFetch(':batchUpdate', { method: 'POST', body: JSON.stringify({ requests }) })
+}
+
+/** "AB12" -> { row: 12, column: 28 } (1-based). */
+function cellPosition(cell: string): { row: number; column: number } {
+  const m = cell.match(/^([A-Z]+)(\d+)$/i)
+  if (!m) return { row: 1, column: 1 }
+  const column = m[1].toUpperCase().split('').reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0)
+  return { row: parseInt(m[2]), column }
+}
+
 /** Write several single cells in one request. */
 export async function batchUpdateCells(tab: string, cells: { cell: string; value: string | number }[]): Promise<void> {
   if (cells.length === 0) return
-  await sheetsFetch(`/values:batchUpdate`, {
-    method: 'POST',
-    body: JSON.stringify({
-      valueInputOption: 'USER_ENTERED',
-      data: cells.map((c) => ({ range: `${tab}!${c.cell}`, values: [[c.value]] })),
+  const positions = cells.map((c) => cellPosition(c.cell))
+  await withGridRoom(tab, Math.max(...positions.map((p) => p.row)), Math.max(...positions.map((p) => p.column)), () =>
+    sheetsFetch(`/values:batchUpdate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        valueInputOption: 'USER_ENTERED',
+        data: cells.map((c) => ({ range: `${tab}!${c.cell}`, values: [[c.value]] })),
+      }),
     }),
-  })
+  )
 }
 
 /** Overwrite a block starting at A1 (header included). Rows beyond the block are left alone. */
 export async function writeRange(tab: string, values: (string | number)[][]): Promise<void> {
-  await sheetsFetch(`/values/${encodeURIComponent(`${tab}!A1`)}?valueInputOption=RAW`, {
-    method: 'PUT',
-    body: JSON.stringify({ values }),
-  })
+  await writeRows(tab, 1, values, { raw: true })
+}
+
+/** Overwrite consecutive rows from column A, starting at a 1-based row. */
+export async function writeRows(
+  tab: string,
+  startRow: number,
+  rows: (string | number)[][],
+  opts: { raw?: boolean } = {},
+): Promise<void> {
+  if (rows.length === 0) return
+  const mode = opts.raw ? 'RAW' : 'USER_ENTERED'
+  await withGridRoom(tab, startRow + rows.length - 1, Math.max(...rows.map((r) => r.length)), () =>
+    sheetsFetch(`/values/${encodeURIComponent(`${tab}!A${startRow}`)}?valueInputOption=${mode}`, {
+      method: 'PUT',
+      body: JSON.stringify({ values: rows }),
+    }),
+  )
 }
 
 /** Overwrite one row from column A, e.g. a header row. */
 export async function updateRow(tab: string, row: number, values: (string | number)[]): Promise<void> {
-  await sheetsFetch(`/values/${encodeURIComponent(`${tab}!A${row}`)}?valueInputOption=USER_ENTERED`, {
-    method: 'PUT',
-    body: JSON.stringify({ values: [values] }),
-  })
+  await writeRows(tab, row, [values])
 }
 
 /** 1-based column index -> letter(s): 1 -> A, 27 -> AA. */
@@ -295,10 +349,13 @@ export function columnLetter(index: number): string {
 
 /** Write one cell (A1 notation), e.g. updateCell('Final Draft Board', 'C5', 'Bijan Robinson ATL RB'). */
 export async function updateCell(tab: string, cell: string, value: string | number): Promise<void> {
-  await sheetsFetch(`/values/${encodeURIComponent(`${tab}!${cell}`)}?valueInputOption=USER_ENTERED`, {
-    method: 'PUT',
-    body: JSON.stringify({ values: [[value]] }),
-  })
+  const { row, column } = cellPosition(cell)
+  await withGridRoom(tab, row, column, () =>
+    sheetsFetch(`/values/${encodeURIComponent(`${tab}!${cell}`)}?valueInputOption=USER_ENTERED`, {
+      method: 'PUT',
+      body: JSON.stringify({ values: [[value]] }),
+    }),
+  )
 }
 
 /** Rows keyed by header row. Blank header cells and blank rows are dropped. */

@@ -37,10 +37,14 @@ export function buildRosterView(rosters: Record<string, string[]>, season: Seaso
   const waived = new Map<string, { week: number; cost: number }>()
   for (const m of season.waivers) waived.set(`${m.team}|${playerSlug(m.player)}`, { week: m.week, cost: m.cost }) // later weeks overwrite
 
+  // receiving team|player -> who sent him; in a 3-team deal with no recorded
+  // sender, the other two parties
   const traded = new Map<string, string>()
   for (const t of season.trades) {
-    for (const asset of t.team1Gets) traded.set(`${t.team1}|${playerSlug(parseDraftCell(asset).player)}`, t.team2)
-    for (const asset of t.team2Gets) traded.set(`${t.team2}|${playerSlug(parseDraftCell(asset).player)}`, t.team1)
+    for (const party of t.parties) {
+      const others = t.parties.filter((p) => p.team !== party.team).map((p) => p.team).join(' / ')
+      for (const g of party.gets) traded.set(`${party.team}|${playerSlug(parseDraftCell(g.asset).player)}`, g.from ?? others)
+    }
   }
 
   // Season order first; an owner with a roster column but no games yet still shows

@@ -1,4 +1,4 @@
-import { DraftGrade, DraftPick, DraftSlot, LineupEntry, Matchup, NextPick, PlayerScore, PlayerWeek, PoolPlayer, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, WaiverMove } from '@/lib/types'
+import { DraftGrade, DraftPick, DraftSlot, LineupEntry, Matchup, NextPick, PlayerScore, PlayerWeek, PoolPlayer, Prediction, ScheduleWeek, Slot, SLOTS, TeamLineup, TeamWeek, Trade, TradeAsset, WaiverMove } from '@/lib/types'
 import { resolveOwner } from '@/lib/league'
 
 /** Canonicalize a team spelling from any source (sheet, CSV, chat). */
@@ -203,8 +203,7 @@ export function pickTradeOwners(trades: Trade[]): Map<number, string> {
     }
   }
   for (const t of trades) {
-    grab(t.team1, t.team1Gets)
-    grab(t.team2, t.team2Gets)
+    for (const p of t.parties) grab(p.team, p.gets.map((g) => g.asset))
   }
   return owners
 }
@@ -360,25 +359,79 @@ export function gridToDraft(board: string[][], teamsRows: Record<string, string>
   return numberPicks(picks)
 }
 
+/** Teams a single trade can involve. */
+export const MAX_TRADE_TEAMS = 3
+
+/** One Trades-tab row: team cell and "gets" cell per party slot (1-based slot n at index n - 1). */
+export interface TradeRowCells {
+  teams: string[]
+  gets: string[]
+}
+
 /**
- * Trades rows (TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS) -> Trade[].
- * Live tab rows list one asset per line with blank team cells continuing the
- * previous trade; archived trades.csv packs assets with "; " separators.
+ * "Josh Allen (from Jay)" -> { asset: "Josh Allen", from: "Jay" }. Only a
+ * suffix naming a real owner is read as the sender, so asset text that merely
+ * contains "from" is left alone.
  */
-export function rowsToTrades(rows: Record<string, string>[]): Trade[] {
-  const trades: Trade[] = []
+export function parseTradeAsset(text: string): TradeAsset {
+  const s = text.replace(/\s+/g, ' ').trim()
+  const m = s.match(/^(.*?)\s*[([]?\s*\bfrom\s+([^()[\]]+?)\s*[)\]]?$/i)
+  const from = m ? resolveOwner(m[2])?.name : undefined
+  return from && m![1] ? { asset: m![1].trim(), from } : { asset: s }
+}
+
+/** How an asset is written back to the sheet: the sender rides along for 3-team deals. */
+export function formatTradeAsset(a: TradeAsset, partyCount: number): string {
+  return a.from && partyCount > 2 ? `${a.asset} (from ${a.from})` : a.asset
+}
+
+/**
+ * Trades rows -> deals. A row naming two or more teams starts a deal; rows
+ * with blank team cells continue it, one asset per party column. Archived
+ * CSVs pack several assets into a cell with "; ". In a two-team deal the
+ * sender is always the other side.
+ */
+export function groupTradeRows<T extends TradeRowCells>(rows: T[]): { trade: Trade; first: T }[] {
+  const out: { trade: Trade; first: T }[] = []
   for (const r of rows) {
-    const t1 = canonTeam(r['Team 1'] ?? r['TEAM 1'] ?? '')
-    const t2 = canonTeam(r['Team 2'] ?? r['TEAM 2'] ?? '')
-    const g1 = (r['Team 1 Gets'] ?? r['TEAM 1 GETS'] ?? '').trim()
-    const g2 = (r['Team 2 Gets'] ?? r['TEAM 2 GETS'] ?? '').trim()
-    if (t1 && t2) trades.push({ team1: t1, team2: t2, team1Gets: [], team2Gets: [] })
-    const current = trades[trades.length - 1]
+    const named = r.teams.map((t) => (t.trim() ? canonTeam(t) : ''))
+    if (named.filter(Boolean).length >= 2) {
+      out.push({ trade: { parties: named.map((team) => ({ team, gets: [] })) }, first: r })
+    }
+    const current = out[out.length - 1]
     if (!current) continue
-    if (g1) current.team1Gets.push(...g1.split(';').map((s) => s.trim()).filter(Boolean))
-    if (g2) current.team2Gets.push(...g2.split(';').map((s) => s.trim()).filter(Boolean))
+    r.gets.forEach((cell, i) => {
+      const party = current.trade.parties[i]
+      if (!party || !party.team) return
+      for (const piece of cell.split(';').map((x) => x.trim()).filter(Boolean)) party.gets.push(parseTradeAsset(piece))
+    })
   }
-  return trades.filter((t) => t.team1Gets.length > 0 || t.team2Gets.length > 0)
+  return out
+    .map(({ trade, first }) => {
+      const parties = trade.parties.filter((p) => p.team)
+      if (parties.length === 2) {
+        const [a, b] = parties
+        a.gets.forEach((g) => (g.from ??= b.team))
+        b.gets.forEach((g) => (g.from ??= a.team))
+      }
+      return { trade: { parties }, first }
+    })
+    .filter(({ trade }) => trade.parties.some((p) => p.gets.length > 0))
+}
+
+/** Header-keyed Trades rows (TEAM n | TEAM n GETS, n = 1..3) -> Trade[]. */
+export function rowsToTrades(rows: Record<string, string>[]): Trade[] {
+  const value = (r: Record<string, string>, key: string) => {
+    const k = Object.keys(r).find((h) => h.trim().toLowerCase() === key)
+    return k ? (r[k] ?? '') : ''
+  }
+  const slots = Array.from({ length: MAX_TRADE_TEAMS }, (_, i) => i + 1)
+  return groupTradeRows(
+    rows.map((r) => ({
+      teams: slots.map((n) => value(r, `team ${n}`)),
+      gets: slots.map((n) => value(r, `team ${n} gets`)),
+    })),
+  ).map(({ trade }) => trade)
 }
 
 const POSITIONS = new Set(['QB', 'RB', 'WR', 'TE', 'K', 'DEF', 'DST'])

@@ -97,7 +97,7 @@ function check(label: string, cond: boolean, detail?: unknown) {
       { round: 3, slot: 2, overall: 26, team: 'Chuy', player: 'Romeo Doubs', position: 'WR' },
     ],
     waivers: [{ week: 2, team: 'Elaf', player: 'Kareem Hunt', cost: 5 }],
-    trades: [{ team1: 'Elaf', team2: 'Chuy', team1Gets: ['Romeo Doubs GB (WR)'], team2Gets: ['Round 4, Pick 40'] }],
+    trades: [{ parties: [{ team: 'Elaf', gets: [{ asset: 'Romeo Doubs GB (WR)', from: 'Chuy' }] }, { team: 'Chuy', gets: [{ asset: 'Round 4, Pick 40', from: 'Elaf' }] }] }],
     pool: [],
   } as unknown as SeasonData
   const rosters = {
@@ -244,7 +244,7 @@ function check(label: string, cond: boolean, detail?: unknown) {
   check('orderFromPicks: recovers the order from a board', orderFromPicks(picks as any).map((o) => o.team).join() === 'Paco,Chuy,Elaf')
 
   // Pick swap: #2 (Chuy) <-> #3 (Elaf), logged in the trade ledger
-  const owners = pickTradeOwners([{ team1: 'Chuy', team2: 'Elaf', team1Gets: ['Round 1, Pick 3'], team2Gets: ['Round 1, Pick 2'] }])
+  const owners = pickTradeOwners([{ parties: [{ team: 'Chuy', gets: [{ asset: 'Round 1, Pick 3' }] }, { team: 'Elaf', gets: [{ asset: 'Round 1, Pick 2' }] }] }])
   check('trades: pick assets parsed to overall -> owner', owners.get(2) === 'Elaf' && owners.get(3) === 'Chuy' && owners.size === 2, owners)
   check('ownerOfPick: ledger beats the snake', ownerOfPick(2, order, owners) === 'Elaf' && ownerOfPick(1, order, owners) === 'Paco')
   const afterOne = nextDraftPick([pick(1, 1, 'Paco')], order, 3, owners)

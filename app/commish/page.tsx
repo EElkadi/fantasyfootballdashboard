@@ -625,7 +625,7 @@ function LineupLogger({ ctx, defaultWeek }: { ctx: Context; defaultWeek: number 
 }
 
 interface TradeOutcomeView {
-  trade: { row: number; team1: string; team2: string }
+  trade: { row: number; parties: { team: string }[] }
   moved: string[]
   already: string[]
   missing: string[]
@@ -682,7 +682,7 @@ function PendingTrades() {
             {outcomes.map((o) => (
               <li key={o.trade.row}>
                 <span className="font-medium text-foreground">
-                  {o.trade.team1} ⇄ {o.trade.team2}
+                  {o.trade.parties.map((p) => p.team).join(' ⇄ ')}
                 </span>{' '}
                 <span className="text-xs">(Trades row {o.trade.row})</span>
                 {o.moved.length > 0 && <> · will move {o.moved.join(', ')}</>}
@@ -706,15 +706,15 @@ function PendingTrades() {
 }
 
 function TradeLogger({ ctx, onLogged }: { ctx: Context; onLogged: () => void }) {
-  const [team1, setTeam1] = useState('')
-  const [team2, setTeam2] = useState('')
-  const [gets1, setGets1] = useState('')
-  const [gets2, setGets2] = useState('')
+  const blank = () => ({ team: '', gets: '' })
+  const [parties, setParties] = useState([blank(), blank()])
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
   const [warnings, setWarnings] = useState<string[]>([])
 
   const toAssets = (text: string) => text.split('\n').map((l) => l.trim()).filter(Boolean)
+  const update = (i: number, patch: Partial<{ team: string; gets: string }>) =>
+    setParties((prev) => prev.map((p, j) => (j === i ? { ...p, ...patch } : p)))
 
   const submit = async () => {
     setBusy(true)
@@ -724,24 +724,23 @@ function TradeLogger({ ctx, onLogged }: { ctx: Context; onLogged: () => void }) 
       const res = await fetch('/api/commish/trade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team1, team2, team1Gets: toAssets(gets1), team2Gets: toAssets(gets2) }),
+        body: JSON.stringify({ parties: parties.map((p) => ({ team: p.team, gets: toAssets(p.gets) })) }),
       })
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
         const moved: string[] = data.moved ?? []
         const missing: string[] = data.missing ?? []
         setNote(
-          `Logged: ${data.team1} ⇄ ${data.team2}.` +
+          `Logged: ${(data.teams ?? []).join(' ⇄ ')}.` +
             (moved.length ? ` Rosters: ${moved.join(', ')}.` : data.rosterError ? '' : ' No players to move.'),
         )
         setWarnings([
           ...(data.rosterError ? [data.rosterError] : []),
           ...missing.map(
-            (m) => `${m} isn't on either team's roster column — check the spelling against the Rosters tab, then use "Apply to rosters".`,
+            (m) => `${m} isn't on any roster in this trade — check the spelling against the Rosters tab, then use "Apply to rosters".`,
           ),
         ])
-        setGets1('')
-        setGets2('')
+        setParties((prev) => prev.map((p) => ({ ...p, gets: '' })))
         onLogged()
       } else {
         setNote(data.error ?? 'Failed to log the trade')
@@ -753,62 +752,75 @@ function TradeLogger({ ctx, onLogged }: { ctx: Context; onLogged: () => void }) 
     }
   }
 
-  const teamPicker = (value: string, onChange: (v: string) => void, exclude: string) => (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm font-semibold"
-    >
-      <option value="">Pick team…</option>
-      {ctx.teams
-        .filter((t) => t !== exclude)
-        .map((t) => (
-          <option key={t} value={t}>
-            {t}
-          </option>
-        ))}
-    </select>
-  )
-
-  const ready = team1 && team2 && toAssets(gets1).length > 0 && toAssets(gets2).length > 0
+  const chosen = parties.map((p) => p.team)
+  const ready = parties.every((p) => p.team && toAssets(p.gets).length > 0)
+  const examples = ['Zack Moss CIN (RB)', 'Jordan Mason', 'Round 3, Pick 30']
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <CardTitle className="text-lg">Log a trade</CardTitle>
         <CardDescription>
-          One asset per line. Players by name (team and position optional), pick swaps as &quot;Round 2, Pick
-          19&quot;. Writes the Trades tab and moves the players between rosters.
+          Two or three teams. List what each team <em>receives</em>, one asset per line: players by name (team and
+          position optional), pick swaps as &quot;Round 2, Pick 19&quot;. In a three-team deal, who sent each player is
+          read off the rosters. Writes the Trades tab and moves the players.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid gap-4 sm:grid-cols-2">
-          {(
-            [
-              [team1, setTeam1, team2, gets1, setGets1],
-              [team2, setTeam2, team1, gets2, setGets2],
-            ] as const
-          ).map(([team, setTeam, other, gets, setGets], side) => (
-            <div key={side} className="space-y-2">
+        <div className={`grid gap-4 ${parties.length > 2 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
+          {parties.map((p, i) => (
+            <div key={i} className="space-y-2">
               <div className="flex items-center gap-2">
-                {teamPicker(team, setTeam, other)}
+                <select
+                  value={p.team}
+                  onChange={(e) => update(i, { team: e.target.value })}
+                  aria-label={`Team ${i + 1}`}
+                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm font-semibold"
+                >
+                  <option value="">Pick team…</option>
+                  {ctx.teams
+                    .filter((t) => t === p.team || !chosen.includes(t))
+                    .map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                </select>
                 <span className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   receives
                 </span>
               </div>
               <textarea
-                value={gets}
-                onChange={(e) => setGets(e.target.value)}
-                placeholder={side === 0 ? 'Zack Moss CIN (RB)' : 'Jordan Mason SFO (RB)'}
+                value={p.gets}
+                onChange={(e) => update(i, { gets: e.target.value })}
+                placeholder={examples[i]}
+                aria-label={`What ${p.team || `team ${i + 1}`} receives`}
                 className="h-24 w-full rounded-md border border-input bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
           ))}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button onClick={submit} disabled={!ready || busy || !ctx.sheetConfigured}>
             {busy ? 'Saving…' : 'Log trade'}
           </Button>
+          {parties.length < 3 ? (
+            <button
+              type="button"
+              onClick={() => setParties((prev) => [...prev, blank()])}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              + Add a third team
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setParties((prev) => prev.slice(0, 2))}
+              className="text-sm text-muted-foreground hover:underline"
+            >
+              Remove third team
+            </button>
+          )}
           {note && <span className="text-sm text-muted-foreground">{note}</span>}
         </div>
         {warnings.map((w, i) => (
