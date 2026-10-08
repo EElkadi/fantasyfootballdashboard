@@ -72,6 +72,10 @@ globalThis.fetch = (async (url: string, init?: RequestInit) => {
     const ranges = u.searchParams.getAll('ranges')
     return json({ valueRanges: ranges.map((r) => ({ range: r, values: tabs[r.split('!')[0]].cells.map((row) => Array.from(row, (c) => c ?? '')) })) })
   }
+  if (method === 'GET' && path.startsWith('/values/')) {
+    const t = path.slice('/values/'.length).split('!')[0]
+    return json({ values: tabs[t].cells.map((row) => Array.from(row, (c) => c ?? '')) })
+  }
   if (method === 'POST' && path === '/values:batchUpdate') {
     for (const d of body.data) {
       const [t, cell] = d.range.split('!')
@@ -124,6 +128,14 @@ globalThis.fetch = (async (url: string, init?: RequestInit) => {
   check('stamp: the new deal is stamped', /^✓ /.test(trades[2][6] ?? ''), trades[2])
   check('stamp: the earlier deal whose players already moved is stamped too', /^✓ /.test(trades[1][6] ?? ''), trades[1])
   check('stamp: its rosters were left alone', rosters[1][3] === 'Daniel Jones IND QB' && rosters[1][4] === 'Bryce Young CAR QB', rosters)
+
+  // Waiver add with its drop: the add takes the drop's cell
+  const { findOnRoster, replaceOnRoster } = await import('../lib/data/rosters')
+  check('waiver: drop found on the team by name alone', (await findOnRoster('Paco', 'Puka Nacua')) === 'Puka Nacua LAR WR')
+  check('waiver: a player on another team is not a valid drop', (await findOnRoster('Paco', 'Jake Bates')) === null)
+  const swap = await replaceOnRoster('Paco', 'Puka Nacua LAR WR', 'Tank Bigsby JAC (RB)')
+  const paco = tabs.Rosters.cells.map((r) => r?.[0] ?? '')
+  check('waiver: the add takes the dropped player\'s cell', swap === null && paco[2] === 'Tank Bigsby JAC (RB)' && !paco.includes('Puka Nacua LAR WR'), paco)
 
   const again = await syncTradesToRosters({ apply: false })
   check('sync: nothing left pending afterwards', again.pending === 0 && again.outcomes.length === 0, again)

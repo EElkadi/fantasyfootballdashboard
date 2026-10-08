@@ -48,7 +48,7 @@ export default async function WaiversPage({ searchParams }: { searchParams: { se
         <div className="rounded-xl border bg-card p-4 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Waiver fees collected</p>
           <p className="tabular mt-1 text-3xl font-extrabold">${totalFees.toLocaleString()}</p>
-          <p className="text-xs text-muted-foreground">{waivers.length} adds</p>
+          <p className="text-xs text-muted-foreground">{waivers.length} add/drops</p>
         </div>
         {isCurrent ? (
           <>
@@ -104,6 +104,7 @@ export default async function WaiversPage({ searchParams }: { searchParams: { se
                             <TeamMark team={m.team} />
                           </td>
                           <td className="px-2 py-2">
+                            <span className="mr-1.5 text-xs font-semibold text-win">Add</span>
                             <Link
                               href={`/players/${playerSlug(m.player)}?season=${season.season}`}
                               className="font-medium hover:underline"
@@ -119,6 +120,21 @@ export default async function WaiversPage({ searchParams }: { searchParams: { se
                               </span>
                             )}
                             {m.nflTeam && <span className="ml-1.5 text-xs text-muted-foreground">{m.nflTeam}</span>}
+                            {m.dropped ? (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                <span className="font-semibold text-loss">Drop</span>{' '}
+                                <Link
+                                  href={`/players/${playerSlug(parseDraftCell(m.dropped).player)}?season=${season.season}`}
+                                  className="hover:underline"
+                                >
+                                  {parseDraftCell(m.dropped).player}
+                                </Link>
+                              </p>
+                            ) : (
+                              season.season === CURRENT_SEASON && (
+                                <p className="mt-0.5 text-xs text-muted-foreground">Drop not recorded</p>
+                              )
+                            )}
                           </td>
                           <td className="tabular w-20 px-4 py-2 text-right font-semibold">${m.cost}</td>
                         </tr>

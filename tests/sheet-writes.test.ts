@@ -1,6 +1,7 @@
 import { scoreRowFor } from '../lib/data/scoreRows'
 import { columnDiff, headerAdditions, inferSenders, isPickAsset, nextTradeRow, planTrades, tradeRows, tradesFromGrid } from '../lib/data/tradeSync'
-import { parseTradeAsset, rowsToTrades, wideRowToMatchup } from '../lib/data/transform'
+import { parseTradeAsset, rowsToTrades, rowsToWaivers, wideRowToMatchup } from '../lib/data/transform'
+import { nextWaiverRow, undroppedRow, waiverLayout, waiverRow, withDropColumn } from '../lib/data/waiverRows'
 
 /** Header-keyed rows, as lib/data/sheets toObjects builds them (that module is server-only). */
 const toObjects = (rows: string[][]) =>
@@ -158,6 +159,33 @@ function check(label: string, cond: boolean, detail?: unknown) {
   // A wrong recorded sender doesn't strand the player
   const wrongFrom = tradesFromGrid([sheet[0], ['Paco', 'Josh Allen (from Chuy)', 'Jay', 'Jake Bates', 'Chuy', 'Bijan Robinson']]).trades
   check('3-team: a mistaken sender is corrected by the rosters', planTrades(wrongFrom, rosters).outcomes[0].moved.includes('Josh Allen: Jay → Paco'))
+}
+
+// --- Waiver moves: every add carries a drop ---
+{
+  const old = [
+    ['WEEK', 'TEAM', 'PLAYER', 'COST'],
+    ['5', 'Gaybo', 'Emari Demercado ARI (RB)', '20'],
+    ['5', 'Doy', 'Romeo Doubs GBP (WR)', '20'],
+  ]
+  const { cell, layout } = withDropColumn(waiverLayout(old[0]))
+  check('waivers: a DROP column is added after COST, in the tab\'s style', cell?.column === 4 && cell.value === 'DROP' && layout.drop === 4, cell)
+  check('waivers: an existing drop column is reused', withDropColumn(waiverLayout([...old[0], 'Dropped'])).cell === undefined && waiverLayout([...old[0], 'Dropped']).drop === 4)
+  const row = waiverRow(layout, { week: 6, team: 'Paco', player: 'Tank Bigsby JAC (RB)', cost: 40, drop: 'Kaleb Johnson PIT RB' })
+  check('waivers: row lays out week, team, add, fee, drop', JSON.stringify(row) === JSON.stringify([6, 'Paco', 'Tank Bigsby JAC (RB)', 40, 'Kaleb Johnson PIT RB']), row)
+  check('waivers: new move lands under the last one, not after stray cells', nextWaiverRow([...old, [], [], ['', '', '', '', 'note']], layout) === 4)
+
+  const parsed = rowsToWaivers([
+    { WEEK: '6', TEAM: 'Paco', PLAYER: 'Tank Bigsby JAC (RB)', COST: '40', DROP: 'Kaleb Johnson PIT RB' },
+    { WEEK: '5', TEAM: 'Gaybo', PLAYER: 'Emari Demercado ARI (RB)', COST: '20' },
+  ])
+  check('waivers: the drop is read back', parsed.find((m) => m.team === 'Paco')?.dropped === 'Kaleb Johnson PIT RB', parsed)
+  check('waivers: old rows without a drop still read', parsed.find((m) => m.team === 'Gaybo')?.dropped === undefined && parsed.length === 2)
+
+  // Backfilling a drop finds the right row, by name, and only while it's still blank
+  check('waivers: backfill finds the add', undroppedRow(old, layout, { week: 5, team: 'Doy', player: 'Romeo Doubs' }) === 3)
+  check('waivers: backfill skips adds that already have a drop', undroppedRow([...old.slice(0, 2), [...old[2], 'Jake Bates']], layout, { week: 5, team: 'Doy', player: 'Romeo Doubs' }) === -1)
+  check('waivers: backfill needs the right week and team', undroppedRow(old, layout, { week: 6, team: 'Doy', player: 'Romeo Doubs' }) === -1 && undroppedRow(old, layout, { week: 5, team: 'Paco', player: 'Romeo Doubs' }) === -1)
 }
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURES`)

@@ -1,7 +1,7 @@
 import 'server-only'
 import { ROSTERS_TAB, readTab, updateCell, updateRow, batchUpdateCells, columnLetter } from './sheets'
 import { canonTeam } from './transform'
-import { cellRef, missingFromRosters, samePlayer } from '@/lib/players'
+import { cellRef, missingFromRosters, playerSlug, samePlayer } from '@/lib/players'
 import { DraftPick } from '@/lib/types'
 import { ACTIVE_OWNERS } from '@/lib/league'
 
@@ -90,6 +90,52 @@ export async function removeFromRoster(team: string, player: string): Promise<st
     }
   }
   return `${player} wasn't found on ${owner}'s roster column — check the ${ROSTERS_TAB} tab`
+}
+
+/** Sheet row (1-based) of a player in a team's column, matched on name alone — one team never rosters two of the same name. */
+function rowOf(grid: RosterGrid, col: number, player: string): number {
+  const slug = playerSlug(cellRef(player).player)
+  for (let row = 1; row < grid.rows.length; row++) {
+    const cell = (grid.rows[row][col] ?? '').trim()
+    if (cell && playerSlug(cellRef(cell).player) === slug) return row + 1
+  }
+  return -1
+}
+
+/**
+ * The cell text for a player on a team's roster, or null when he isn't on it.
+ * Throws when the Rosters tab can't be read, so a drop is never waved through
+ * on a failed check.
+ */
+export async function findOnRoster(team: string, player: string): Promise<string | null> {
+  const grid = await readGrid()
+  if (typeof grid === 'string') throw new Error(grid)
+  const col = grid.columns.get(canonTeam(team))
+  if (col === undefined) return null
+  const row = rowOf(grid, col, player)
+  return row > 0 ? (grid.rows[row - 1][col] ?? '').trim() : null
+}
+
+/**
+ * Waiver add with its drop: the added player takes the dropped player's cell,
+ * so the roster stays the same size and in place. Falls back to a plain add
+ * if the dropped player has already gone from the column.
+ */
+export async function replaceOnRoster(team: string, drop: string, add: string): Promise<string | null> {
+  const grid = await readGrid()
+  if (typeof grid === 'string') return grid
+  const owner = canonTeam(team)
+  const col = grid.columns.get(owner)
+  if (col === undefined) return `No "${owner}" column on the ${ROSTERS_TAB} tab — update the roster by hand`
+  if (rowOf(grid, col, add) > 0) return removeFromRoster(owner, drop) // already added by hand: just cut the drop
+  const row = rowOf(grid, col, drop)
+  if (row < 0) return addToRoster(owner, add)
+  try {
+    await updateCell(ROSTERS_TAB, `${columnLetter(col + 1)}${row}`, add)
+    return null
+  } catch {
+    return `Couldn't swap ${drop} for ${add} on ${owner}'s roster — update it by hand`
+  }
 }
 
 /**

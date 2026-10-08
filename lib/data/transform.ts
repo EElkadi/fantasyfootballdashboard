@@ -324,7 +324,9 @@ export function rowsToWaivers(rows: Record<string, string>[]): WaiverMove[] {
       const raw = r['Player'] ?? r['PLAYER'] ?? ''
       const cost = parseFloat((r['Cost'] ?? r['COST'] ?? '0').replace(/[^\d.]/g, ''))
       const parsed = parseSheetPlayer(raw)
-      return { week, team, ...parsed, cost: Number.isFinite(cost) ? cost : 0 }
+      const dropKey = Object.keys(r).find((k) => /^drop(ped|s)?$/i.test(k.trim()))
+      const dropped = dropKey ? r[dropKey]?.trim() || undefined : undefined
+      return { week, team, ...parsed, cost: Number.isFinite(cost) ? cost : 0, dropped }
     })
     .filter((m) => m.week > 0 && m.team && m.player)
     .sort((a, b) => a.week - b.week)
