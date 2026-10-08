@@ -838,8 +838,11 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
   const [player, setPlayer] = useState('')
   const [week, setWeek] = useState(defaultWeek)
   const [cost, setCost] = useState<number | ''>('')
+  const [drop, setDrop] = useState('')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
+
+  const teamRoster = (t: string) => (ctx.rosters?.[t] ?? []).map((c) => c.trim()).filter(Boolean)
 
   // Fees escalate per manager: $20 for their first add, $40 for the second…
   const suggestedCost = (t: string) => 20 * ((ctx.waivers?.filter((m) => m.team === t).length ?? 0) + 1)
@@ -858,32 +861,38 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
   const submit = async () => {
     setBusy(true)
     setNote('')
-    const res = await fetch('/api/commish/waiver', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ week, team, player, cost: cost === '' ? suggestedCost(team) : cost }),
-    })
-    const data = await res.json().catch(() => ({}))
-    if (res.ok) {
-      setNote(
-        `Logged: ${data.team} adds ${data.player} for $${data.cost} (roster updated)${data.warning ? ` — ⚠ ${data.warning}` : ''}`,
-      )
-      setPlayer('')
-      setCost('')
-      onLogged()
-    } else {
-      setNote(data.error ?? 'Failed to log the move')
+    try {
+      const res = await fetch('/api/commish/waiver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week, team, player, drop, cost: cost === '' ? suggestedCost(team) : cost }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setNote(
+          `Logged: ${data.team} adds ${parseDraftCell(data.player).player}, drops ${parseDraftCell(data.drop).player} for $${data.cost} (roster updated)${data.warning ? ` — ⚠ ${data.warning}` : ''}`,
+        )
+        setPlayer('')
+        setDrop('')
+        setCost('')
+        onLogged()
+      } else {
+        setNote(data.error ?? 'Failed to log the move')
+      }
+    } catch {
+      setNote('Network error — the move was NOT saved. Try again.')
+    } finally {
+      setBusy(false)
     }
-    setBusy(false)
   }
 
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-lg">Log a waiver add</CardTitle>
+        <CardTitle className="text-lg">Log a waiver move</CardTitle>
         <CardDescription>
-          Appends to the Waiver Wire tab — the fee lands in the pot. Fee auto-fills from that manager&apos;s add count
-          ($20, $40, $60…).
+          Every add needs a drop. Writes both to the Waiver Wire tab and swaps them on the roster — the fee lands in the
+          pot. Fee auto-fills from that manager&apos;s add count ($20, $40, $60…).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -894,6 +903,7 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
               value={team}
               onChange={(e) => {
                 setTeam(e.target.value)
+                setDrop('')
                 setCost('')
               }}
               className="rounded-md border border-input bg-background px-2 py-1.5 text-sm"
@@ -916,6 +926,24 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
               placeholder={ctx.pool?.length ? 'Start typing a name…' : 'Puka Nacua LAR (WR)'}
             />
           </div>
+          <div className="min-w-[180px]">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">Drops</label>
+            <select
+              value={drop}
+              onChange={(e) => setDrop(e.target.value)}
+              disabled={!team}
+              aria-label="Player dropped"
+              className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm disabled:opacity-50"
+            >
+              <option value="">{team ? `Pick from ${team}'s roster…` : 'Pick a team first'}</option>
+              {teamRoster(team).map((c) => (
+                <option key={c} value={c}>
+                  {parseDraftCell(c).player}
+                  {parseDraftCell(c).position ? ` (${parseDraftCell(c).position})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">Week</label>
             <Input type="number" min={1} max={18} value={week} onChange={(e) => setWeek(parseInt(e.target.value) || 1)} className="w-20" />
@@ -932,7 +960,10 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
               className="w-24"
             />
           </div>
-          <Button onClick={submit} disabled={!team || !player.trim() || busy || !ctx.sheetConfigured || Boolean(alreadyOn)}>
+          <Button
+            onClick={submit}
+            disabled={!team || !player.trim() || !drop || busy || !ctx.sheetConfigured || Boolean(alreadyOn)}
+          >
             {busy ? 'Saving…' : 'Log move'}
           </Button>
         </div>
@@ -943,8 +974,84 @@ function WaiverLogger({ ctx, defaultWeek, onLogged }: { ctx: Context; defaultWee
           </p>
         )}
         {note && <p className="text-sm text-muted-foreground">{note}</p>}
+        <MissingDrops ctx={ctx} onSaved={onLogged} />
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Adds logged before drops were required: name each one's drop. The roster
+ * suggests who's on the team; a player already cut by hand can be typed in.
+ */
+function MissingDrops({ ctx, onSaved }: { ctx: Context; onSaved: () => void }) {
+  const missing = (ctx.waivers ?? []).filter((m) => !m.dropped)
+  const [drops, setDrops] = useState<Record<string, string>>({})
+  const [notes, setNotes] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState('')
+  if (missing.length === 0) return null
+
+  const keyOf = (m: WaiverMove) => `${m.week}|${m.team}|${m.player}`
+  const save = async (m: WaiverMove) => {
+    const key = keyOf(m)
+    setBusy(key)
+    try {
+      const res = await fetch('/api/commish/waiver/drop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ week: m.week, team: m.team, player: m.player, drop: drops[key] }),
+      })
+      const data = await res.json().catch(() => ({}))
+      setNotes((n) => ({
+        ...n,
+        [key]: res.ok
+          ? `Saved${data.removed ? ' and taken off the roster' : ''}${data.warning ? ` — ⚠ ${data.warning}` : ''}`
+          : (data.error ?? 'Save failed'),
+      }))
+      if (res.ok) onSaved()
+    } catch {
+      setNotes((n) => ({ ...n, [key]: 'Network error — not saved. Try again.' }))
+    } finally {
+      setBusy('')
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+      <p className="font-medium">
+        {missing.length} add{missing.length === 1 ? ' has' : 's have'} no drop recorded
+      </p>
+      <ul className="space-y-2">
+        {missing.map((m) => {
+          const key = keyOf(m)
+          const listId = `drops-${key.replace(/\W/g, '-')}`
+          return (
+            <li key={key} className="flex flex-wrap items-center gap-2">
+              <span className="w-full truncate sm:w-72" title={`Week ${m.week}: ${m.team} added ${m.player}`}>
+                Wk {m.week} · <span className="font-medium">{m.team}</span> added {m.player}
+              </span>
+              <Input
+                list={listId}
+                value={drops[key] ?? ''}
+                onChange={(e) => setDrops((d) => ({ ...d, [key]: e.target.value }))}
+                placeholder="Who was dropped?"
+                aria-label={`Who ${m.team} dropped for ${m.player}`}
+                className="h-8 w-56"
+              />
+              <datalist id={listId}>
+                {(ctx.rosters?.[m.team] ?? []).filter((c) => c.trim()).map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+              <Button size="sm" onClick={() => save(m)} disabled={!drops[key]?.trim() || busy === key || !ctx.sheetConfigured}>
+                {busy === key ? 'Saving…' : 'Save drop'}
+              </Button>
+              {notes[key] && <span className="text-xs text-muted-foreground">{notes[key]}</span>}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }
 

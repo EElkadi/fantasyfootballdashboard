@@ -138,6 +138,8 @@ export interface WaiverMove {
   nflTeam?: string
   position?: string
   cost: number
+  /** the player cut to make room, as written on the Waiver Wire tab */
+  dropped?: string
 }
 
 /** The league's consensus verdict on one team's draft */

@@ -102,9 +102,12 @@ Three tabs (names configurable via env):
   columns map board columns to owners. Powers `/draft`. A `Team Name` column
   on the Teams tab supplies this season's franchise names site-wide
   (falling back to `OWNERS` in `lib/league.ts`).
-- **Waiver Wire** — `WEEK | TEAM | PLAYER | COST` rows. Powers `/waivers` and
-  the live pot math (fees join the pot; scoring champ stays $250 and the rest
-  splits 60/30/10). `/commish` has a one-click form that appends rows here.
+- **Waiver Wire** — `WEEK | TEAM | PLAYER | COST | DROP` rows: every add
+  names the player cut to make room (the DROP column is added on first use).
+  Powers `/waivers` and the live pot math (fees join the pot; scoring champ
+  stays $250 and the rest splits 60/30/10). `/commish` logs a move by
+  swapping the drop for the add on the Rosters tab, and lists any add still
+  missing its drop so it can be filled in. `/commish` has a one-click form that appends rows here.
 - **Trades** (optional) — `TEAM 1 | TEAM 1 GETS | TEAM 2 | TEAM 2 GETS`, plus
   `TEAM 3 | TEAM 3 GETS` for three-team deals (added automatically the first
   time one is logged). Each team's column lists what it *receives*, one asset
