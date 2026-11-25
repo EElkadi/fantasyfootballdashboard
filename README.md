@@ -69,7 +69,11 @@ Three tabs (names configurable via env):
   the first open row under the data (or a row already numbered for that
   week), never wherever Google's append would put it. Re-saving a matchup
   overwrites its own row. Rows with a week and teams but no scores are
-  treated as placeholders, not 0–0 games.
+  treated as placeholders, not 0–0 games. A row with `FORFEIT` in the Winner
+  and Loser cells is a **double forfeit** (points not reported by Tuesday
+  11:59pm): both teams take a 0, lose the head-to-head and lose the top-6
+  game. `/commish` lists the unreported matchups of each week and writes that
+  row with one button; saving the real scores later replaces it.
 - **Team by Team Schedule** — the week grid: a `Week` column plus one column
   per team, cells naming that week's opponent. A row label like
   `RIVALRY WEEK 7` still parses as week 7 and shows as "Rivalry Week" on the
@@ -182,6 +186,7 @@ npx tsx tests/data.test.ts     # transforms, schedule rules, clinch math
 npx tsx tests/features.test.ts # awards, recap metrics + text, predictions, career
 npx tsx tests/rosters-lineups.test.ts # lineup merging, team names, roster provenance, lineup-mode parsing
 npx tsx tests/sheet-writes.test.ts # score row placement, 2- and 3-team trades -> rosters
+npx tsx tests/forfeit.test.ts  # double forfeits: 0-2 standings, top-6 cut, awards, recap
 NODE_OPTIONS=--conditions=react-server npx tsx tests/sheets-api.test.ts # trade writes against a mocked Sheets API
 npm run lint && npx tsc --noEmit
 ```

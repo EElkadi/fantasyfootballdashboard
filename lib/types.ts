@@ -27,8 +27,15 @@ export interface Matchup {
   week: number
   team1: TeamLineup
   team2: TeamLineup
+  /** Empty for a double forfeit */
   winner: string
+  /** Empty for a double forfeit */
   loser: string
+  /**
+   * Points were not reported by the deadline (constitution §VII): both teams
+   * take a 0, lose the head-to-head and lose the top-6 game.
+   */
+  forfeit?: boolean
 }
 
 export interface TeamWeek {
@@ -37,7 +44,8 @@ export interface TeamWeek {
   score: number
   opponent: string
   result: 'Win' | 'Loss'
-  /** Finished in the top 6 scores of the week */
+  /** Double forfeit: a 0 that also loses the top-6 game */
+  forfeit?: boolean
 }
 
 export interface PlayerWeek {

@@ -55,7 +55,11 @@ export function buildRecordBook(seasons: SeasonData[]): RecordBook {
     week: low.week,
   })
 
-  const withMargin = allMatchups.map((m) => ({ m, margin: Math.abs(m.team1.total - m.team2.total) }))
+  // Double forfeits are not games: no winner, no margin
+  const withMargin = allMatchups
+    .filter((m) => !m.forfeit)
+    .map((m) => ({ m, margin: Math.abs(m.team1.total - m.team2.total) }))
+  if (withMargin.length === 0) return { games, players, seasons: seasonRecords, streaks }
   const blowout = withMargin.reduce((a, b) => (b.margin > a.margin ? b : a))
   games.push({
     label: 'Biggest blowout',

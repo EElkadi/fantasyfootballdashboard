@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { parseSubmission, decideWinner, ParsedLineup } from '@/lib/parser/parse'
 import { PoolPlayer, ScheduleWeek, Slot, SLOTS, WaiverMove } from '@/lib/types'
 import { PlayerSearch } from '@/components/league/PlayerSearch'
-import { parseDraftCell } from '@/lib/data/transform'
+import { pairsOf, parseDraftCell } from '@/lib/data/transform'
+import { LEAGUE } from '@/lib/league'
 import { ambiguousNames, cellRef, playerKey } from '@/lib/players'
 
 interface Context {
@@ -17,6 +18,8 @@ interface Context {
   sheetConfigured: boolean
   season: number
   nextWeek: number
+  /** Matchups already on the Scores tab, forfeits included */
+  reported: { week: number; team1: string; team2: string; forfeit: boolean }[]
   teams: string[]
   rosters: Record<string, string[]>
   schedule: ScheduleWeek[]
@@ -93,6 +96,15 @@ export default function CommishPage() {
   useEffect(() => {
     loadContext()
   }, [])
+  // After a save: pick up what the Sheet now holds without resetting the page
+  const refreshContext = async () => {
+    try {
+      const res = await fetch('/api/commish/context')
+      if (res.ok) setCtx(await res.json())
+    } catch {
+      // the next full load catches up
+    }
+  }
 
   const login = async () => {
     setLoginError('')
@@ -169,6 +181,7 @@ export default function CommishPage() {
         status: 'done',
         message: `Saved — ${data.winner} beats ${data.loser} ${score}${tb}${where}${data.warning ? ` ⚠ ${data.warning}` : ''}`,
       })
+      refreshContext()
     } catch {
       setStatus(m.id, { status: 'error', message: 'Network error — this matchup was NOT saved. Try again.' })
     }
@@ -285,6 +298,20 @@ export default function CommishPage() {
         />
       ))}
 
+      <UnreportedMatchups
+        ctx={ctx}
+        week={week}
+        enqueue={(job) => {
+          const run = saveQueue.current.then(job)
+          saveQueue.current = run.then(
+            () => undefined,
+            () => undefined,
+          )
+          return run
+        }}
+        onSaved={refreshContext}
+      />
+
       <LineupLogger ctx={ctx} defaultWeek={week} />
       <WaiverLogger ctx={ctx} defaultWeek={week} onLogged={loadContext} />
       <TradeLogger
@@ -296,6 +323,155 @@ export default function CommishPage() {
       />
       {ctx.sheetConfigured && <SheetStatus />}
     </div>
+  )
+}
+
+const pairKey = (week: number, a: string, b: string) => `${week}|${[a, b].sort().join('|')}`
+
+/**
+ * Constitution §VII: points are due in the matchup chat by Tuesday 11:59pm,
+ * or both managers take a 0 and go 0-2 for the week. This lists scheduled
+ * matchups that have no row on the Scores tab and lets the commissioner
+ * record the double forfeit. It never runs on a timer: only the commissioner
+ * knows if the points came in on time.
+ */
+function UnreportedMatchups({
+  ctx,
+  week,
+  enqueue,
+  onSaved,
+}: {
+  ctx: Context
+  week: number
+  /** Scores writes run one at a time; see saveQueue */
+  enqueue: <T>(job: () => Promise<T>) => Promise<T>
+  onSaved: () => void
+}) {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [notes, setNotes] = useState<Record<string, { ok: boolean; text: string }>>({})
+
+  const reported = ctx.reported ?? []
+  const saved = new Set(reported.map((r) => pairKey(r.week, r.team1, r.team2)))
+  const weeks = ctx.schedule
+    .filter((s) => s.week <= Math.min(week, LEAGUE.regularSeasonWeeks))
+    .map((s) => ({
+      week: s.week,
+      open: pairsOf(s).filter(([a, b]) => a && b && !saved.has(pairKey(s.week, a, b))),
+      forfeits: reported.filter((r) => r.week === s.week && r.forfeit),
+      // nothing saved yet: the week has most likely not been played
+      quiet: !reported.some((r) => r.week === s.week),
+    }))
+    .filter((w) => w.open.length > 0 || w.forfeits.length > 0)
+    .sort((a, b) => b.week - a.week)
+  if (weeks.length === 0) return null
+
+  const send = async (wk: number, a: string, b: string, undo: boolean) => {
+    const key = pairKey(wk, a, b)
+    const question = undo
+      ? `Remove the Week ${wk} double forfeit for ${a} and ${b}? The matchup becomes unreported again.`
+      : `Record a double forfeit for Week ${wk}?\n\n${a} and ${b} each take a 0 and go 0-2 for the week.`
+    if (!window.confirm(question)) return
+    setBusy(key)
+    try {
+      const res = await enqueue(() =>
+        fetch('/api/commish/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ week: wk, forfeit: [a, b], undo }),
+        }),
+      )
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setNotes((n) => ({ ...n, [key]: { ok: false, text: data.error ?? 'Save failed' } }))
+        return
+      }
+      const text = undo ? `Forfeit removed (row ${data.sheetRow})` : `Double forfeit saved to row ${data.sheetRow}`
+      setNotes((n) => ({ ...n, [key]: { ok: true, text } }))
+      onSaved()
+    } catch {
+      setNotes((n) => ({ ...n, [key]: { ok: false, text: 'Network error — nothing was saved. Try again.' } }))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const note = (key: string) =>
+    notes[key] && (
+      <span className={`text-xs ${notes[key].ok ? 'text-win' : 'text-destructive'}`}>{notes[key].text}</span>
+    )
+
+  const rows = (w: (typeof weeks)[number]) => (
+    <ul className="space-y-2">
+      {w.open.map(([a, b]) => {
+        const key = pairKey(w.week, a, b)
+        return (
+          <li key={key} className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="min-w-40 font-medium">
+              {a} vs {b}
+            </span>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => send(w.week, a, b, false)}
+              disabled={busy !== null || !ctx.sheetConfigured}
+            >
+              {busy === key ? 'Saving…' : 'Double forfeit (0-2)'}
+            </Button>
+            {note(key)}
+          </li>
+        )
+      })}
+      {w.forfeits.map((f) => {
+        const key = pairKey(w.week, f.team1, f.team2)
+        return (
+          <li key={key} className="flex flex-wrap items-center gap-3 text-sm">
+            <span className="min-w-40 font-medium">
+              {f.team1} vs {f.team2}
+            </span>
+            <Badge variant="destructive">Double forfeit</Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => send(w.week, f.team1, f.team2, true)}
+              disabled={busy !== null || !ctx.sheetConfigured}
+            >
+              {busy === key ? 'Saving…' : 'Undo'}
+            </Button>
+            {note(key)}
+          </li>
+        )
+      })}
+    </ul>
+  )
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg">Unreported matchups</CardTitle>
+        <CardDescription>
+          Points are due in the matchup chat by Tuesday 11:59pm. If a matchup missed the deadline, record a double
+          forfeit: both managers take a 0 and go 0-2 for the week (§VII). To replace a forfeit with real scores, paste
+          and save the scores as usual.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {weeks.map((w) =>
+          w.quiet ? (
+            <details key={w.week}>
+              <summary className="cursor-pointer text-sm text-muted-foreground">
+                Week {w.week} — no scores saved yet ({w.open.length} matchup{w.open.length === 1 ? '' : 's'})
+              </summary>
+              <div className="mt-2">{rows(w)}</div>
+            </details>
+          ) : (
+            <div key={w.week} className="space-y-2">
+              <h3 className="text-sm font-semibold">Week {w.week}</h3>
+              {rows(w)}
+            </div>
+          ),
+        )}
+      </CardContent>
+    </Card>
   )
 }
 

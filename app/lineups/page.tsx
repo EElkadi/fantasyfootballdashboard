@@ -62,7 +62,8 @@ export default async function LineupsPage({ searchParams }: { searchParams: { we
       if (e.submittedAt > lastUpdate) lastUpdate = e.submittedAt
     }
     const m = matchups.find((x) => x.team1.team === team || x.team2.team === team)
-    const scored = m ? (m.team1.team === team ? m.team1 : m.team2) : undefined
+    // A double forfeit scored no lineup, so there is nothing to compare against
+    const scored = m && !m.forfeit ? (m.team1.team === team ? m.team1 : m.team2) : undefined
     return { team, submitted, scored, lastUpdate }
   }
 

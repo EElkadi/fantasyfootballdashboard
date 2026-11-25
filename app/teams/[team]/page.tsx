@@ -162,13 +162,19 @@ export default async function TeamPage({ params }: { params: { team: string } })
               <Link
                 key={r.week}
                 href={`/matchups?week=${r.week}${season.season !== undefined ? `&season=${season.season}` : ''}`}
-                title={`Week ${r.week}: ${r.score} vs ${r.opponent}`}
+                title={r.forfeit ? `Week ${r.week}: double forfeit with ${r.opponent}` : `Week ${r.week}: ${r.score} vs ${r.opponent}`}
                 className={`tabular rounded-md px-2 py-1 text-xs font-semibold text-white ${
                   r.result === 'Win' ? 'bg-[hsl(var(--win))]' : 'bg-[hsl(var(--loss))]'
                 }`}
               >
-                W{r.week} {r.result === 'Win' ? 'W' : 'L'} {r.score}–
-                {season.teamWeeks.find((o) => o.week === r.week && o.team === r.opponent)?.score ?? '?'}
+                {r.forfeit ? (
+                  <>W{r.week} FF 0–0</>
+                ) : (
+                  <>
+                    W{r.week} {r.result === 'Win' ? 'W' : 'L'} {r.score}–
+                    {season.teamWeeks.find((o) => o.week === r.week && o.team === r.opponent)?.score ?? '?'}
+                  </>
+                )}
               </Link>
             ))}
           </div>

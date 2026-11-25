@@ -18,6 +18,8 @@ export async function GET() {
     sheetConfigured: hasLiveSheet(),
     season: CURRENT_SEASON,
     nextWeek: season.lastCompletedWeek + 1,
+    lastCompletedWeek: season.lastCompletedWeek,
+    reported: season.matchups.map((m) => ({ week: m.week, team1: m.team1.team, team2: m.team2.team, forfeit: !!m.forfeit })),
     teams: ACTIVE_OWNERS.map((o) => o.name),
     rosters,
     schedule: season.schedule,
