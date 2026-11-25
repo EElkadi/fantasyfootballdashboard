@@ -46,7 +46,9 @@ function gaussian(rand: () => number): number {
  * broken the same way the standings page breaks them.
  */
 export function simulateSeason(data: SeasonData, sims = 3000): SimulationResult | null {
-  const { standings, teamWeeks, schedule, lastCompletedWeek } = data
+  const { standings, schedule, lastCompletedWeek } = data
+  // A forfeit 0 is a missed deadline, not a score — keep it out of the model
+  const teamWeeks = data.teamWeeks.filter((r) => !r.forfeit)
   if (standings.length === 0 || lastCompletedWeek < 2) return null
 
   const remainingWeeks = schedule

@@ -32,6 +32,29 @@ export function MatchupCard({
   const sides = [team1, team2]
   const tie = team1.total === team2.total
 
+  // Points not reported by the deadline (§VII): no box score to open
+  if (matchup.forfeit) {
+    return (
+      <div className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+        <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+          <div className="space-y-1.5">
+            {sides.map((side) => (
+              <div key={side.team} className="flex items-center justify-between gap-3">
+                <TeamMark team={side.team} className="opacity-70" />
+                <span className="tabular text-lg font-bold text-muted-foreground">0</span>
+              </div>
+            ))}
+          </div>
+          <div className="pl-3 text-right text-xs text-muted-foreground">
+            <div className="font-semibold text-loss">Double forfeit</div>
+            <div>points not reported</div>
+            <div className="mt-1 opacity-70">both 0-2 this week</div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <details
       className="group rounded-xl border bg-card shadow-sm transition-shadow hover:shadow-md"

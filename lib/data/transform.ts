@@ -44,6 +44,28 @@ function attachAdjustment(side: TeamLineup): void {
   }
 }
 
+/** What the Winner and Loser cells hold for a double forfeit. */
+export const FORFEIT_MARK = 'FORFEIT'
+
+export function isForfeitMark(cell: string | undefined): boolean {
+  return /forfeit/i.test(cell ?? '')
+}
+
+/** Both teams take a 0 and nobody wins (constitution §VII). */
+export function forfeitMatchup(week: number, team1: string, team2: string): Matchup {
+  const side = (team: string): TeamLineup => ({ team, players: [], total: 0 })
+  return { week, team1: side(team1), team2: side(team2), winner: '', loser: '', forfeit: true }
+}
+
+/**
+ * The Scores row for a double forfeit, in the 43-column layout: no players,
+ * both totals 0, and the forfeit mark where the winner and loser go.
+ */
+export function forfeitScoreRow(week: number, team1: string, team2: string): (string | number)[] {
+  const blanks = Array<string>(SLOTS.length * 2).fill('')
+  return [week, team1, ...blanks, 0, team2, ...blanks, 0, FORFEIT_MARK, FORFEIT_MARK]
+}
+
 /**
  * One wide Scores row (keyed by header) -> a Matchup.
  * Column layout: Week, Team 1, <slot pairs>, Total1, Team 2, <slot _2 pairs>, Total2, Winner, Loser.
@@ -53,6 +75,7 @@ export function wideRowToMatchup(row: Record<string, string>): Matchup | null {
   const team1Name = canonTeam(row['Team 1'] ?? '')
   const team2Name = canonTeam(row['Team 2'] ?? '')
   if (!week || !team1Name || !team2Name) return null
+  if (isForfeitMark(row['Winner']) || isForfeitMark(row['Loser'])) return forfeitMatchup(week, team1Name, team2Name)
 
   const lineup = (suffix: '' | '_2', teamName: string, totalKey: string): TeamLineup => {
     const players: PlayerScore[] = SLOTS.map((slot) => {
@@ -85,6 +108,12 @@ export function wideRowToMatchup(row: Record<string, string>): Matchup | null {
 export function matchupsToTeamWeeks(matchups: Matchup[]): TeamWeek[] {
   const rows: TeamWeek[] = []
   for (const m of matchups) {
+    if (m.forfeit) {
+      for (const [side, other] of [[m.team1, m.team2], [m.team2, m.team1]]) {
+        rows.push({ week: m.week, team: side.team, score: 0, opponent: other.team, result: 'Loss', forfeit: true })
+      }
+      continue
+    }
     rows.push({
       week: m.week,
       team: m.team1.team,
@@ -142,6 +171,10 @@ export function longToMatchups(
     if (seen.has(pairKey)) continue
     seen.add(pairKey)
     const oppRow = teamRows.find((o) => parseInt(o.Week) === week && canonTeam(o.Team) === opp)
+    if (isForfeitMark(r.Result) || isForfeitMark(oppRow?.Result)) {
+      matchups.push(forfeitMatchup(week, team, opp))
+      continue
+    }
     const t1: TeamLineup = { team, players: lineupIndex.get(`${week}|${team}`) ?? [], total: num(r.Score) }
     const t2: TeamLineup = {
       team: opp,

@@ -37,6 +37,9 @@ export default async function RecapPage({ params }: { params: { week: string } }
     week,
     weekLabel: season.schedule.find((s) => s.week === week)?.label,
     results: matchups.map((m) => {
+      if (m.forfeit) {
+        return { winner: m.team1.team, loser: m.team2.team, winScore: 0, loseScore: 0, forfeit: true }
+      }
       const winnerSide = m.team1.team === m.winner ? m.team1 : m.team2
       const loserSide = m.team1.team === m.winner ? m.team2 : m.team1
       return {

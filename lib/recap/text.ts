@@ -15,7 +15,8 @@ export interface RecapTextInput {
   weekLabel?: string
   regularSeasonWeeks: number
   playoffTeams: number
-  results: { winner: string; loser: string; winScore: number; loseScore: number; tiebreaker?: boolean }[]
+  /** `forfeit`: a double forfeit — no winner, the two names are just the pairing */
+  results: { winner: string; loser: string; winScore: number; loseScore: number; tiebreaker?: boolean; forfeit?: boolean }[]
   /** The week's scoring order; omitted in the playoffs, where top-6 doesn't apply */
   weeklyScores?: WeeklyScoreRow[]
   awards: Award[]
@@ -41,6 +42,10 @@ export function recapText(input: RecapTextInput): string {
 
   lines.push('*Results*')
   for (const r of input.results) {
+    if (r.forfeit) {
+      lines.push(`${r.winner} 0 – 0 ${r.loser} (double forfeit, both 0-2)`)
+      continue
+    }
     const tb = r.tiebreaker ? ' (tiebreaker)' : ''
     lines.push(`${r.winner} ${r.winScore} – ${r.loseScore} ${r.loser}${tb}`)
   }
@@ -50,7 +55,7 @@ export function recapText(input: RecapTextInput): string {
     const made = input.weeklyScores.filter((r) => r.top6).length
     lines.push(`*Weekly scoring* (top ${made} bank a second win)`)
     for (const r of input.weeklyScores) {
-      lines.push(`${r.rank}. ${r.team} ${r.score}`)
+      lines.push(`${r.rank}. ${r.team} ${r.score}${r.forfeit ? ' (forfeit)' : ''}`)
       if (r.rank === made && r.rank < input.weeklyScores.length) lines.push('———')
     }
     lines.push('')

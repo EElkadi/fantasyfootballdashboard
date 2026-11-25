@@ -15,7 +15,8 @@ export interface RecapData {
   season: number
   week: number
   weekLabel?: string
-  results: { winner: string; loser: string; winScore: number; loseScore: number; tiebreaker?: boolean }[]
+  /** `forfeit`: a double forfeit — no winner, the two names are just the pairing */
+  results: { winner: string; loser: string; winScore: number; loseScore: number; tiebreaker?: boolean; forfeit?: boolean }[]
   topScore?: { team: string; score: number }
   mvp?: { player: string; team: string; score: number; slot: string }
   standings: StandingLine[]
@@ -115,8 +116,8 @@ function drawRecap(ctx: CanvasRenderingContext2D, family: string, data: RecapDat
     const y = TOP + i * rowH
     const mid = y + rowH / 2 + 10
     dot(ctx, leftX + 9, mid - 10, 8, ownerColor(r.winner))
-    ctx.fillStyle = FG
-    ctx.font = font(700, 33)
+    ctx.fillStyle = r.forfeit ? MUTED : FG
+    ctx.font = font(r.forfeit ? 500 : 700, 33)
     ctx.fillText(fit(ctx, r.winner, 150), leftX + 30, mid)
     ctx.font = font(800, 33)
     ctx.textAlign = 'center'
@@ -126,7 +127,11 @@ function drawRecap(ctx: CanvasRenderingContext2D, family: string, data: RecapDat
     ctx.fillStyle = MUTED
     ctx.font = font(500, 33)
     ctx.fillText(fit(ctx, r.loser, 140), leftX + 377, mid)
-    if (r.tiebreaker) {
+    if (r.forfeit) {
+      ctx.fillStyle = RED
+      ctx.font = font(700, 21)
+      ctx.fillText('FF', leftX + leftW - 34, mid)
+    } else if (r.tiebreaker) {
       ctx.fillStyle = GREEN
       ctx.font = font(700, 21)
       ctx.fillText('TB', leftX + leftW - 34, mid)
@@ -178,7 +183,7 @@ function drawRecap(ctx: CanvasRenderingContext2D, family: string, data: RecapDat
         ctx.fillStyle = won ? GREEN : MUTED
         ctx.font = font(700, 25)
         ctx.textAlign = 'right'
-        ctx.fillText(String(r.score), x + colW, y)
+        ctx.fillText(r.forfeit ? 'FF' : String(r.score), x + colW, y)
         ctx.textAlign = 'left'
       })
     }

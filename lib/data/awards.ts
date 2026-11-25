@@ -71,7 +71,11 @@ export function weeklyAwards(season: SeasonData, week: number): Award[] {
     })
   }
 
-  const margins = matchups.map((m) => ({ m, margin: Math.abs(m.team1.total - m.team2.total) }))
+  // A double forfeit is not a game: it has no winner and no margin
+  const margins = matchups
+    .filter((m) => !m.forfeit)
+    .map((m) => ({ m, margin: Math.abs(m.team1.total - m.team2.total) }))
+  if (margins.length === 0) return awards
   const closest = margins.reduce((a, b) => (b.margin < a.margin ? b : a))
   awards.push({
     key: 'nailbiter',
@@ -80,7 +84,7 @@ export function weeklyAwards(season: SeasonData, week: number): Award[] {
     detail: closest.margin === 0 ? `tiebreaker over ${closest.m.loser}` : `by ${closest.margin} over ${closest.m.loser}`,
   })
   const widest = margins.reduce((a, b) => (b.margin > a.margin ? b : a))
-  if (widest.margin > 0 && matchups.length > 1) {
+  if (widest.margin > 0 && margins.length > 1) {
     awards.push({ key: 'hammer', week, team: widest.m.winner, detail: `by ${widest.margin} over ${widest.m.loser}` })
   }
 

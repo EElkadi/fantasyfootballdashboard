@@ -16,6 +16,8 @@ export interface WeeklyScoreRow {
   rank: number
   /** made the top-6 cut, i.e. banked the extra win */
   top6: boolean
+  /** double forfeit: ranked last and never in the cut */
+  forfeit?: boolean
 }
 
 /** Head-to-head meeting counts, keyed `winner|loser`. */
@@ -24,6 +26,8 @@ export type H2HIndex = Map<string, number>
 export function h2hIndexOf(matchups: Matchup[]): H2HIndex {
   const index: H2HIndex = new Map()
   for (const m of matchups) {
+    // A double forfeit has no winner, so it settles no tiebreak
+    if (m.forfeit || !m.winner) continue
     const key = `${m.winner}|${m.loser}`
     index.set(key, (index.get(key) ?? 0) + 1)
   }
@@ -54,7 +58,8 @@ function slotTiebreaker(matchups: Matchup[]) {
 /**
  * The week's scoring order, highest first, flagged with who made the top-6
  * cut. Half the league wins that game, so a short week (fewer teams reporting)
- * cuts proportionally rather than handing out six wins regardless.
+ * cuts proportionally rather than handing out six wins regardless. Teams in a
+ * double forfeit count toward the size of the week but always lose the game.
  */
 export function weeklyScoreOrder(teamWeeks: TeamWeek[], matchups: Matchup[], week: number): WeeklyScoreRow[] {
   const tiebreak = slotTiebreaker(matchups)
@@ -67,9 +72,17 @@ function weeklyOrder(
   tiebreak: (week: number, a: string, b: string) => number,
 ): WeeklyScoreRow[] {
   const cutoff = Math.min(6, Math.ceil(rows.length / 2))
+  // A forfeit goes 0-2: it sorts below every reported score and never makes
+  // the cut, however few teams reported
   return [...rows]
-    .sort((a, b) => b.score - a.score || tiebreak(week, a.team, b.team))
-    .map((row, i) => ({ team: row.team, score: row.score, rank: i + 1, top6: i < cutoff }))
+    .sort((a, b) => Number(!!a.forfeit) - Number(!!b.forfeit) || b.score - a.score || tiebreak(week, a.team, b.team))
+    .map((row, i) => ({
+      team: row.team,
+      score: row.score,
+      rank: i + 1,
+      top6: i < cutoff && !row.forfeit,
+      ...(row.forfeit ? { forfeit: true } : {}),
+    }))
 }
 
 /**

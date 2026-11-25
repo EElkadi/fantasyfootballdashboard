@@ -3,6 +3,7 @@ import { revalidateTag } from 'next/cache'
 import { isCommish } from '@/lib/commish/auth'
 import { ADJUSTMENTS_TAB, appendRow, describeSheetsError, hasLiveSheet, readTab, SCORES_TAB, updateRow } from '@/lib/data/sheets'
 import { scoreRowFor } from '@/lib/data/scoreRows'
+import { forfeitScoreRow, isForfeitMark } from '@/lib/data/transform'
 import { decideWinner } from '@/lib/parser/parse'
 import { resolveOwner } from '@/lib/league'
 import { Slot, SLOTS } from '@/lib/types'
@@ -39,6 +40,12 @@ function validateLineup(l: SubmitLineup): string | null {
  * Week, Team 1, <name,score per slot>, Total1, Team 2, <...>, Total2, Winner, Loser.
  * The target row is chosen by scoreRowFor — never Google's append, which
  * lands rows far below the data whenever anything sits further down the tab.
+ *
+ * `{ week, forfeit: [teamA, teamB] }` records a double forfeit instead
+ * (constitution §VII: points not reported by Tuesday 11:59pm): both teams
+ * take a 0 and go 0-2 for the week. It lands in the same row a score would,
+ * so saving the real scores later replaces it, and the reverse. With
+ * `undo: true` the forfeit row is cleared and the matchup is unreported again.
  */
 export async function POST(req: Request) {
   if (!isCommish()) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
@@ -53,6 +60,41 @@ export async function POST(req: Request) {
   const week = Number(body?.week)
   const lineups = body?.lineups as SubmitLineup[] | undefined
   if (!week || week < 1 || week > 18) return NextResponse.json({ error: 'Invalid week' }, { status: 400 })
+
+  if (body?.forfeit !== undefined) {
+    const pair = body.forfeit as unknown
+    if (!Array.isArray(pair) || pair.length !== 2 || pair.some((t) => typeof t !== 'string')) {
+      return NextResponse.json({ error: 'Expected exactly two teams' }, { status: 400 })
+    }
+    const owners = pair.map((t) => resolveOwner(t))
+    const unknown = pair.find((_, i) => !owners[i])
+    if (unknown !== undefined) return NextResponse.json({ error: `Unknown team "${unknown}"` }, { status: 400 })
+    const [a, b] = owners.map((o) => o!.name)
+    if (a === b) return NextResponse.json({ error: 'A team cannot play itself' }, { status: 400 })
+    const undo = body.undo === true
+    let target: { row: number; replacing: boolean }
+    try {
+      const grid = await readTab(SCORES_TAB)
+      target = scoreRowFor(grid, week, a, b)
+      if (undo) {
+        // Only a forfeit row can be cleared this way — never real scores
+        const current = grid[target.row - 1] ?? []
+        if (!target.replacing || !current.some((cell) => isForfeitMark(cell))) {
+          return NextResponse.json({ error: `No double forfeit is recorded for ${a} vs ${b} in week ${week}` }, { status: 409 })
+        }
+        // Keep the week number: the row stays a placeholder for this week
+        const cleared = forfeitScoreRow(week, a, b).map((_, i) => (i === 0 ? week : ''))
+        await updateRow(SCORES_TAB, target.row, cleared)
+      } else {
+        await updateRow(SCORES_TAB, target.row, forfeitScoreRow(week, a, b))
+      }
+    } catch (err) {
+      console.error('Forfeit write failed:', err)
+      return NextResponse.json({ error: describeSheetsError(err, SCORES_TAB) }, { status: 502 })
+    }
+    revalidateTag('season-live')
+    return NextResponse.json({ ok: true, week, team1: a, team2: b, forfeit: !undo, sheetRow: target.row, replaced: target.replacing })
+  }
   if (!lineups || lineups.length !== 2) return NextResponse.json({ error: 'Expected exactly two lineups' }, { status: 400 })
 
   for (const l of lineups) {
